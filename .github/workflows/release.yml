@@ -1,0 +1,51 @@
+name: Publish to npm
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver increment to apply (patch|minor|major) before publish, or leave empty to use current version'
+        required: false
+        default: ''
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Optional version bump
+        if: ${{ inputs.version != '' }}
+        run: |
+          npm version ${{ inputs.version }} -m "chore(release): %s"
+          git push --follow-tags
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Typecheck (TS)
+        run: npm run lint:ts
+
+      - name: Format check (Prettier)
+        run: npm run format:check
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance

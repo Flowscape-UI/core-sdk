@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+playground/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# bun lockfile
+bun.lockb
+bunlockb
+bun.lock
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+
+# env
+.env
+.env.*
