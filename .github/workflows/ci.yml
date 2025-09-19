@@ -26,8 +26,8 @@ jobs:
       - name: Typecheck (TS)
         run: npm run lint:ts
 
-      - name: Format check (Prettier)
-        run: npm run format:check
+      - name: Format (Prettier)
+        run: npm run format
 
       - name: Build
         run: npm run build
