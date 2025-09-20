@@ -21,7 +21,7 @@ const gridPlugin = new GridPlugin({
   stepY: 1,
   color: '#2b313a',
   lineWidth: 1,
-  minScaleToShow: 15,
+  minScaleToShow: 8,
 });
 
 const logo = new LogoPlugin({
@@ -72,14 +72,14 @@ const transformer = new Konva.Transformer({
     'top-right',
     'bottom-left',
     'bottom-right',
-    'middle-left',
-    'middle-right',
-    'top-center',
-    'bottom-center',
   ],
   anchorSize: 8,
   borderStroke: '#22a6f2',
-  borderStrokeWidth: 4,
+  borderStrokeWidth: 2,
+  keepRatio: false,
+  ignoreStroke: true,
+  // freeTransform: false,
+  // ignoreStroke: true,
 });
 // Add transformer to world so it is affected by camera/world transforms
 world.add(transformer);
@@ -168,9 +168,11 @@ function addRectangle() {
     height: 70,
     fill: '#1f6feb',
     stroke: '#d9d9d9',
-    strokeWidth: 2,
+    strokeWidth: 4,
+    strokeScaleEnabled: true,
     draggable: true,
   });
+
   rect.on('mouseover', () => {
     document.body.style.cursor = 'grab';
   });
@@ -192,6 +194,12 @@ function addRectangle() {
     }
   });
   rect.on('transform', () => {
+    // apply transform to width/height and reset scale, so stroke isn't scaled
+    rect.width(rect.width() * rect.scaleX());
+    rect.height(rect.height() * rect.scaleY());
+    rect.scaleX(1);
+    rect.scaleY(1);
+
     if (sizeLabel.visible()) {
       positionSizeLabelFor(rect);
       transformer.moveToTop();

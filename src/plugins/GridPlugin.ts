@@ -19,6 +19,8 @@ export class GridPlugin implements Plugin {
   private _world?: Konva.Group;
   private _stage?: Konva.Stage;
   private _dragMoveHandler?: (e: Konva.KonvaEventObject<MouseEvent>) => void;
+  private _worldAddHandler?: (e: Konva.KonvaEventObject<Event>) => void;
+  private _worldRemoveHandler?: (e: Konva.KonvaEventObject<Event>) => void;
 
   private _stepX: number;
   private _stepY: number;
@@ -125,6 +127,88 @@ export class GridPlugin implements Plugin {
       }
     };
     this._stage.on('dragmove', this._dragMoveHandler);
+
+    const attachTransformerBoundBox = (node: Konva.Node) => {
+      const anyNode = node as any;
+      const className = typeof anyNode.getClassName === 'function' ? anyNode.getClassName() : '';
+      if (className !== 'Transformer') return;
+      const tr = anyNode as Konva.Transformer;
+      const snapFn = (_oldBox: any, newBox: any): any => {
+        const base = newBox;
+        if (!this._snap || !this._world) return base;
+        const nodes = typeof (tr as any).nodes === 'function' ? (tr as any).nodes() : [];
+        const target = nodes && nodes.length ? (nodes[0] as Konva.Node) : null;
+        if (!target) return base;
+        // Skip rotation anchor or rotated targets
+        const anchor = typeof (tr as any).getActiveAnchor === 'function' ? (tr as any).getActiveAnchor() : '';
+        if (anchor === 'rotater') return base;
+        const rot = (target.rotation() ?? 0) % 360;
+        const angle = rot < 0 ? rot + 360 : rot;
+        if (Math.abs(angle) > 0.001 && Math.abs(angle - 360) > 0.001) return base;
+
+        const sx = this._world.scaleX() || 1;
+        const sy = this._world.scaleY() || 1;
+        const worldW = base.width / sx;
+        const worldH = base.height / sy;
+
+        const snappedWorldW = Math.max(this._stepX, Math.round(worldW / this._stepX) * this._stepX);
+        const snappedWorldH = Math.max(this._stepY, Math.round(worldH / this._stepY) * this._stepY);
+
+        const snappedW = snappedWorldW * sx;
+        const snappedH = snappedWorldH * sy;
+
+        const dx = snappedW - base.width;
+        const dy = snappedH - base.height;
+
+        const result: any = { ...base } as any;
+        result.width = snappedW;
+        result.height = snappedH;
+        if (typeof anchor === 'string') {
+          if (anchor.includes('left')) result.x = base.x - dx;
+          if (anchor.includes('top')) result.y = base.y - dy;
+        }
+        return result;
+      };
+      (tr as any).boundBoxFunc(snapFn);
+    };
+
+    const walkAttach = (n: Konva.Node) => {
+      attachTransformerBoundBox(n);
+      const anyN = n as any;
+      if (typeof anyN.getChildren === 'function') {
+        const children = anyN.getChildren() as Konva.Node[];
+        for (const c of children) walkAttach(c);
+      }
+    };
+    if (this._world) walkAttach(this._world);
+
+    // Handle dynamic add/remove
+    this._worldAddHandler = (e: Konva.KonvaEventObject<Event>) => {
+      const added = (e as unknown as { child?: Konva.Node }).child || (e.target as Konva.Node);
+      walkAttach(added);
+    };
+    this._worldRemoveHandler = (e: Konva.KonvaEventObject<Event>) => {
+      const removed = (e as unknown as { child?: Konva.Node }).child || (e.target as Konva.Node);
+      const walkDetach = (n: Konva.Node) => {
+        const anyN = n as any;
+        const className = typeof anyN.getClassName === 'function' ? anyN.getClassName() : '';
+        if (className === 'Transformer') {
+          const tr = n as Konva.Transformer;
+          if (typeof (tr as any).boundBoxFunc === 'function') {
+            (tr as any).boundBoxFunc(undefined);
+          }
+        }
+        if (typeof anyN.getChildren === 'function') {
+          const children = anyN.getChildren() as Konva.Node[];
+          for (const c of children) walkDetach(c);
+        }
+      };
+      walkDetach(removed);
+    };
+    if (this._world) {
+      this._world.on('add', this._worldAddHandler);
+      this._world.on('remove', this._worldRemoveHandler);
+    }
   }
 
   public onDetach(_scene: Scene): void {
@@ -134,6 +218,9 @@ export class GridPlugin implements Plugin {
     if (this._stage && this._dragMoveHandler) {
       this._stage.off('dragmove', this._dragMoveHandler);
     }
+    if (this._world && this._worldAddHandler) this._world.off('add', this._worldAddHandler);
+    if (this._world && this._worldRemoveHandler) this._world.off('remove', this._worldRemoveHandler);
+    // Nothing else to detach
     if (this._stage) this._stage.batchDraw();
   }
 
