@@ -1,11 +1,13 @@
 {
-  "name": "@flowscape-ui/engine",
+  "name": "@flowscape-ui/core-sdk",
   "version": "0.1.0",
-  "description": "Universal canvas engine core built on Konva, framework-agnostic with provider adapters (Svelte/Angular/Vue/React).",
+  "description": "Universal canvas core built on Konva, framework-agnostic with provider adapters (Svelte/Angular/Vue/React).",
   "keywords": [
-    "engine",
+    "core",
     "canvas",
     "konva",
+    "sdk",
+    "core-sdk",
     "graphics",
     "2d",
     "typescript",
@@ -22,12 +24,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Flowscape-UI/engine.git"
+    "url": "git+https://github.com/Flowscape-UI/core-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/Flowscape-UI/engine/issues"
+    "url": "https://github.com/Flowscape-UI/core-sdk/issues"
   },
-  "homepage": "https://github.com/Flowscape-UI/engine#readme",
+  "homepage": "https://github.com/Flowscape-UI/core-sdk#readme",
   "type": "module",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",

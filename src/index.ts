@@ -1,17 +1,19 @@
 import Konva from 'konva';
 export { Scene } from './Scene';
 export { Camera } from './Camera';
+export { CameraHotkeys } from './CameraHotkeys';
+export { Logo } from './Logo';
 
-export interface EngineOptions {
+export interface CoreOptions {
   container: HTMLDivElement | string;
   width?: number;
   height?: number;
 }
 
-export class Engine {
+export class Core {
   private stage: Konva.Stage;
 
-  constructor(options: EngineOptions) {
+  constructor(options: CoreOptions) {
     const { container, width = 800, height = 600 } = options;
     this.stage = new Konva.Stage({
       container: typeof container === 'string' ? container : container,
@@ -29,4 +31,4 @@ export class Engine {
   }
 }
 
-export default Engine;
+export default Core;

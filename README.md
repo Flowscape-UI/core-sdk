@@ -1,9 +1,9 @@
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Donate-Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/flowscape)
 
-# @flowscape-ui/engine
+# @flowscape-ui/core-sdk
 
-Universal canvas engine core built on Konva. Framework-agnostic and designed to be wrapped by provider adapters (Svelte / Angular / Vue / React).
+Universal canvas core built on Konva. Framework-agnostic and designed to be wrapped by provider adapters (Svelte / Angular / Vue / React).
 
 ## Features
 
@@ -31,7 +31,7 @@ Run scripts:
 
 The playground imports from `src/` directly for rapid iteration.
 
-Dev server is pinned to `http://localhost:5174/` via `playground/vite.config.ts`.
+Dev server is pinned to `http://localhost:5173/` via `playground/vite.config.ts`.
 
 ## Branching strategy
 

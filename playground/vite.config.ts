@@ -10,7 +10,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@flowscape-ui/engine': resolve(__dirname, '../src'),
+      '@flowscape-ui/core-sdk': resolve(__dirname, '../src'),
     },
   },
   build: {
@@ -19,5 +19,3 @@ export default defineConfig({
     target: 'es2020',
   },
 });
-
-

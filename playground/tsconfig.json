@@ -7,11 +7,9 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@flowscape-ui/engine": ["../src"]
+      "@flowscape-ui/core-sdk": ["../src"]
     }
   },
   "include": ["src", "index.html", "../src"],
   "exclude": ["../dist", "../node_modules"]
 }
-
-
