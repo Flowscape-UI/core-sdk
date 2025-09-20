@@ -1,4 +1,6 @@
 import Konva from 'konva';
+export { Canvas } from './Canvas';
+export { Camera } from './Camera';
 
 export interface EngineOptions {
   container: HTMLDivElement | string;

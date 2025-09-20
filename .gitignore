@@ -3,7 +3,7 @@ node_modules/
 
 # builds
 dist/
-playground/
+# playground/
 
 # logs
 npm-debug.log*

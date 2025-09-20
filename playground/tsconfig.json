@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "noEmit": true,
+    "rootDir": "..",
+    "types": ["vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "@flowscape-ui/engine": ["../src"]
+    }
+  },
+  "include": ["src", "index.html", "../src"],
+  "exclude": ["../dist", "../node_modules"]
+}
+
+
