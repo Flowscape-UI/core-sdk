@@ -20,7 +20,7 @@ export class Camera extends Konva.Transform {
 
     public constructor(options: CameraOptions) {
         super();
-        const { stage, target = stage, minScale = 0.25, maxScale = 4, initialScale = 1 } = options;
+    const { stage, target = stage, minScale = 0.01, maxScale = 100, initialScale = 1 } = options;
         this.stage = stage;
         this.target = target;
         this.minScale = minScale;

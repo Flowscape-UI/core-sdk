@@ -1,5 +1,5 @@
 import Konva from 'konva';
-export { Canvas } from './Canvas';
+export { Scene } from './Scene';
 export { Camera } from './Camera';
 
 export interface EngineOptions {

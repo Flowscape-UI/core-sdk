@@ -1,9 +1,9 @@
-import { Canvas, Camera } from '@flowscape-ui/engine';
+import { Scene, Camera } from '@flowscape-ui/engine';
 import Konva from 'konva';
 
 const container = document.getElementById('container') as HTMLDivElement;
 
-const canvas = new Canvas({
+const canvas = new Scene({
   container,
   autoResize: true,
   backgroundColor: '#0f1115',
@@ -63,11 +63,16 @@ select.addEventListener('change', (e) => {
 });
 
 function addRectangle() {
+    const size = { w: 100, h: 70 };
+    const centerWorld = {
+        x: (stage.width() / 2 - world.x()) / (world.scaleX() || 1),
+        y: (stage.height() / 2 - world.y()) / (world.scaleY() || world.scaleX() || 1),
+    };
     const rect = new Konva.Rect({
-        x: Math.random() * (stage.width() - 120) + 20,
-        y: Math.random() * (stage.height() - 120) + 20,
-        width: 100,
-        height: 70,
+        x: centerWorld.x - size.w / 2,
+        y: centerWorld.y - size.h / 2,
+        width: size.w,
+        height: size.h,
         fill: '#1f6feb',
         stroke: '#e6edf3',
         strokeWidth: 2,
