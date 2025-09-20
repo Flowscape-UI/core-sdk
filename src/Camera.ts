@@ -1,5 +1,7 @@
 import Konva from 'konva';
 
+import type { Plugin } from './plugins/Plugin';
+
 export interface CameraOptions {
   stage: Konva.Stage;
   target?: Konva.Node; // by default we transform the stage itself; can target a group (world)
@@ -11,28 +13,29 @@ export interface CameraOptions {
 // Camera provides a transform controller (position + scale) over a target node (stage or group).
 // No event listeners or hotkeys inside. Only explicit methods.
 export class Camera extends Konva.Transform {
-  private stage: Konva.Stage;
-  private target: Konva.Node; // should support absolute position/scale (Stage or Group)
-  private minScale: number;
-  private maxScale: number;
+  private _stage: Konva.Stage;
+  private _target: Konva.Node; // should support absolute position/scale (Stage or Group)
+  private _minScale: number;
+  private _maxScale: number;
   private _suppressTargetUpdate: boolean;
   private _zoomAnchor: 'cursor' | Konva.Transform;
+  private _plugins: Plugin[] = [];
 
-  public constructor(options: CameraOptions) {
+  constructor(options: CameraOptions) {
     super();
     const { stage, target = stage, minScale = 0.25, maxScale = 200, initialScale = 1 } = options;
-    this.stage = stage;
-    this.target = target;
-    this.minScale = minScale;
-    this.maxScale = maxScale;
+    this._stage = stage;
+    this._target = target;
+    this._minScale = minScale;
+    this._maxScale = maxScale;
     this._suppressTargetUpdate = false;
     this._zoomAnchor = 'cursor';
 
     // Sync internal transform from target without affecting the target
     this._suppressTargetUpdate = true;
     super.reset();
-    super.translate(this.target.x(), this.target.y());
-    const s = this.target.scaleX();
+    super.translate(this._target.x(), this._target.y());
+    const s = this._target.scaleX();
     super.scale(s, s);
     this._suppressTargetUpdate = false;
     // Apply initial scale via translate z
@@ -43,15 +46,15 @@ export class Camera extends Konva.Transform {
   }
 
   public getStage(): Konva.Stage {
-    return this.stage;
+    return this._stage;
   }
 
   public getTarget(): Konva.Node {
-    return this.target;
+    return this._target;
   }
 
   public setTarget(target: Konva.Node): void {
-    this.target = target;
+    this._target = target;
     this._syncTransformFromTarget();
   }
 
@@ -59,10 +62,14 @@ export class Camera extends Konva.Transform {
     // reset internal transform and target view
     super.reset();
     this._suppressTargetUpdate = true;
-    this.target.scale({ x: 1, y: 1 });
-    this.target.position({ x: 0, y: 0 });
+    this._target.scale({ x: 1, y: 1 });
+    this._target.position({ x: 0, y: 0 });
     this._suppressTargetUpdate = false;
     this._redraw();
+  }
+
+  public lookAt(anchor: 'cursor' | Konva.Transform = 'cursor'): void {
+    this._zoomAnchor = anchor;
   }
 
   // Transform overrides to also affect target
@@ -72,40 +79,40 @@ export class Camera extends Konva.Transform {
     // 1) Apply XY pan first
     super.translate(x, y);
     if (!this._suppressTargetUpdate) {
-      this.target.position({ x: this.target.x() + x, y: this.target.y() + y });
+      this._target.position({ x: this._target.x() + x, y: this._target.y() + y });
     }
 
     // 2) If Z provided, zoom towards current pointer
     if (typeof z === 'number' && z !== 1) {
       const anchor = this._getZoomAnchorPosition();
-      const oldScale = this.target.scaleX() || 1;
-      const nextScale = this._clamp(oldScale * z, this.minScale, this.maxScale);
+      const oldScale = this._target.scaleX() || 1;
+      const nextScale = this._clamp(oldScale * z, this._minScale, this._maxScale);
       const effective = nextScale / oldScale;
 
       if (anchor) {
         // current position after XY pan
-        const pos = { x: this.target.x(), y: this.target.y() };
+        const pos = { x: this._target.x(), y: this._target.y() };
         // scale relatively
         super.scale(effective, effective);
         if (!this._suppressTargetUpdate) {
-          this.target.scale({ x: nextScale, y: nextScale });
+          this._target.scale({ x: nextScale, y: nextScale });
         }
         // keep pointer-anchored point fixed
         const newPos = {
           x: anchor.x - ((anchor.x - pos.x) / oldScale) * nextScale,
           y: anchor.y - ((anchor.y - pos.y) / oldScale) * nextScale,
         };
-        const dx = newPos.x - this.target.x();
-        const dy = newPos.y - this.target.y();
+        const dx = newPos.x - this._target.x();
+        const dy = newPos.y - this._target.y();
         super.translate(dx, dy);
         if (!this._suppressTargetUpdate) {
-          this.target.position(newPos);
+          this._target.position(newPos);
         }
       } else {
         // no pointer - just scale around origin
         super.scale(effective, effective);
         if (!this._suppressTargetUpdate) {
-          this.target.scale({ x: nextScale, y: nextScale });
+          this._target.scale({ x: nextScale, y: nextScale });
         }
       }
     }
@@ -117,15 +124,15 @@ export class Camera extends Konva.Transform {
   }
 
   public override scale(sx: number, sy: number): this {
-    const curX = this.target.scaleX() || 1;
-    const curY = this.target.scaleY() || 1;
-    const nextX = this._clamp(curX * sx, this.minScale, this.maxScale);
-    const nextY = this._clamp(curY * sy, this.minScale, this.maxScale);
+    const curX = this._target.scaleX() || 1;
+    const curY = this._target.scaleY() || 1;
+    const nextX = this._clamp(curX * sx, this._minScale, this._maxScale);
+    const nextY = this._clamp(curY * sy, this._minScale, this._maxScale);
     const effX = nextX / curX;
     const effY = nextY / curY;
     super.scale(effX, effY);
     if (!this._suppressTargetUpdate) {
-      this.target.scale({ x: nextX, y: nextY });
+      this._target.scale({ x: nextX, y: nextY });
       this._redraw();
     }
     return this;
@@ -136,29 +143,38 @@ export class Camera extends Konva.Transform {
   }
 
   private _redraw(): void {
-    // Stage or layer can be redrawn; using batchDraw on stage for simplicity
-    this.stage.batchDraw();
+    this._stage.batchDraw();
+  }
+
+  public addPlugins(plugins: Plugin[]): void {
+    plugins.forEach((p) => {
+      this._plugins.push(p);
+      p.onAttach(this);
+    });
+  }
+
+  public removeAllPlugins(): void {
+    for (let i = this._plugins.length - 1; i >= 0; i--) {
+      this._plugins[i]?.onDetach(this);
+    }
+    this._plugins = [];
   }
 
   private _syncTransformFromTarget(): void {
     this._suppressTargetUpdate = true;
     super.reset();
-    super.translate(this.target.x(), this.target.y());
-    const s = this.target.scaleX();
+    super.translate(this._target.x(), this._target.y());
+    const s = this._target.scaleX();
     super.scale(s, s);
     this._suppressTargetUpdate = false;
   }
 
   private _getZoomAnchorPosition(): { x: number; y: number } | null {
     if (this._zoomAnchor === 'cursor') {
-      const p = this.stage.getPointerPosition();
+      const p = this._stage.getPointerPosition();
       return p ?? null;
     }
     const d = this._zoomAnchor.decompose();
     return { x: d.x, y: d.y };
-  }
-
-  public lookAt(anchor: 'cursor' | Konva.Transform = 'cursor'): void {
-    this._zoomAnchor = anchor;
   }
 }

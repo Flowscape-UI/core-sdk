@@ -10,91 +10,91 @@ export interface LogoOptions {
 }
 
 export class Logo {
-  private stage: Konva.Stage;
-  private layer: Konva.Layer;
-  private node: Konva.Image;
-  private opts: Required<Omit<LogoOptions, 'stage' | 'layer' | 'src'>> & {
+  private _stage: Konva.Stage;
+  private _layer: Konva.Layer;
+  private _node: Konva.Image;
+  private _opts: Required<Omit<LogoOptions, 'stage' | 'layer' | 'src'>> & {
     src: HTMLImageElement | string;
   };
 
   constructor(options: LogoOptions) {
     const { stage, layer, src, width, height, opacity = 1 } = options;
-    this.stage = stage;
-    this.layer = layer;
-    this.opts = { src, width, height, opacity };
+    this._stage = stage;
+    this._layer = layer;
+    this._opts = { src, width, height, opacity };
 
-    this.node = new Konva.Image({
-      image: this.createPlaceholder(),
+    this._node = new Konva.Image({
+      image: this._createPlaceholder(),
       name: 'flowscape-logo-background',
       listening: false,
       opacity: opacity,
     });
 
-    this.layer.add(this.node);
-    this.node.moveToBottom();
+    this._layer.add(this._node);
+    this._node.moveToBottom();
 
     this.setSource(src);
 
-    this.stage.on('resize.logo', () => {
-      this.layout();
+    this._stage.on('resize.logo', () => {
+      this._layout();
     });
   }
 
   public destroy(): void {
-    this.stage.off('resize.logo');
-    this.node.destroy();
+    this._stage.off('resize.logo');
+    this._node.destroy();
   }
 
   public setOpacity(opacity: number): void {
-    this.opts.opacity = opacity;
-    this.node.opacity(opacity);
-    this.stage.batchDraw();
+    this._opts.opacity = opacity;
+    this._node.opacity(opacity);
+    this._stage.batchDraw();
   }
 
   public setSize(width: number, height: number): void {
-    this.opts.width = width;
-    this.opts.height = height;
-    this.layout();
-    this.stage.batchDraw();
+    this._opts.width = width;
+    this._opts.height = height;
+    this._layout();
+    this._stage.batchDraw();
   }
 
   public setSource(src: string | HTMLImageElement): void {
-    this.opts.src = src;
-    if (typeof src === 'string') this.loadImageFromString(src);
-    else this.setImage(src);
+    this._opts.src = src;
+    if (typeof src === 'string') this._loadImageFromString(src);
+    else this._setImage(src);
   }
 
-  private setImage(source: CanvasImageSource): void {
-    this.node.image(source);
-    this.layout();
-    this.stage.batchDraw();
+  private _setImage(source: CanvasImageSource): void {
+    this._node.image(source);
+    this._layout();
+    this._stage.batchDraw();
   }
 
-  private loadImageFromString(src: string): void {
+  private _loadImageFromString(src: string): void {
     Konva.Image.fromURL(src, (imgNode) => {
       const source = imgNode.image();
       if (source) {
-        this.setImage(source);
+        this._setImage(source);
       }
     });
   }
 
-  private createPlaceholder(): CanvasImageSource {
-    const doc = this.stage.container().ownerDocument;
+  private _createPlaceholder(): CanvasImageSource {
+    const doc = this._stage.container().ownerDocument;
     const c = doc.createElement('img');
     c.width = 1;
     c.height = 1;
     return c;
   }
 
-  private layout(): void {
-    const w = this.stage.width();
-    const h = this.stage.height();
-    const imgW = this.opts.width;
-    const imgH = this.opts.height;
-    this.node.size({ width: imgW, height: imgH });
-    this.node.offset({ x: imgW / 2, y: imgH / 2 });
-    this.node.position({ x: Math.floor(w / 2), y: Math.floor(h / 2) });
-    this.node.opacity(this.opts.opacity);
+  private _layout(): void {
+    const w = this._stage.width();
+    const h = this._stage.height();
+    const imgW = this._opts.width;
+    const imgH = this._opts.height;
+    this._node.size({ width: imgW, height: imgH });
+    this._node.offset({ x: imgW / 2, y: imgH / 2 });
+    this._node.position({ x: Math.floor(w / 2), y: Math.floor(h / 2) });
+    this._node.opacity(this._opts.opacity);
   }
 }

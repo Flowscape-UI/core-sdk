@@ -1,8 +1,11 @@
 import Konva from 'konva';
 export { Scene } from './Scene';
 export { Camera } from './Camera';
-export { CameraHotkeys } from './CameraHotkeys';
 export { Logo } from './Logo';
+export type { Plugin } from './plugins/Plugin';
+export { GridPlugin } from './plugins/GridPlugin';
+export { LogoPlugin } from './plugins/LogoPlugin';
+export { CameraHotkeysPlugin } from './plugins/CameraHotkeysPlugin';
 
 export interface CoreOptions {
   container: HTMLDivElement | string;
@@ -11,24 +14,22 @@ export interface CoreOptions {
 }
 
 export class Core {
-  private stage: Konva.Stage;
+  private _stage: Konva.Stage;
 
   constructor(options: CoreOptions) {
     const { container, width = 800, height = 600 } = options;
-    this.stage = new Konva.Stage({
+    this._stage = new Konva.Stage({
       container: typeof container === 'string' ? container : container,
       width,
       height,
     });
   }
 
-  getStage(): Konva.Stage {
-    return this.stage;
+  public getStage(): Konva.Stage {
+    return this._stage;
   }
 
-  resize(width: number, height: number) {
-    this.stage.size({ width, height });
+  public resize(width: number, height: number): void {
+    this._stage.size({ width, height });
   }
 }
-
-export default Core;

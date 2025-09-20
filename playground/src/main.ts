@@ -1,4 +1,4 @@
-import { Camera, CameraHotkeys, Logo, Scene } from '@flowscape-ui/core-sdk';
+import { Camera, Scene, GridPlugin, LogoPlugin, CameraHotkeysPlugin } from '@flowscape-ui/core-sdk';
 import Konva from 'konva';
 
 const container = document.getElementById('container') as HTMLDivElement;
@@ -8,30 +8,31 @@ const canvas = new Scene({
   autoResize: true,
   backgroundColor: '#1e1e1e',
 });
+
 const stage = canvas.getStage();
 const world = canvas.getWorld();
-const layer = canvas.getLayer();
 
-// Use the canvas' world group for content (affects camera transforms)
-// All shapes go into world; we keep layer reference implicit
-
-// Setup camera to control the world group (infinite canvas)
 const camera = new Camera({ stage, target: world, initialScale: 1 });
 camera.lookAt('cursor');
 
-// Demo: Logo (background, centered to camera, fixed pixel size)
+const gridPlugin = new GridPlugin({
+  visible: true,
+  stepX: 1,
+  stepY: 1,
+  color: '#2b313a',
+  lineWidth: 1,
+  minScaleToShow: 15,
+});
 
-// const logo = new Logo({
-//   stage,
-//   layer,
-//   src: '../../src/images/logo.png',
-//   width: 329,
-//   height: 329,
-//   opacity: 0.5,
-// });
+const logo = new LogoPlugin({
+  src: '../../src/images/logo.png',
+  width: 329,
+  height: 329,
+  opacity: 0.5,
+});
 
-// Attach hotkeys module from the library (external to Camera)
-const hotkeys = new CameraHotkeys(camera, {
+// Attach hotkeys via plugin
+const hotkeysPlugin = new CameraHotkeysPlugin(camera, {
   preventDefault: true,
   ignoreEditableTargets: true,
   enablePlusMinus: true,
@@ -44,6 +45,9 @@ const hotkeys = new CameraHotkeys(camera, {
   requireCtrlForWheel: true,
   treatMetaAsCtrl: true,
 });
+
+camera.addPlugins([hotkeysPlugin]);
+canvas.addPlugins([gridPlugin, logo]);
 
 // Simple UI to switch zoom anchor type for testing
 const toolbar = document.querySelector('.toolbar');
@@ -58,6 +62,73 @@ select.innerHTML = `
 toolbar?.appendChild(select);
 
 let lastRect: Konva.Rect | null = null;
+
+// --- Selection and label (Konva-only) ---
+// Single transformer reused for any selected node
+const transformer = new Konva.Transformer({
+  rotateEnabled: true,
+  enabledAnchors: [
+    'top-left',
+    'top-right',
+    'bottom-left',
+    'bottom-right',
+    'middle-left',
+    'middle-right',
+    'top-center',
+    'bottom-center',
+  ],
+  anchorSize: 8,
+  borderStroke: '#22a6f2',
+  borderStrokeWidth: 4,
+});
+// Add transformer to world so it is affected by camera/world transforms
+world.add(transformer);
+
+// Label that appears with selection, shows size "W × H"
+const sizeLabel = new Konva.Label({ visible: false });
+const sizeLabelTag = new Konva.Tag({
+  fill: '#1677ff',
+  cornerRadius: 3,
+  opacity: 0.9,
+});
+const sizeLabelText = new Konva.Text({
+  text: '',
+  fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial',
+  fontSize: 12,
+  fill: 'white',
+  padding: 4,
+  align: 'center',
+});
+sizeLabel.add(sizeLabelTag);
+sizeLabel.add(sizeLabelText);
+world.add(sizeLabel);
+
+function positionSizeLabelFor(node: Konva.Node): void {
+  // Get bounds in coordinates relative to world, so placing label inside world works directly
+  const bounds = node.getClientRect({ skipShadow: true, skipStroke: false, relativeTo: world });
+  const cx = bounds.x + bounds.width / 2;
+  const bottom = bounds.y + bounds.height;
+  sizeLabelText.text(`${Math.round(bounds.width)} × ${Math.round(bounds.height)}`);
+  // center label horizontally on the bottom
+  sizeLabel.x(cx - sizeLabel.width() / 2);
+  sizeLabel.y(bottom + 6);
+}
+
+function showSelection(node: Konva.Node | null): void {
+  if (!node) {
+    transformer.nodes([]);
+    sizeLabel.visible(false);
+    stage.batchDraw();
+    return;
+  }
+  transformer.nodes([node as Konva.Node]);
+  positionSizeLabelFor(node);
+  sizeLabel.visible(true);
+  // always draw selection frame and label on top
+  transformer.moveToTop();
+  sizeLabel.moveToTop();
+  stage.batchDraw();
+}
 
 function updateZoomAnchor(mode: string) {
   if (mode === 'cursor') {
@@ -108,6 +179,26 @@ function addRectangle() {
   });
   rect.on('dragstart', () => (document.body.style.cursor = 'grabbing'));
   rect.on('dragend', () => (document.body.style.cursor = 'grab'));
+  rect.on('click', () => {
+    showSelection(rect);
+  });
+  // Keep label in sync while moving / transforming
+  rect.on('dragmove', () => {
+    if (sizeLabel.visible()) {
+      positionSizeLabelFor(rect);
+      transformer.moveToTop();
+      sizeLabel.moveToTop();
+      stage.batchDraw();
+    }
+  });
+  rect.on('transform', () => {
+    if (sizeLabel.visible()) {
+      positionSizeLabelFor(rect);
+      transformer.moveToTop();
+      sizeLabel.moveToTop();
+      stage.batchDraw();
+    }
+  });
   world.add(rect);
   lastRect = rect;
   stage.batchDraw();
@@ -115,8 +206,18 @@ function addRectangle() {
 
 document.getElementById('add-rect')?.addEventListener('click', addRectangle);
 document.getElementById('clear')?.addEventListener('click', () => {
-  world.destroyChildren();
+  // Remove only rectangles; keep transformer and label
+  world.getChildren((n) => n instanceof Konva.Rect).forEach((n) => n.destroy());
+  transformer.nodes([]);
+  sizeLabel.visible(false);
   stage.batchDraw();
+});
+
+// Deselect on empty space click/tap
+stage.on('mousedown', (e) => {
+  if (e.target === stage) {
+    showSelection(null);
+  }
 });
 
 // seed a first rectangle
