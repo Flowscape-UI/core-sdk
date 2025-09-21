@@ -1,5 +1,7 @@
 import Konva from 'konva';
 
+import { FlowscapeLabel } from './FlowscapeLabel';
+
 export interface EdgeTransformerOptions extends Konva.TransformerConfig {
   edgeHitWidth?: number;
 }
@@ -14,17 +16,22 @@ export class EdgeTransformer extends Konva.Transformer {
   } | null = null;
   private _rotBound = false;
   private _rotDrag: {
-    startAngle: number; // в радианах
+    startAngle: number;
     startRotationDeg: number;
-    center: { x: number; y: number }; // в координатах Stage
+    center: { x: number; y: number };
   } | null = null;
 
-  // Кружки для скругления углов
   private _radHandles: {
     topLeft: Konva.Circle;
     topRight: Konva.Circle;
     bottomLeft: Konva.Circle;
     bottomRight: Konva.Circle;
+  } | null = null;
+  private _radLabels: {
+    topLeft: FlowscapeLabel;
+    topRight: FlowscapeLabel;
+    bottomLeft: FlowscapeLabel;
+    bottomRight: FlowscapeLabel;
   } | null = null;
 
   // Определяем, какой угол (topLeft/topRight/bottomLeft/bottomRight) занимает хот-спот в данный момент
@@ -165,6 +172,9 @@ export class EdgeTransformer extends Konva.Transformer {
       this._ensureRadiusHandles(parent);
       this._updateRadiusHandles(node, parent, rectStage, tSx, tSy);
 
+      // Сразу показать кастомные хендлеры после выбора/обновления, без необходимости повторного наведения
+      this._setCustomHandlesVisible(true);
+
       // Один раз навешиваем слушатели для обновления хот-спотов при любых изменениях мира/узла
       if (!this._rotBound) {
         this._rotBound = true;
@@ -189,6 +199,25 @@ export class EdgeTransformer extends Konva.Transformer {
         n?.on('dragend.edge-transformer-visibility', () => {
           this.visible(true);
           this.forceUpdate();
+          // after drag, immediately show custom handles so no extra hover is needed
+          this._setCustomHandlesVisible(true);
+        });
+        // Show handles only on hover over node or transformer
+        n?.on('mouseenter.edge-custom-handles', () => {
+          this._setCustomHandlesVisible(true);
+        });
+        n?.on('mouseleave.edge-custom-handles', () => {
+          if (!this._isPointerOverInteractiveArea()) {
+            this._setCustomHandlesVisible(false);
+          }
+        });
+        this.on('mouseenter.edge-custom-handles', () => {
+          this._setCustomHandlesVisible(true);
+        });
+        this.on('mouseleave.edge-custom-handles', () => {
+          if (!this._isPointerOverInteractiveArea()) {
+            this._setCustomHandlesVisible(false);
+          }
         });
       }
     });
@@ -214,6 +243,64 @@ export class EdgeTransformer extends Konva.Transformer {
     );
   }
 
+  // Toggle visibility of our custom rotation hotspots and radius handles
+  private _setCustomHandlesVisible(show: boolean): void {
+    const n = this.nodes()[0];
+    // do not show while dragging
+    if (n && typeof n.isDragging === 'function' && n.isDragging()) {
+      show = false;
+    }
+    if (this._rotHotspots) {
+      this._rotHotspots.topLeft.visible(show);
+      this._rotHotspots.topRight.visible(show);
+      this._rotHotspots.bottomLeft.visible(show);
+      this._rotHotspots.bottomRight.visible(show);
+    }
+    if (this._radHandles) {
+      this._radHandles.topLeft.visible(show);
+      this._radHandles.topRight.visible(show);
+      this._radHandles.bottomLeft.visible(show);
+      this._radHandles.bottomRight.visible(show);
+    }
+    this.getStage()?.batchDraw();
+  }
+
+  // Check if pointer is currently over the node, transformer, or any custom handle
+  private _isPointerOverInteractiveArea(): boolean {
+    const stage = this.getStage();
+    if (!stage) return false;
+    const pos = stage.getPointerPosition();
+    if (!pos) return false;
+    const shape = stage.getIntersection(pos);
+    if (!shape) return false;
+    const selected = this.nodes()[0];
+    let p: Konva.Node | null = shape as Konva.Node;
+    while (p) {
+      if (p === this) return true;
+      if (selected && p === selected) return true;
+      if (
+        this._rotHotspots &&
+        (p === this._rotHotspots.topLeft ||
+          p === this._rotHotspots.topRight ||
+          p === this._rotHotspots.bottomLeft ||
+          p === this._rotHotspots.bottomRight)
+      ) {
+        return true;
+      }
+      if (
+        this._radHandles &&
+        (p === this._radHandles.topLeft ||
+          p === this._radHandles.topRight ||
+          p === this._radHandles.bottomLeft ||
+          p === this._radHandles.bottomRight)
+      ) {
+        return true;
+      }
+      p = p.getParent();
+    }
+    return false;
+  }
+
   private _ensureRotationHotspots(parent: Konva.Container): void {
     if (this._rotHotspots) return;
     const mk = (key: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight'): Konva.Rect => {
@@ -226,6 +313,10 @@ export class EdgeTransformer extends Konva.Transformer {
         listening: true,
       });
       r.setAttr('rotKey', key);
+      // make hit area stable in screen pixels
+      r.hitStrokeWidth(24);
+      // initially hidden; we control visibility via hover
+      r.visible(false);
       r.on('mouseenter', () => {
         const st = this.getStage();
         if (st) {
@@ -255,6 +346,8 @@ export class EdgeTransformer extends Konva.Transformer {
           | 'bottomLeft'
           | 'bottomRight'
           | undefined;
+        // ensure they are visible during interaction
+        this._setCustomHandlesVisible(true);
         if (node && k) this._startRotationDrag(node, k);
       });
       return r;
@@ -275,14 +368,15 @@ export class EdgeTransformer extends Konva.Transformer {
     node: Konva.Node,
     parent: Konva.Container,
     rectStage: { x: number; y: number; width: number; height: number },
-    tSx: number,
-    tSy: number,
+    _tSx: number,
+    _tSy: number,
   ): void {
     if (!this._rotHotspots) return;
-    const sizePx = 14;
-    const offsetPx = 18;
-    const sizeLocalX = sizePx / tSx;
-    const sizeLocalY = sizePx / tSy;
+    const sizePx = 14; // hotspot size on screen
+    const offsetPx = 18; // outward offset on screen
+    const world = parent.getAbsoluteScale();
+    const sizeLocalX = sizePx / (Math.abs(world.x) || 1);
+    const sizeLocalY = sizePx / (Math.abs(world.y) || 1);
 
     const inv = parent.getAbsoluteTransform().copy();
     inv.invert();
@@ -301,18 +395,19 @@ export class EdgeTransformer extends Konva.Transformer {
     const ox = typeof node.offsetX === 'function' ? node.offsetX() : 0;
     const oy = typeof node.offsetY === 'function' ? node.offsetY() : 0;
 
-    // Локальные углы с учётом offset'а (центр вращения) -> в Stage
+    // Corners in Stage coords
     const pTL = abs.point({ x: -ox, y: -oy });
     const pTR = abs.point({ x: width - ox, y: -oy });
     const pBL = abs.point({ x: -ox, y: height - oy });
     const pBR = abs.point({ x: width - ox, y: height - oy });
 
-    // Центр фигуры в Stage
+    // Center in Stage coords
     const center = {
       x: (pTL.x + pTR.x + pBL.x + pBR.x) / 4,
       y: (pTL.y + pTR.y + pBL.y + pBR.y) / 4,
     };
 
+    // Move points outward from the center by offsetPx screen pixels
     const addOutward = (corner: { x: number; y: number }) => {
       const dx = corner.x - center.x;
       const dy = corner.y - center.y;
@@ -368,15 +463,111 @@ export class EdgeTransformer extends Konva.Transformer {
       });
       c.setAttr('radKey', key);
       c.strokeScaleEnabled(false);
+      // start hidden; shown on hover of node/transformer
+      c.visible(false);
+      // show label on hover near the handle
+      c.on('mouseenter', () => {
+        if (!this._radLabels) return;
+        const keyNow = c.getAttr('radKey') as
+          | 'topLeft'
+          | 'topRight'
+          | 'bottomLeft'
+          | 'bottomRight'
+          | undefined;
+        if (!keyNow) return;
+        const lbl = this._radLabels[keyNow];
+        lbl.updateFor(c, parent);
+        // set text with current radius
+        const node = this.nodes()[0];
+        if (node && node instanceof Konva.Rect) {
+          const existing = node.cornerRadius();
+          let arr: [number, number, number, number] = [0, 0, 0, 0];
+          if (Array.isArray(existing))
+            arr = [existing[0] ?? 0, existing[1] ?? 0, existing[2] ?? 0, existing[3] ?? 0];
+          else if (typeof existing === 'number') arr = [existing, existing, existing, existing];
+          const idx =
+            keyNow === 'topLeft' ? 0 : keyNow === 'topRight' ? 1 : keyNow === 'bottomRight' ? 2 : 3;
+          const radiusNow = Math.max(0, arr[idx]);
+          const textNode = lbl.findOne<Konva.Text>('Text');
+          if (textNode) textNode.text(String(Math.round(radiusNow)) + ' px');
+        }
+        lbl.visible(true);
+      });
+      c.on('mouseleave', () => {
+        if (!this._radLabels) return;
+        // keep shown if currently dragging this handle
+        if (typeof c.isDragging === 'function' && c.isDragging()) return;
+        const keyNow = c.getAttr('radKey') as
+          | 'topLeft'
+          | 'topRight'
+          | 'bottomLeft'
+          | 'bottomRight'
+          | undefined;
+        if (!keyNow) return;
+        this._radLabels[keyNow].visible(false);
+      });
       c.on('dragmove', (ev: Konva.KonvaEventObject<MouseEvent | TouchEvent | DragEvent>) => {
+        // 1) apply radius logic
         this._onRadiusDrag(c, ev);
+        // 2) update and pin label near the handle
+        const node = this.nodes()[0];
+        if (!node || !(node instanceof Konva.Rect) || !this._radLabels) return;
+        const keyNow = c.getAttr('radKey') as
+          | 'topLeft'
+          | 'topRight'
+          | 'bottomLeft'
+          | 'bottomRight'
+          | undefined;
+        if (!keyNow) return;
+        const lbl = this._radLabels[keyNow];
+        // read current radii
+        const existing = node.cornerRadius();
+        let arr: [number, number, number, number] = [0, 0, 0, 0];
+        if (Array.isArray(existing)) {
+          arr = [existing[0] ?? 0, existing[1] ?? 0, existing[2] ?? 0, existing[3] ?? 0];
+        } else if (typeof existing === 'number') {
+          arr = [existing, existing, existing, existing];
+        }
+        const idx =
+          keyNow === 'topLeft' ? 0 : keyNow === 'topRight' ? 1 : keyNow === 'bottomRight' ? 2 : 3;
+        const radiusNow = Math.max(0, arr[idx]);
+        // position/scale the label using its helper and then override text to radius
+        lbl.updateFor(c, parent);
+        const textNode = lbl.findOne<Konva.Text>('Text');
+        if (textNode) textNode.text(String(Math.round(radiusNow)) + ' px');
+        lbl.visible(true);
       });
       c.on('dragstart', () => {
         c.opacity(0.85);
+        this._setCustomHandlesVisible(true);
+        // show label at start
+        if (this._radLabels) {
+          const keyNow = c.getAttr('radKey') as
+            | 'topLeft'
+            | 'topRight'
+            | 'bottomLeft'
+            | 'bottomRight'
+            | undefined;
+          if (keyNow) {
+            const lbl = this._radLabels[keyNow];
+            lbl.updateFor(c, parent);
+            lbl.visible(true);
+          }
+        }
       });
       c.on('dragend', () => {
         c.opacity(1);
         this.forceUpdate();
+        // hide label on end
+        if (this._radLabels) {
+          const keyNow = c.getAttr('radKey') as
+            | 'topLeft'
+            | 'topRight'
+            | 'bottomLeft'
+            | 'bottomRight'
+            | undefined;
+          if (keyNow) this._radLabels[keyNow].visible(false);
+        }
       });
       return c;
     };
@@ -390,20 +581,38 @@ export class EdgeTransformer extends Konva.Transformer {
     parent.add(this._radHandles.topRight);
     parent.add(this._radHandles.bottomLeft);
     parent.add(this._radHandles.bottomRight);
+
+    // Create labels for each handle using FlowscapeLabel and add to same parent
+    if (!this._radLabels) {
+      this._radLabels = {
+        topLeft: new FlowscapeLabel(),
+        topRight: new FlowscapeLabel(),
+        bottomLeft: new FlowscapeLabel(),
+        bottomRight: new FlowscapeLabel(),
+      };
+      parent.add(this._radLabels.topLeft);
+      parent.add(this._radLabels.topRight);
+      parent.add(this._radLabels.bottomLeft);
+      parent.add(this._radLabels.bottomRight);
+      this._radLabels.topLeft.visible(false);
+      this._radLabels.topRight.visible(false);
+      this._radLabels.bottomLeft.visible(false);
+      this._radLabels.bottomRight.visible(false);
+    }
   }
 
   private _updateRadiusHandles(
     node: Konva.Node,
     parent: Konva.Container,
     rectStage: { x: number; y: number; width: number; height: number },
-    tSx: number,
-    tSy: number,
+    _tSx: number,
+    _tSy: number,
   ): void {
     if (!this._radHandles) return;
     const sizePx = 12;
-    const offsetPx = 10;
-    const sizeLocalX = sizePx / tSx;
-    const sizeLocalY = sizePx / tSy;
+    const handleRadiusPx = sizePx / 2;
+    const innerMarginPx = 2; // extra gap from the edge so the whole circle stays inside
+    const offsetFromEdgePx = handleRadiusPx + innerMarginPx;
 
     const inv = parent.getAbsoluteTransform().copy();
     inv.invert();
@@ -422,52 +631,57 @@ export class EdgeTransformer extends Konva.Transformer {
     const ox = typeof node.offsetX === 'function' ? node.offsetX() : 0;
     const oy = typeof node.offsetY === 'function' ? node.offsetY() : 0;
 
-    // Локальные углы с учётом offset'а (центр вращения) -> в Stage
-    const pTL = abs.point({ x: -ox, y: -oy });
-    const pTR = abs.point({ x: width - ox, y: -oy });
-    const pBL = abs.point({ x: -ox, y: height - oy });
-    const pBR = abs.point({ x: width - ox, y: height - oy });
+    const absScale = node.getAbsoluteScale();
+    let offLocalX = offsetFromEdgePx / (Math.abs(absScale.x) || 1);
+    let offLocalY = offsetFromEdgePx / (Math.abs(absScale.y) || 1);
+    offLocalX = Math.min(offLocalX, Math.max(0, width) / 4);
+    offLocalY = Math.min(offLocalY, Math.max(0, height) / 4);
 
-    // Центр фигуры в Stage
-    const center = {
-      x: (pTL.x + pTR.x + pBL.x + pBR.x) / 4,
-      y: (pTL.y + pTR.y + pBL.y + pBR.y) / 4,
-    };
+    const pTL_stage = abs.point({ x: -ox + offLocalX, y: -oy + offLocalY });
+    const pTR_stage = abs.point({ x: width - ox - offLocalX, y: -oy + offLocalY });
+    const pBL_stage = abs.point({ x: -ox + offLocalX, y: height - oy - offLocalY });
+    const pBR_stage = abs.point({ x: width - ox - offLocalX, y: height - oy - offLocalY });
 
-    const addOutward = (corner: { x: number; y: number }) => {
-      const dx = corner.x - center.x;
-      const dy = corner.y - center.y;
-      const len = Math.hypot(dx, dy) || 1;
-      return { x: corner.x + (dx / len) * offsetPx, y: corner.y + (dy / len) * offsetPx };
-    };
+    const topLeftCenter = toLocal(pTL_stage);
+    const topRightCenter = toLocal(pTR_stage);
+    const bottomLeftCenter = toLocal(pBL_stage);
+    const bottomRightCenter = toLocal(pBR_stage);
 
-    const topLeftStage = addOutward(pTL);
-    const topRightStage = addOutward(pTR);
-    const bottomLeftStage = addOutward(pBL);
-    const bottomRightStage = addOutward(pBR);
+    const world = parent.getAbsoluteScale();
+    const invSx = 1 / (Math.abs(world.x) || 1);
+    const invSy = 1 / (Math.abs(world.y) || 1);
+    const pixelRadius = sizePx / 2; // target radius in screen pixels
 
-    const topLeftCenter = toLocal(topLeftStage);
-    const topRightCenter = toLocal(topRightStage);
-    const bottomLeftCenter = toLocal(bottomLeftStage);
-    const bottomRightCenter = toLocal(bottomRightStage);
-
-    const radLocal = Math.min(sizeLocalX, sizeLocalY) / 2;
-    this._radHandles.topLeft.setAttrs({ x: topLeftCenter.x, y: topLeftCenter.y, radius: radLocal });
+    this._radHandles.topLeft.setAttrs({
+      x: topLeftCenter.x,
+      y: topLeftCenter.y,
+      radius: pixelRadius,
+    });
     this._radHandles.topRight.setAttrs({
       x: topRightCenter.x,
       y: topRightCenter.y,
-      radius: radLocal,
+      radius: pixelRadius,
     });
     this._radHandles.bottomLeft.setAttrs({
       x: bottomLeftCenter.x,
       y: bottomLeftCenter.y,
-      radius: radLocal,
+      radius: pixelRadius,
     });
     this._radHandles.bottomRight.setAttrs({
       x: bottomRightCenter.x,
       y: bottomRightCenter.y,
-      radius: radLocal,
+      radius: pixelRadius,
     });
+
+    this._radHandles.topLeft.scale({ x: invSx, y: invSy });
+    this._radHandles.topRight.scale({ x: invSx, y: invSy });
+    this._radHandles.bottomLeft.scale({ x: invSx, y: invSy });
+    this._radHandles.bottomRight.scale({ x: invSx, y: invSy });
+    // ensure radius handles are above other helpers
+    this._radHandles.topLeft.moveToTop();
+    this._radHandles.topRight.moveToTop();
+    this._radHandles.bottomLeft.moveToTop();
+    this._radHandles.bottomRight.moveToTop();
   }
 
   private _onRadiusDrag(
@@ -557,7 +771,7 @@ export class EdgeTransformer extends Konva.Transformer {
 
   private _startRotationDrag(
     node: Konva.Node,
-    corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight',
+    _corner: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight',
   ): void {
     const stage = this.getStage();
     if (!stage) return;
@@ -572,54 +786,73 @@ export class EdgeTransformer extends Konva.Transformer {
     const startRotationDeg = node.rotation();
     this._rotDrag = { startAngle, startRotationDeg, center };
 
-    let w = 0;
-    let h = 0;
-    if (node instanceof Konva.Rect) {
-      w = node.width();
-      h = node.height();
-    } else {
-      w = box.width;
-      h = box.height;
-    }
-    const ox = typeof node.offsetX === 'function' ? node.offsetX() : 0;
-    const oy = typeof node.offsetY === 'function' ? node.offsetY() : 0;
-    const localPivot = (() => {
-      switch (corner) {
-        case 'topLeft':
-          return { x: -ox, y: -oy };
-        case 'topRight':
-          return { x: w - ox, y: -oy };
-        case 'bottomLeft':
-          return { x: -ox, y: h - oy };
-        case 'bottomRight':
-        default:
-          return { x: w - ox, y: h - oy };
-      }
-    })();
-    const abs = node.getAbsoluteTransform();
-    const pivotWorldStart = abs.point(localPivot);
-    const parentInv = parent.getAbsoluteTransform().copy();
-    parentInv.invert();
-
-    const onMove = () => {
+    const onMove = (ev: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._rotDrag) return;
       const pt = stage.getPointerPosition();
       if (!pt) return;
       const curAngle = Math.atan2(pt.y - this._rotDrag.center.y, pt.x - this._rotDrag.center.x);
       const deltaRad = curAngle - this._rotDrag.startAngle;
       const deltaDeg = (deltaRad * 180) / Math.PI;
-      node.rotation(this._rotDrag.startRotationDeg + deltaDeg);
-      const absNow = node.getAbsoluteTransform();
-      const pivotWorldNow = absNow.point(localPivot);
-      const dx = pivotWorldStart.x - pivotWorldNow.x;
-      const dy = pivotWorldStart.y - pivotWorldNow.y;
-      const p0 = parentInv.point({ x: 0, y: 0 });
-      const p1 = parentInv.point({ x: dx, y: dy });
-      const deltaParent = { x: p1.x - p0.x, y: p1.y - p0.y };
-      node.position({ x: node.x() + deltaParent.x, y: node.y() + deltaParent.y });
+      let newRotation = this._rotDrag.startRotationDeg + deltaDeg;
+
+      // Apply snapping similar to Konva.Transformer
+      const snapsRaw = (this as Konva.Transformer).rotationSnaps();
+      const snaps: number[] = Array.isArray(snapsRaw)
+        ? snapsRaw.filter((v): v is number => typeof v === 'number')
+        : [];
+      const tolVal = (this as Konva.Transformer).rotationSnapTolerance();
+      const tolerance = typeof tolVal === 'number' ? Math.max(0, tolVal) : 0;
+      const evt = ev.evt as MouseEvent | undefined;
+      const shift = !!evt?.shiftKey;
+      const norm = (a: number) => {
+        let r = a % 360;
+        if (r < 0) r += 360;
+        return r;
+      };
+      const angDist = (a: number, b: number) => {
+        const da = Math.abs(norm(a) - norm(b));
+        return Math.min(da, 360 - da);
+      };
+      if (snaps.length > 0) {
+        // snap to nearest provided angle within tolerance
+        let best: number | null = null;
+        let bestDist = Infinity;
+        for (const cand of snaps) {
+          const d = angDist(newRotation, cand);
+          if (d < bestDist) {
+            best = cand;
+            bestDist = d;
+          }
+        }
+        if (best !== null && bestDist <= tolerance) {
+          newRotation = best;
+        }
+      } else if (shift) {
+        // shift-key snapping to 15 degrees
+        newRotation = Math.round(newRotation / 15) * 15;
+      }
+
+      // Keep visual center fixed during rotation (Konva Transformer behavior)
+      const targetCenter = this._rotDrag.center; // in Stage coords
+      // rotate
+      node.rotation(newRotation);
+      // compute new center after rotation
+      const boxNow = node.getClientRect({ relativeTo: stage, skipShadow: true, skipStroke: false });
+      const nowCenter = { x: boxNow.x + boxNow.width / 2, y: boxNow.y + boxNow.height / 2 };
+      const dxStage = targetCenter.x - nowCenter.x;
+      const dyStage = targetCenter.y - nowCenter.y;
+      if (dxStage !== 0 || dyStage !== 0) {
+        const parentInv = parent.getAbsoluteTransform().copy();
+        parentInv.invert();
+        const p0 = parentInv.point({ x: 0, y: 0 });
+        const p1 = parentInv.point({ x: dxStage, y: dyStage });
+        const deltaParent = { x: p1.x - p0.x, y: p1.y - p0.y };
+        node.position({ x: node.x() + deltaParent.x, y: node.y() + deltaParent.y });
+      }
       this.forceUpdate();
       stage.batchDraw();
     };
+
     const onUp = () => {
       stage.off('mousemove.edge-rot', onMove);
       stage.off('mouseup.edge-rot', onUp);
