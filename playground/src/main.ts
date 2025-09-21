@@ -1,4 +1,11 @@
-import { Camera, Scene, GridPlugin, LogoPlugin, CameraHotkeysPlugin } from '@flowscape-ui/core-sdk';
+import {
+  Camera,
+  Scene,
+  GridPlugin,
+  LogoPlugin,
+  CameraHotkeysPlugin,
+} from '@flowscape-ui/core-sdk';
+import { FlowscapeRect } from '../../src/FlowscapeRect';
 import Konva from 'konva';
 
 const container = document.getElementById('container') as HTMLDivElement;
@@ -161,52 +168,17 @@ select.addEventListener('change', (e) => {
 });
 
 function addRectangle() {
-  const rect = new Konva.Rect({
+  const rect = new FlowscapeRect({
     x: Math.random() * (stage.width() - 120) + 20,
     y: Math.random() * (stage.height() - 120) + 20,
     width: 100,
     height: 70,
-    fill: '#1f6feb',
-    stroke: '#d9d9d9',
-    strokeWidth: 4,
-    strokeScaleEnabled: true,
-    draggable: true,
+    transformer,
+    sizeLabel,
+    showSelection,
+    positionSizeLabelFor,
   });
 
-  rect.on('mouseover', () => {
-    document.body.style.cursor = 'grab';
-  });
-  rect.on('mouseout', () => {
-    document.body.style.cursor = 'default';
-  });
-  rect.on('dragstart', () => (document.body.style.cursor = 'grabbing'));
-  rect.on('dragend', () => (document.body.style.cursor = 'grab'));
-  rect.on('click', () => {
-    showSelection(rect);
-  });
-  // Keep label in sync while moving / transforming
-  rect.on('dragmove', () => {
-    if (sizeLabel.visible()) {
-      positionSizeLabelFor(rect);
-      transformer.moveToTop();
-      sizeLabel.moveToTop();
-      stage.batchDraw();
-    }
-  });
-  rect.on('transform', () => {
-    // apply transform to width/height and reset scale, so stroke isn't scaled
-    rect.width(rect.width() * rect.scaleX());
-    rect.height(rect.height() * rect.scaleY());
-    rect.scaleX(1);
-    rect.scaleY(1);
-
-    if (sizeLabel.visible()) {
-      positionSizeLabelFor(rect);
-      transformer.moveToTop();
-      sizeLabel.moveToTop();
-      stage.batchDraw();
-    }
-  });
   world.add(rect);
   lastRect = rect;
   stage.batchDraw();
