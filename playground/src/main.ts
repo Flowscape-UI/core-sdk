@@ -1,12 +1,8 @@
-import {
-  Camera,
-  Scene,
-  GridPlugin,
-  LogoPlugin,
-  CameraHotkeysPlugin,
-} from '@flowscape-ui/core-sdk';
+import { Camera, Scene, GridPlugin, LogoPlugin, CameraHotkeysPlugin } from '@flowscape-ui/core-sdk';
 import { FlowscapeRect } from '../../src/FlowscapeRect';
 import Konva from 'konva';
+import { FlowscapeLabel } from '../../src/FlowscapeLabel';
+import { EdgeTransformer } from '../../src/EdgeTransformer';
 
 const container = document.getElementById('container') as HTMLDivElement;
 
@@ -38,7 +34,6 @@ const logo = new LogoPlugin({
   opacity: 0.5,
 });
 
-// Attach hotkeys via plugin
 const hotkeysPlugin = new CameraHotkeysPlugin(camera, {
   preventDefault: true,
   ignoreEditableTargets: true,
@@ -71,14 +66,17 @@ toolbar?.appendChild(select);
 let lastRect: Konva.Rect | null = null;
 
 // --- Selection and label (Konva-only) ---
-// Single transformer reused for any selected node
-const transformer = new Konva.Transformer({
+const transformer = new EdgeTransformer({
   rotateEnabled: true,
   enabledAnchors: [
     'top-left',
     'top-right',
     'bottom-left',
     'bottom-right',
+    'middle-left',
+    'middle-right',
+    'top-center',
+    'bottom-center',
   ],
   anchorSize: 8,
   borderStroke: '#22a6f2',
@@ -88,49 +86,24 @@ const transformer = new Konva.Transformer({
   // freeTransform: false,
   // ignoreStroke: true,
 });
-// Add transformer to world so it is affected by camera/world transforms
 world.add(transformer);
 
-// Label that appears with selection, shows size "W × H"
-const sizeLabel = new Konva.Label({ visible: false });
-const sizeLabelTag = new Konva.Tag({
-  fill: '#1677ff',
-  cornerRadius: 3,
-  opacity: 0.9,
-});
-const sizeLabelText = new Konva.Text({
-  text: '',
-  fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial',
-  fontSize: 12,
-  fill: 'white',
-  padding: 4,
-  align: 'center',
-});
-sizeLabel.add(sizeLabelTag);
-sizeLabel.add(sizeLabelText);
+const sizeLabel = new FlowscapeLabel();
 world.add(sizeLabel);
 
 function positionSizeLabelFor(node: Konva.Node): void {
-  // Get bounds in coordinates relative to world, so placing label inside world works directly
-  const bounds = node.getClientRect({ skipShadow: true, skipStroke: false, relativeTo: world });
-  const cx = bounds.x + bounds.width / 2;
-  const bottom = bounds.y + bounds.height;
-  sizeLabelText.text(`${Math.round(bounds.width)} × ${Math.round(bounds.height)}`);
-  // center label horizontally on the bottom
-  sizeLabel.x(cx - sizeLabel.width() / 2);
-  sizeLabel.y(bottom + 6);
+  sizeLabel.updateFor(node, world);
 }
 
 function showSelection(node: Konva.Node | null): void {
   if (!node) {
     transformer.nodes([]);
-    sizeLabel.visible(false);
+    sizeLabel.detach();
     stage.batchDraw();
     return;
   }
   transformer.nodes([node as Konva.Node]);
-  positionSizeLabelFor(node);
-  sizeLabel.visible(true);
+  sizeLabel.attach(node, world);
   // always draw selection frame and label on top
   transformer.moveToTop();
   sizeLabel.moveToTop();
@@ -189,7 +162,7 @@ document.getElementById('clear')?.addEventListener('click', () => {
   // Remove only rectangles; keep transformer and label
   world.getChildren((n) => n instanceof Konva.Rect).forEach((n) => n.destroy());
   transformer.nodes([]);
-  sizeLabel.visible(false);
+  sizeLabel.hide();
   stage.batchDraw();
 });
 
