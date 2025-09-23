@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import { NodeManager } from '../managers/NodeManager';
+import { EventBus } from '../utils/EventBus';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -22,6 +23,7 @@ export class CoreEngine {
   public backgroundColor: string;
   public draggable: boolean;
   public nodes: NodeManager;
+  private _eventBus: EventBus;
 
   constructor(options: CoreEngineOptions) {
     this.container = options.container;
@@ -46,8 +48,13 @@ export class CoreEngine {
     this._backgroundLayer.add(this._backgroundRect);
     this._stage.add(this._backgroundLayer);
     this._backgroundLayer.moveToBottom();
-    this.nodes = new NodeManager(this._stage);
+    this._eventBus = new EventBus();
+    this.nodes = new NodeManager(this._stage, this._eventBus);
     this._initInfiniteBackground();
+  }
+
+  public get eventBus(): EventBus {
+    return this._eventBus;
   }
 
   public setSize({ width, height }: { width: number; height: number }) {

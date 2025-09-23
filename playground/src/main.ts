@@ -5,6 +5,12 @@ const core = new CoreEngine({
   draggable: true,
 });
 
+const onNodeRemoved = (node: unknown) => {
+  console.log('node removed', node);
+};
+
+core.eventBus.on('node:removed', onNodeRemoved);
+
 const rect = core.nodes.addShape({
   x: 500,
   y: 250,
@@ -23,8 +29,6 @@ const rect2 = core.nodes.addShape({
   strokeWidth: 4,
 });
 
-core.setSize({ width: 1000, height: 1000 });
-
 rect2.setCornerRadius(20);
 
 rect.setFill('orange');
@@ -35,4 +39,9 @@ rect2.setPosition({ x: 1500, y: 550 });
 
 setTimeout(() => {
   core.nodes.remove(rect);
+  core.eventBus.off('node:removed', onNodeRemoved);
 }, 5000);
+
+setTimeout(() => {
+  core.nodes.remove(rect2);
+}, 8000);
