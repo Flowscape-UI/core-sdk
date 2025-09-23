@@ -24,19 +24,47 @@ export class ShapeNode extends BaseNode<Konva.Rect> {
     super(shape, options);
   }
 
-  public setFill(color: string) {
+  // ===== Chainable setters =====
+  public setFill(color: string): this {
     this.konvaNode.fill(color);
+    return this;
   }
 
-  public setStroke(color: string) {
+  public setStroke(color: string): this {
     this.konvaNode.stroke(color);
+    return this;
   }
 
-  public setStrokeWidth(width: number) {
+  public setStrokeWidth(width: number): this {
     this.konvaNode.strokeWidth(width);
+    return this;
   }
 
-  public setCornerRadius(radius: number) {
+  public setCornerRadius(radius: number): this {
     this.konvaNode.cornerRadius(radius);
+    return this;
+  }
+
+  public setSize({ width, height }: { width: number; height: number }): this {
+    this.konvaNode.size({ width, height });
+    return this;
+  }
+
+  // ===== Getters with typings =====
+  public getFill(): string | undefined {
+    // Konva typings allow string | undefined depending on state
+    return this.konvaNode.fill() as string | undefined;
+  }
+
+  public getStroke(): string | undefined {
+    return this.konvaNode.stroke() as string | undefined;
+  }
+
+  public getStrokeWidth(): number {
+    return this.konvaNode.strokeWidth();
+  }
+
+  public getCornerRadius(): number {
+    return this.konvaNode.cornerRadius() as number;
   }
 }

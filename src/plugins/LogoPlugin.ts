@@ -45,13 +45,13 @@ export class LogoPlugin extends Plugin {
     this._layer.add(this._image);
     this.setSource(this._src);
 
-    this._core.stage.on('resize.logo', () => {
+    // Namespace `.logo` для простого снятия всех обработчиков
+    // Отслеживаем именно изменения свойств стадии, чтобы реагировать на любой источник панорамирования/зума
+    const stage = this._core.stage;
+    stage.on('resize.logo', () => {
       this._layout();
     });
-    this._core.stage.on('dragmove.logo', () => {
-      this._layout();
-    });
-    this._core.stage.on('wheel.logo', () => {
+    stage.on('xChange.logo yChange.logo scaleXChange.logo scaleYChange.logo', () => {
       this._layout();
     });
 
@@ -73,7 +73,7 @@ export class LogoPlugin extends Plugin {
     }
   }
 
-  public setSize(width: number, height: number): void {
+  public setSize({ width, height }: { width: number; height: number }): void {
     this._width = width;
     this._height = height;
     this._layout();

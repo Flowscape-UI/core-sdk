@@ -21,10 +21,6 @@ export class NodeManager {
     return this._layer;
   }
 
-  public get nodes(): Map<string, BaseNode> {
-    return this._nodes;
-  }
-
   public get stage(): Konva.Stage {
     return this._stage;
   }
@@ -52,7 +48,7 @@ export class NodeManager {
     return this._nodes.get(id);
   }
 
-  public getAll(): BaseNode[] {
+  public list(): BaseNode[] {
     return Array.from(this._nodes.values());
   }
 }

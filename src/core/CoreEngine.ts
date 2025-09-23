@@ -14,6 +14,8 @@ export interface CoreEngineOptions {
   backgroundColor?: string;
   draggable?: boolean;
   plugins?: Plugin[];
+  minScale?: number;
+  maxScale?: number;
 }
 
 export class CoreEngine {
@@ -24,6 +26,8 @@ export class CoreEngine {
   private _autoResize: boolean;
   private _backgroundColor: string;
   private _draggable: boolean;
+  private _minScale: number;
+  private _maxScale: number;
 
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
@@ -37,6 +41,8 @@ export class CoreEngine {
     this._autoResize = options.autoResize ?? true;
     this._backgroundColor = options.backgroundColor ?? '#1e1e1e';
     this._draggable = options.draggable ?? true;
+    this._minScale = options.minScale ?? 0.2;
+    this._maxScale = options.maxScale ?? 5;
     this._stage = new Konva.Stage({
       container: this.container,
       width: this._autoResize ? this.container.offsetWidth : this._initialWidth,
@@ -55,6 +61,8 @@ export class CoreEngine {
       eventBus: this._eventBus,
       initialScale: 1,
       draggable: this._draggable,
+      minScale: this._minScale,
+      maxScale: this._maxScale,
     });
     this.plugins = new Plugins(this, options.plugins ?? []);
   }
@@ -85,6 +93,14 @@ export class CoreEngine {
 
   public get initialHeight(): number {
     return this._initialHeight;
+  }
+
+  public get minScale(): number {
+    return this._minScale;
+  }
+
+  public get maxScale(): number {
+    return this._maxScale;
   }
 
   public setSize({ width, height }: { width: number; height: number }) {

@@ -9,6 +9,8 @@ export interface CameraManagerOptions {
   minScale?: number;
   maxScale?: number;
   draggable?: boolean;
+  zoomStep?: number;
+  panStep?: number;
 }
 
 export class CameraManager {
@@ -17,6 +19,8 @@ export class CameraManager {
   private _scale: number;
   private _minScale: number;
   private _maxScale: number;
+  private _zoomStep: number;
+  private _panStep: number;
 
   constructor(options: CameraManagerOptions) {
     this._stage = options.stage;
@@ -24,6 +28,8 @@ export class CameraManager {
     this._scale = options.initialScale ?? 1;
     this._minScale = options.minScale ?? 0.2;
     this._maxScale = options.maxScale ?? 5;
+    this._zoomStep = options.zoomStep ?? 1.05;
+    this._panStep = options.panStep ?? 40;
     this._stage.draggable(options.draggable);
     this._initWheelZoom();
   }
@@ -34,7 +40,7 @@ export class CameraManager {
       const oldScale = this._stage.scaleX();
       const pointer = this._stage.getPointerPosition();
       if (!pointer) return;
-      const scaleBy = 1.05;
+      const scaleBy = this._zoomStep;
       const direction = e.evt.deltaY > 0 ? -1 : 1;
       let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
       newScale = Math.max(this._minScale, Math.min(this._maxScale, newScale));
@@ -54,6 +60,14 @@ export class CameraManager {
     });
   }
 
+  public get zoomStep(): number {
+    return this._zoomStep;
+  }
+
+  public get panStep(): number {
+    return this._panStep;
+  }
+
   public setZoom(zoom: number) {
     this._scale = Math.max(this._minScale, Math.min(this._maxScale, zoom));
     this._stage.scale({ x: this._scale, y: this._scale });
@@ -61,12 +75,20 @@ export class CameraManager {
     this._eventBus.emit('camera:setZoom', { scale: this._scale });
   }
 
-  public zoomIn(step = 0.1) {
-    this.setZoom(this._scale + step);
+  public zoomIn(step?: number) {
+    if (step === undefined) {
+      this.setZoom(this._scale * this._zoomStep);
+    } else {
+      this.setZoom(this._scale + step);
+    }
   }
 
-  public zoomOut(step = 0.1) {
-    this.setZoom(this._scale - step);
+  public zoomOut(step?: number) {
+    if (step === undefined) {
+      this.setZoom(this._scale / this._zoomStep);
+    } else {
+      this.setZoom(this._scale - step);
+    }
   }
 
   public reset() {
@@ -78,5 +100,19 @@ export class CameraManager {
 
   public setDraggable(enabled: boolean) {
     this._stage.draggable(enabled);
+  }
+
+  public setZoomStep(step: number) {
+    if (step && step > 0) {
+      this._zoomStep = step;
+      this._eventBus.emit('camera:zoomStep', { zoomStep: step });
+    }
+  }
+
+  public setPanStep(step: number) {
+    if (typeof step === 'number' && isFinite(step)) {
+      this._panStep = step;
+      this._eventBus.emit('camera:panStep', { panStep: step });
+    }
   }
 }
