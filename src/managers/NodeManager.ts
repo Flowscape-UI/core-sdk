@@ -17,7 +17,23 @@ export class NodeManager {
     this._eventBus = eventBus;
   }
 
-  addShape(options: ShapeNodeOptions): ShapeNode {
+  public get layer(): Konva.Layer {
+    return this._layer;
+  }
+
+  public get nodes(): Map<string, BaseNode> {
+    return this._nodes;
+  }
+
+  public get stage(): Konva.Stage {
+    return this._stage;
+  }
+
+  public get eventBus(): EventBus {
+    return this._eventBus;
+  }
+
+  public addShape(options: ShapeNodeOptions): ShapeNode {
     const shape = new ShapeNode(options);
     this._layer.add(shape.getNode());
     this._nodes.set(shape.id, shape);
@@ -25,18 +41,18 @@ export class NodeManager {
     return shape;
   }
 
-  remove(node: BaseNode) {
+  public remove(node: BaseNode) {
     this._eventBus.emit('node:removed', node);
     node.remove();
     this._nodes.delete(node.id);
     this._layer.batchDraw();
   }
 
-  findById(id: string): BaseNode | undefined {
+  public findById(id: string): BaseNode | undefined {
     return this._nodes.get(id);
   }
 
-  getAll(): BaseNode[] {
+  public getAll(): BaseNode[] {
     return Array.from(this._nodes.values());
   }
 }

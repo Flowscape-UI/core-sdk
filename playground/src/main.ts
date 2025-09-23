@@ -2,7 +2,6 @@ import { CoreEngine } from '@flowscape-ui/core-sdk';
 
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
-  draggable: true,
 });
 
 const onNodeRemoved = (node: unknown) => {
@@ -41,7 +40,3 @@ setTimeout(() => {
   core.nodes.remove(rect);
   core.eventBus.off('node:removed', onNodeRemoved);
 }, 5000);
-
-setTimeout(() => {
-  core.nodes.remove(rect2);
-}, 8000);

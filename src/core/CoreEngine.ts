@@ -2,6 +2,7 @@ import Konva from 'konva';
 
 import { NodeManager } from '../managers/NodeManager';
 import { EventBus } from '../utils/EventBus';
+import { CameraManager } from '../managers/CameraManager';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -14,71 +15,83 @@ export interface CoreEngineOptions {
 
 export class CoreEngine {
   private _stage: Konva.Stage;
-  private _backgroundLayer: Konva.Layer;
-  private _backgroundRect: Konva.Rect;
-  public container: HTMLDivElement;
-  public initialWidth: number;
-  public initialHeight: number;
-  public autoResize: boolean;
-  public backgroundColor: string;
-  public draggable: boolean;
-  public nodes: NodeManager;
   private _eventBus: EventBus;
+  private _initialWidth: number;
+  private _initialHeight: number;
+  private _autoResize: boolean;
+  private _backgroundColor: string;
+  private _draggable: boolean;
+
+  public readonly container: HTMLDivElement;
+  public readonly nodes: NodeManager;
+  public readonly camera: CameraManager;
 
   constructor(options: CoreEngineOptions) {
     this.container = options.container;
-    this.initialWidth = options.width ?? 800;
-    this.initialHeight = options.height ?? 800;
-    this.autoResize = options.autoResize ?? true;
-    this.backgroundColor = options.backgroundColor ?? '#1e1e1e';
-    this.draggable = options.draggable ?? false;
+    this._initialWidth = options.width ?? 800;
+    this._initialHeight = options.height ?? 800;
+    this._autoResize = options.autoResize ?? true;
+    this._backgroundColor = options.backgroundColor ?? '#1e1e1e';
+    this._draggable = options.draggable ?? true;
     this._stage = new Konva.Stage({
       container: this.container,
-      width: this.autoResize ? this.container.offsetWidth : this.initialWidth,
-      height: this.autoResize ? this.container.offsetHeight : this.initialHeight,
-      draggable: this.draggable,
+      width: this._autoResize ? this.container.offsetWidth : this._initialWidth,
+      height: this._autoResize ? this.container.offsetHeight : this._initialHeight,
+      draggable: this._draggable,
     });
-
-    this._backgroundLayer = new Konva.Layer({ listening: false });
-    this._backgroundRect = new Konva.Rect({
-      width: this._stage.width(),
-      height: this._stage.height(),
-      fill: this.backgroundColor,
-    });
-    this._backgroundLayer.add(this._backgroundRect);
-    this._stage.add(this._backgroundLayer);
-    this._backgroundLayer.moveToBottom();
+    if (!this._autoResize) {
+      this.container.style.width = `${String(this._initialWidth)}px`;
+      this.container.style.height = `${String(this._initialHeight)}px`;
+    }
+    this.container.style.background = this._backgroundColor;
     this._eventBus = new EventBus();
     this.nodes = new NodeManager(this._stage, this._eventBus);
-    this._initInfiniteBackground();
+    this.camera = new CameraManager({
+      stage: this._stage,
+      eventBus: this._eventBus,
+      initialScale: 1,
+      draggable: this._draggable,
+    });
   }
 
   public get eventBus(): EventBus {
     return this._eventBus;
   }
 
+  public get stage(): Konva.Stage {
+    return this._stage;
+  }
+
+  public get draggable(): boolean {
+    return this._draggable;
+  }
+
+  public get autoResize(): boolean {
+    return this._autoResize;
+  }
+
+  public get backgroundColor(): string {
+    return this._backgroundColor;
+  }
+
+  public get initialWidth(): number {
+    return this._initialWidth;
+  }
+
+  public get initialHeight(): number {
+    return this._initialHeight;
+  }
+
   public setSize({ width, height }: { width: number; height: number }) {
     this._stage.size({ width, height });
-    this._updateBackgroundRect();
   }
 
   public setBackgroundColor(color: string) {
-    this._backgroundRect.fill(color);
-    this._backgroundLayer.batchDraw();
+    this.container.style.background = color;
   }
 
   public setDraggable(draggable: boolean) {
     this._stage.draggable(draggable);
-  }
-
-  private _updateBackgroundRect() {
-    this._backgroundRect.size({ width: this._stage.width(), height: this._stage.height() });
-    this._backgroundLayer.batchDraw();
-  }
-
-  private _initInfiniteBackground() {
-    this._stage.on('dragmove', () => {
-      this._backgroundRect.absolutePosition({ x: 0, y: 0 });
-    });
+    this._draggable = draggable;
   }
 }

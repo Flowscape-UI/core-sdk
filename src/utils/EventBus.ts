@@ -7,6 +7,10 @@ export class EventBus {
     this._listeners = new Map<string, EventCallback[]>();
   }
 
+  public get listeners(): Map<string, EventCallback[]> {
+    return this._listeners;
+  }
+
   public on(event: string, callback: EventCallback) {
     if (!this._listeners.has(event)) {
       this._listeners.set(event, []);
