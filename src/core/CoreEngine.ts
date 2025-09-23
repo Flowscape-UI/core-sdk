@@ -3,6 +3,8 @@ import Konva from 'konva';
 import { NodeManager } from '../managers/NodeManager';
 import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
+import { Plugins } from '../plugins/Plugins';
+import { Plugin } from '../plugins/Plugin';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -11,6 +13,7 @@ export interface CoreEngineOptions {
   autoResize?: boolean;
   backgroundColor?: string;
   draggable?: boolean;
+  plugins?: Plugin[];
 }
 
 export class CoreEngine {
@@ -25,6 +28,7 @@ export class CoreEngine {
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
   public readonly camera: CameraManager;
+  public readonly plugins: Plugins;
 
   constructor(options: CoreEngineOptions) {
     this.container = options.container;
@@ -52,6 +56,7 @@ export class CoreEngine {
       initialScale: 1,
       draggable: this._draggable,
     });
+    this.plugins = new Plugins(this, options.plugins ?? []);
   }
 
   public get eventBus(): EventBus {
@@ -84,6 +89,8 @@ export class CoreEngine {
 
   public setSize({ width, height }: { width: number; height: number }) {
     this._stage.size({ width, height });
+    // Notify plugins that rely on stage resize events
+    this._stage.fire('resize');
   }
 
   public setBackgroundColor(color: string) {

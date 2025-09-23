@@ -1,7 +1,16 @@
-import { CoreEngine } from '@flowscape-ui/core-sdk';
+import { CoreEngine, LogoPlugin } from '@flowscape-ui/core-sdk';
+import logoUrl from './images/logo.png';
+
+const logoPlugin = new LogoPlugin({
+  src: logoUrl,
+  width: 330,
+  height: 330,
+  opacity: 0.5,
+});
 
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
+  plugins: [logoPlugin],
 });
 
 const onNodeRemoved = (node: unknown) => {
