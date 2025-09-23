@@ -3,14 +3,15 @@ import Konva from 'konva';
 import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { EventBus } from '../utils/EventBus';
+import type { CoreEvents } from '../types/events';
 
 export class NodeManager {
   private _layer: Konva.Layer;
   private _nodes = new Map<string, BaseNode>();
   private _stage: Konva.Stage;
-  private _eventBus: EventBus;
+  private _eventBus: EventBus<CoreEvents>;
 
-  constructor(stage: Konva.Stage, eventBus: EventBus) {
+  constructor(stage: Konva.Stage, eventBus: EventBus<CoreEvents>) {
     this._layer = new Konva.Layer();
     this._stage = stage;
     this._stage.add(this._layer);
@@ -25,7 +26,7 @@ export class NodeManager {
     return this._stage;
   }
 
-  public get eventBus(): EventBus {
+  public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
   }
 

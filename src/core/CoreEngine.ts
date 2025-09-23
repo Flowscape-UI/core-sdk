@@ -5,6 +5,7 @@ import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
 import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
+import type { CoreEvents } from '../types/events';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -20,7 +21,7 @@ export interface CoreEngineOptions {
 
 export class CoreEngine {
   private _stage: Konva.Stage;
-  private _eventBus: EventBus;
+  private _eventBus: EventBus<CoreEvents>;
   private _initialWidth: number;
   private _initialHeight: number;
   private _autoResize: boolean;
@@ -54,7 +55,7 @@ export class CoreEngine {
       this.container.style.height = `${String(this._initialHeight)}px`;
     }
     this.container.style.background = this._backgroundColor;
-    this._eventBus = new EventBus();
+    this._eventBus = new EventBus<CoreEvents>();
     this.nodes = new NodeManager(this._stage, this._eventBus);
     this.camera = new CameraManager({
       stage: this._stage,
@@ -67,7 +68,7 @@ export class CoreEngine {
     this.plugins = new Plugins(this, options.plugins ?? []);
   }
 
-  public get eventBus(): EventBus {
+  public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
   }
 

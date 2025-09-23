@@ -1,10 +1,11 @@
 import Konva from 'konva';
 
 import { EventBus } from '../utils/EventBus';
+import type { CoreEvents } from '../types/events';
 
 export interface CameraManagerOptions {
   stage: Konva.Stage;
-  eventBus: EventBus;
+  eventBus: EventBus<CoreEvents>;
   initialScale?: number;
   minScale?: number;
   maxScale?: number;
@@ -15,7 +16,7 @@ export interface CameraManagerOptions {
 
 export class CameraManager {
   private _stage: Konva.Stage;
-  private _eventBus: EventBus;
+  private _eventBus: EventBus<CoreEvents>;
   private _scale: number;
   private _minScale: number;
   private _maxScale: number;
