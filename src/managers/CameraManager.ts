@@ -1,7 +1,7 @@
 import Konva from 'konva';
 
 import { EventBus } from '../utils/EventBus';
-import type { CoreEvents } from '../types/events';
+import type { CoreEvents } from '../types/core.events.interface';
 
 export interface CameraManagerOptions {
   stage: Konva.Stage;

@@ -3,7 +3,7 @@ import Konva from 'konva';
 import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { EventBus } from '../utils/EventBus';
-import type { CoreEvents } from '../types/events';
+import type { CoreEvents } from '../types/core.events.interface';
 
 export class NodeManager {
   private _layer: Konva.Layer;

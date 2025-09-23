@@ -5,7 +5,7 @@ import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
 import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
-import type { CoreEvents } from '../types/events';
+import type { CoreEvents } from '../types/core.events.interface';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
