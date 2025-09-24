@@ -15,10 +15,10 @@ export abstract class BaseNode<T extends Konva.Node = Konva.Node> {
   constructor(node: T, options: BaseNodeOptions = {}) {
     this.konvaNode = node;
     this.id = options.id ?? `node_${String(Date.now())}_${String(Math.random())}`;
-    this.konvaNode.x(options.x);
-    this.konvaNode.y(options.y);
-    this.konvaNode.width(options.width);
-    this.konvaNode.height(options.height);
+    if (options.x) this.konvaNode.x(options.x);
+    if (options.y) this.konvaNode.y(options.y);
+    if (options.width) this.konvaNode.width(options.width);
+    if (options.height) this.konvaNode.height(options.height);
   }
 
   public getNode(): T {

@@ -5,6 +5,15 @@ import { BaseNode } from '../nodes/BaseNode';
 import { EventBus } from '../utils/EventBus';
 import type { CoreEvents } from '../types/core.events.interface';
 import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
+import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
+import { CircleNode, type CircleNodeOptions } from '../nodes/CircleNode';
+import { EllipseNode, type EllipseNodeOptions } from '../nodes/EllipseNode';
+import { ArcNode, type ArcNodeOptions } from '../nodes/ArcNode';
+import { ArrowNode, type ArrowNodeOptions } from '../nodes/ArrowNode';
+import { RegularPolygonNode, type RegularPolygonNodeOptions } from '../nodes/RegularPolygonNode';
+import { StarNode, type StarNodeOptions } from '../nodes/StarNode';
+import { RingNode, type RingNodeOptions } from '../nodes/RingNode';
+import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
 
 export class NodeManager {
   private _layer: Konva.Layer;
@@ -45,6 +54,78 @@ export class NodeManager {
     this._nodes.set(text.id, text);
     this._layer.batchDraw();
     return text;
+  }
+
+  public addImage(options: ImageNodeOptions): ImageNode {
+    const image = new ImageNode(options);
+    this._layer.add(image.getNode());
+    this._nodes.set(image.id, image);
+    this._layer.batchDraw();
+    return image;
+  }
+
+  public addCircle(options: CircleNodeOptions): CircleNode {
+    const circle = new CircleNode(options);
+    this._layer.add(circle.getNode());
+    this._nodes.set(circle.id, circle);
+    this._layer.batchDraw();
+    return circle;
+  }
+
+  public addEllipse(options: EllipseNodeOptions): EllipseNode {
+    const ellipse = new EllipseNode(options);
+    this._layer.add(ellipse.getNode());
+    this._nodes.set(ellipse.id, ellipse);
+    this._layer.batchDraw();
+    return ellipse;
+  }
+
+  public addArc(options: ArcNodeOptions): ArcNode {
+    const arc = new ArcNode(options);
+    this._layer.add(arc.getNode());
+    this._nodes.set(arc.id, arc);
+    this._layer.batchDraw();
+    return arc;
+  }
+
+  public addStar(options: StarNodeOptions): StarNode {
+    const star = new StarNode(options);
+    this._layer.add(star.getNode());
+    this._nodes.set(star.id, star);
+    this._layer.batchDraw();
+    return star;
+  }
+
+  public addArrow(options: ArrowNodeOptions): ArrowNode {
+    const arrow = new ArrowNode(options);
+    this._layer.add(arrow.getNode());
+    this._nodes.set(arrow.id, arrow);
+    this._layer.batchDraw();
+    return arrow;
+  }
+
+  public addRing(options: RingNodeOptions): RingNode {
+    const ring = new RingNode(options);
+    this._layer.add(ring.getNode());
+    this._nodes.set(ring.id, ring);
+    this._layer.batchDraw();
+    return ring;
+  }
+
+  public addRegularPolygon(options: RegularPolygonNodeOptions): RegularPolygonNode {
+    const poly = new RegularPolygonNode(options);
+    this._layer.add(poly.getNode());
+    this._nodes.set(poly.id, poly);
+    this._layer.batchDraw();
+    return poly;
+  }
+
+  public addGroup(options: GroupNodeOptions): GroupNode {
+    const group = new GroupNode(options);
+    this._layer.add(group.getNode());
+    this._nodes.set(group.id, group);
+    this._layer.batchDraw();
+    return group;
   }
 
   public remove(node: BaseNode) {

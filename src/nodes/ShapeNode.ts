@@ -6,7 +6,7 @@ export interface ShapeNodeOptions extends BaseNodeOptions {
   fill?: string;
   stroke?: string;
   strokeWidth?: number;
-  cornerRadius?: number;
+  cornerRadius?: number | number[];
 }
 
 export class ShapeNode extends BaseNode<Konva.Rect> {
@@ -40,7 +40,7 @@ export class ShapeNode extends BaseNode<Konva.Rect> {
     return this;
   }
 
-  public setCornerRadius(radius: number): this {
+  public setCornerRadius(radius: number | number[]): this {
     this.konvaNode.cornerRadius(radius);
     return this;
   }

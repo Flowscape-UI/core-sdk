@@ -64,6 +64,57 @@ export class SelectionPlugin extends Plugin {
     const stage = core.stage;
     stage.on('mousedown.selection', this._onMouseDown);
 
+    stage.on('click.selection', (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!this._core) return;
+      const stage = this._core.stage;
+      const layer = this._core.nodes.layer;
+
+      // Только ЛКМ
+      if (e.evt.button !== 0) return;
+
+      // Клик по пустому месту — снимаем выделение (если включено)
+      if (e.target === stage || e.target.getLayer() !== layer) {
+        if (this._options.deselectOnEmptyClick) this._clearSelection();
+        return;
+      }
+
+      // Обычное выделение ноды (для группы — выберется группа)
+      const target = e.target;
+      if (!this._options.selectablePredicate(target)) return;
+
+      const baseNode = this._findBaseNodeByTarget(target);
+      if (!baseNode) return;
+
+      this._select(baseNode);
+      this._core.stage.batchDraw();
+    });
+
+    // Двойной клик: если сейчас выделена группа и клик по её ребёнку — выделяем ровно ребёнка
+    stage.on('dblclick.selection', (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!this._core) return;
+      const layer = this._core.nodes.layer;
+      if (e.target === stage || e.target.getLayer() !== layer) return;
+
+      if (e.evt.button !== 0) return;
+
+      if (!this._selected) return;
+
+      const selectedNode = this._selected.getNode();
+      if (
+        selectedNode instanceof Konva.Group &&
+        typeof selectedNode.isAncestorOf === 'function' &&
+        selectedNode.isAncestorOf(e.target)
+      ) {
+        const exact = this._core.nodes.list().find((n) => n.getNode() === e.target);
+        if (!exact) return;
+        e.cancelBubble = true; // не даём всплыть до логики выбора группы
+        this._select(exact);
+        const node = exact.getNode();
+        if (typeof node.draggable === 'function') node.draggable(false);
+        this._core.stage.batchDraw();
+      }
+    });
+
     // Реакция на удаление ноды — снимаем выделение, если выделенная нода была удалена
     core.eventBus.on('node:removed', this._onNodeRemoved);
   }
@@ -98,8 +149,38 @@ export class SelectionPlugin extends Plugin {
     const baseNode = this._findBaseNodeByTarget(target);
     if (!baseNode) return;
 
+    // this._select(baseNode); // uncomment if needed
+
     // Стартуем перетаскивание сразу, без визуального выделения до окончания drag
     const konvaNode = baseNode.getNode();
+
+    // Порог для «намеренного» движения, чтобы не мешать dblclick
+    const threshold = 3;
+    const startX = e.evt.clientX;
+    const startY = e.evt.clientY;
+    let startedByMove = false;
+
+    const onMove = (ev: Konva.KonvaEventObject<MouseEvent>) => {
+      if (startedByMove) return;
+      const dx = Math.abs(ev.evt.clientX - startX);
+      const dy = Math.abs(ev.evt.clientY - startY);
+      if (dx > threshold || dy > threshold) {
+        startedByMove = true;
+        if (typeof konvaNode.startDrag === 'function') {
+          konvaNode.startDrag();
+        }
+        this._core?.stage.off('mousemove.selection-once');
+        this._core?.stage.off('mouseup.selection-once');
+      }
+    };
+
+    const onUp = () => {
+      this._core?.stage.off('mousemove.selection-once');
+      this._core?.stage.off('mouseup.selection-once');
+    };
+
+    this._core.stage.on('mousemove.selection-once', onMove);
+    this._core.stage.on('mouseup.selection-once', onUp);
 
     // Если уже идёт перетаскивание — ничего не делаем
     if (typeof konvaNode.isDragging === 'function' && konvaNode.isDragging()) {
@@ -133,11 +214,6 @@ export class SelectionPlugin extends Plugin {
       // После завершения перетаскивания — вернуть визуальное выделение
       this._select(baseNode);
     });
-
-    // Немедленно запускаем перетаскивание
-    if (typeof konvaNode.startDrag === 'function') {
-      konvaNode.startDrag();
-    }
   };
 
   private _select(node: BaseNode) {
@@ -235,10 +311,16 @@ export class SelectionPlugin extends Plugin {
   private _findBaseNodeByTarget(target: Konva.Node): BaseNode | null {
     if (!this._core) return null;
     // Ищем соответствующую BaseNode по ссылке на внутренний konvaNode
+    // 1) Сначала ищем родителя: если нода-обёртка (например, Group) является предком кликаемого target — выбираем её
     for (const n of this._core.nodes.list()) {
-      if (n.getNode() === target || target.isAncestorOf(n.getNode() as unknown as Konva.Node)) {
+      const node = n.getNode() as unknown as Konva.Node;
+      if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(target)) {
         return n;
       }
+    }
+    // 2) Если предок не найден — проверяем точное совпадение
+    for (const n of this._core.nodes.list()) {
+      if (n.getNode() === target) return n;
     }
     return null;
   }
