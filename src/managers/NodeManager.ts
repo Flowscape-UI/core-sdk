@@ -4,6 +4,7 @@ import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { EventBus } from '../utils/EventBus';
 import type { CoreEvents } from '../types/core.events.interface';
+import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
 
 export class NodeManager {
   private _layer: Konva.Layer;
@@ -36,6 +37,14 @@ export class NodeManager {
     this._nodes.set(shape.id, shape);
     this._layer.batchDraw();
     return shape;
+  }
+
+  public addText(options: TextNodeOptions): TextNode {
+    const text = new TextNode(options);
+    this._layer.add(text.getNode());
+    this._nodes.set(text.id, text);
+    this._layer.batchDraw();
+    return text;
   }
 
   public remove(node: BaseNode) {

@@ -13,3 +13,7 @@ export { LogoPlugin } from './plugins/LogoPlugin';
 export { Plugins } from './plugins/Plugins';
 
 export { CameraHotkeysPlugin } from './plugins/CameraHotkeysPlugin';
+
+export { SelectionPlugin } from './plugins/SelectionPlugin';
+
+export { TextNode } from './nodes/TextNode';
