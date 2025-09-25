@@ -141,7 +141,6 @@ const rect = core.nodes.addShape({
   fill: 'skyblue',
   stroke: 'red',
   strokeWidth: 4,
-  cornerRadius: [20, 40, 20, 40],
 });
 
 core.nodes.addArc({
@@ -192,13 +191,10 @@ core.nodes.addRing({
 
 const rect2 = core.nodes.addShape({
   width: 200,
-  height: 120,
+  height: 200,
   fill: 'skyblue',
   stroke: 'red',
-  strokeWidth: 4,
 });
-
-rect2.setCornerRadius(20);
 
 rect.setFill('orange');
 
