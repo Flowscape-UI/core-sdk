@@ -53,8 +53,69 @@ const img = core.nodes.addImage({
   src: logoUrl,
 });
 
+core.nodes.addImage({
+  x: 500,
+  y: 200,
+  src: logoUrl,
+});
+
 core.nodes.addEllipse({
   x: 300,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+
+core.nodes.addEllipse({
+  x: 500,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+core.nodes.addEllipse({
+  x: 400,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+core.nodes.addEllipse({
+  x: 300,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+core.nodes.addEllipse({
+  x: 200,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+core.nodes.addEllipse({
+  x: 150,
+  y: 150,
+  radiusX: 120,
+  radiusY: 60,
+  fill: '#66ccff',
+  stroke: '#003366',
+  strokeWidth: 2,
+});
+core.nodes.addEllipse({
+  x: 100,
   y: 150,
   radiusX: 120,
   radiusY: 60,

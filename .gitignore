@@ -11,6 +11,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# todo
+todo.txt
+
 # bun lockfile
 bun.lockb
 bunlockb

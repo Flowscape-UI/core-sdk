@@ -323,6 +323,7 @@ export class SelectionPlugin extends Plugin {
   private _restyleSideAnchors() {
     if (!this._core || !this._selected || !this._transformer) return;
     const stage = this._core.stage;
+    const layer = this._core.nodes.layer;
     const node = this._selected.getNode();
 
     const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
@@ -336,38 +337,79 @@ export class SelectionPlugin extends Plugin {
     if (aTop) {
       const width = bbox.width;
       const height = thicknessPx;
-      aTop.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: 0 });
+      aTop.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: 0 });
     }
     if (aBottom) {
       const width = bbox.width;
       const height = thicknessPx;
-      aBottom.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: height });
+      aBottom.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: height });
     }
     if (aLeft) {
       const width = thicknessPx;
       const height = bbox.height;
-      aLeft.setAttrs({ opacity: 0, width, height, offsetX: 0, offsetY: height / 2 });
+      aLeft.setAttrs({ opacity: 1, width, height, offsetX: 0, offsetY: height / 2 });
     }
     if (aRight) {
       const width = thicknessPx;
       const height = bbox.height;
-      aRight.setAttrs({ opacity: 0, width, height, offsetX: width, offsetY: height / 2 });
+      aRight.setAttrs({ opacity: 1, width, height, offsetX: width, offsetY: height / 2 });
     }
+    // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации (coalescing в один кадр)
 
-    // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации
-    const update = () => {
-      this._restyleSideAnchors();
-      this._core?.nodes.layer.batchDraw();
+    // переменная нужна, если будет слишком много событий и чтобы они за раз в один кадр не попадали несколько одинаковых событий
+    let anchorsPending = false;
+    const scheduleUpdate = () => {
+      if (anchorsPending) return;
+      anchorsPending = true;
+      Konva.Util.requestAnimFrame(() => {
+        anchorsPending = false;
+        this._restyleSideAnchors();
+        this._core?.nodes.layer.batchDraw();
+      });
     };
-    stage.off('wheel.selection-anchors').on('wheel.selection-anchors', update);
-    stage.off('resize.selection-anchors').on('resize.selection-anchors', update);
-    node.off('dragmove.selection-anchors').on('dragmove.selection-anchors', update);
-    node.off('transform.selection-anchors').on('transform.selection-anchors', update);
-    // Важно: пересчитывать зоны во время corner-ресайза через Transformer
-    this._transformer.off('transform.selection-anchors').on('transform.selection-anchors', update);
-    this._transformer
-      .off('transformend.selection-anchors')
-      .on('transformend.selection-anchors', update);
+
+    // Единый сброс слушателей нашего namespace и компактные подписки
+    stage.off('.selection-anchors');
+    layer.off('.selection-anchors');
+    node.off('.selection-anchors');
+    this._transformer.off('.selection-anchors');
+
+    // Stage: колесо/resize + программные position/scale изменения (стрелки, +/-)
+    stage.on(
+      [
+        'wheel.selection-anchors',
+        'resize.selection-anchors',
+        'xChange.selection-anchors',
+        'yChange.selection-anchors',
+        'positionChange.selection-anchors',
+        'scaleXChange.selection-anchors',
+        'scaleYChange.selection-anchors',
+        'scaleChange.selection-anchors',
+      ].join(' '),
+      scheduleUpdate,
+    );
+
+    // Layer: если пан/зум реализован через слой
+    layer.on(
+      [
+        'xChange.selection-anchors',
+        'yChange.selection-anchors',
+        'positionChange.selection-anchors',
+        'scaleXChange.selection-anchors',
+        'scaleYChange.selection-anchors',
+        'scaleChange.selection-anchors',
+      ].join(' '),
+      scheduleUpdate,
+    );
+
+    // Node: движение и трансформации выбранной ноды
+    node.on('dragmove.selection-anchors transform.selection-anchors', scheduleUpdate);
+
+    // Transformer: изменение и завершение трансформации
+    this._transformer.on(
+      'transform.selection-anchors transformend.selection-anchors',
+      scheduleUpdate,
+    );
   }
 
   // ===================== Helpers =====================
