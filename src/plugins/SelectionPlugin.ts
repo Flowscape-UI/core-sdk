@@ -298,13 +298,76 @@ export class SelectionPlugin extends Plugin {
 
     const layer = this._core.nodes.layer;
     const transformer = new Konva.Transformer({
-      rotateEnabled: false,
-      // Можно расширить опциями плагина при необходимости
+      rotateEnabled: true,
+      rotationSnaps: [0, 90, 180, 270, 360],
+      enabledAnchors: [
+        'top-left',
+        'top-center',
+        'top-right',
+        'middle-right',
+        'bottom-right',
+        'bottom-center',
+        'bottom-left',
+        'middle-left',
+      ],
     });
     layer.add(transformer);
     transformer.nodes([this._selected.getNode() as unknown as Konva.Node]);
     this._transformer = transformer;
+    // Растянуть якоря на всю сторону и скрыть их визуально (оставив hit-area)
+    this._restyleSideAnchors();
     layer.batchDraw();
+  }
+
+  // Растянуть side-anchors (top/right/bottom/left) на всю сторону выбранной ноды
+  private _restyleSideAnchors() {
+    if (!this._core || !this._selected || !this._transformer) return;
+    const stage = this._core.stage;
+    const node = this._selected.getNode();
+
+    const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
+    const thicknessPx = 6; // толщина зоны захвата в экранных пикселях
+
+    const aTop = this._transformer.findOne<Konva.Rect>('.top-center');
+    const aRight = this._transformer.findOne<Konva.Rect>('.middle-right');
+    const aBottom = this._transformer.findOne<Konva.Rect>('.bottom-center');
+    const aLeft = this._transformer.findOne<Konva.Rect>('.middle-left');
+
+    if (aTop) {
+      const width = bbox.width;
+      const height = thicknessPx;
+      aTop.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: 0 });
+    }
+    if (aBottom) {
+      const width = bbox.width;
+      const height = thicknessPx;
+      aBottom.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: height });
+    }
+    if (aLeft) {
+      const width = thicknessPx;
+      const height = bbox.height;
+      aLeft.setAttrs({ opacity: 0, width, height, offsetX: 0, offsetY: height / 2 });
+    }
+    if (aRight) {
+      const width = thicknessPx;
+      const height = bbox.height;
+      aRight.setAttrs({ opacity: 0, width, height, offsetX: width, offsetY: height / 2 });
+    }
+
+    // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации
+    const update = () => {
+      this._restyleSideAnchors();
+      this._core?.nodes.layer.batchDraw();
+    };
+    stage.off('wheel.selection-anchors').on('wheel.selection-anchors', update);
+    stage.off('resize.selection-anchors').on('resize.selection-anchors', update);
+    node.off('dragmove.selection-anchors').on('dragmove.selection-anchors', update);
+    node.off('transform.selection-anchors').on('transform.selection-anchors', update);
+    // Важно: пересчитывать зоны во время corner-ресайза через Transformer
+    this._transformer.off('transform.selection-anchors').on('transform.selection-anchors', update);
+    this._transformer
+      .off('transformend.selection-anchors')
+      .on('transformend.selection-anchors', update);
   }
 
   // ===================== Helpers =====================
