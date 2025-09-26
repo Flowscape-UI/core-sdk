@@ -5,6 +5,9 @@ import type { BaseNode } from '../nodes/BaseNode';
 
 import { Plugin } from './Plugin';
 
+// Узел Konva с поддержкой draggable() геттер/сеттер
+type DraggableNode = Konva.Node & { draggable(value?: boolean): boolean };
+
 export interface SelectionPluginOptions {
   // Разрешить перетаскивание выбранной ноды
   dragEnabled?: boolean;
@@ -162,6 +165,49 @@ export class SelectionPlugin extends Plugin {
 
     // Клик по пустому месту
     if (e.target === stage || e.target.getLayer() !== layer) {
+      // Если есть выделенная нода и клик пришёл в её bbox (в т.ч. по "пустому" месту внутри рамки),
+      // не снимаем выделение, а запускаем перетаскивание этой ноды
+      if (this._selected) {
+        const pos = stage.getPointerPosition();
+        if (pos) {
+          const selKonva = this._selected.getNode() as unknown as Konva.Node;
+          const bbox = selKonva.getClientRect({ skipShadow: true, skipStroke: false });
+          const inside =
+            pos.x >= bbox.x &&
+            pos.x <= bbox.x + bbox.width &&
+            pos.y >= bbox.y &&
+            pos.y <= bbox.y + bbox.height;
+          if (inside) {
+            // Стартуем drag для выбранной ноды
+            if (typeof selKonva.startDrag === 'function') {
+              const dnode = selKonva as DraggableNode;
+              let prevNodeDraggable =
+                typeof dnode.draggable === 'function' ? dnode.draggable() : false;
+              if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                dnode.draggable(true);
+              const prevStageDraggable = stage.draggable();
+              selKonva.on('dragstart.selection-once-bbox', () => {
+                stage.draggable(false);
+              });
+              selKonva.on('dragend.selection-once-bbox', () => {
+                stage.draggable(prevStageDraggable);
+                if (typeof dnode.draggable === 'function') {
+                  dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                }
+                // Гарантированно показать рамку выделения после перетаскивания из bbox
+                if (this._selected) {
+                  this._refreshTransformer();
+                  this._core?.nodes.layer.batchDraw();
+                }
+                selKonva.off('.selection-once-bbox');
+              });
+              selKonva.startDrag();
+              e.cancelBubble = true;
+              return; // не снимать выделение
+            }
+          }
+        }
+      }
       if (this._options.deselectOnEmptyClick) this._clearSelection();
       return;
     }
