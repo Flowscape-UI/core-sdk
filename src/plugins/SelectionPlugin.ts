@@ -170,8 +170,7 @@ export class SelectionPlugin extends Plugin {
 
     // Клик по пустому месту
     if (e.target === stage || e.target.getLayer() !== layer) {
-      // Если есть выделенная нода и клик пришёл в её bbox (в т.ч. по "пустому" месту внутри рамки),
-      // не снимаем выделение, а запускаем перетаскивание этой ноды
+      let insideHandled = false;
       if (this._selected) {
         const pos = stage.getPointerPosition();
         if (pos) {
@@ -183,37 +182,59 @@ export class SelectionPlugin extends Plugin {
             pos.y >= bbox.y &&
             pos.y <= bbox.y + bbox.height;
           if (inside) {
-            // Стартуем drag для выбранной ноды
+            insideHandled = true;
             if (typeof selKonva.startDrag === 'function') {
               const dnode = selKonva as DraggableNode;
-              let prevNodeDraggable =
+              const threshold = 3;
+              const startX = e.evt.clientX;
+              const startY = e.evt.clientY;
+              const prevNodeDraggable =
                 typeof dnode.draggable === 'function' ? dnode.draggable() : false;
-              if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
-                dnode.draggable(true);
               const prevStageDraggable = stage.draggable();
-              selKonva.on('dragstart.selection-once-bbox', () => {
-                stage.draggable(false);
-              });
-              selKonva.on('dragend.selection-once-bbox', () => {
-                stage.draggable(prevStageDraggable);
-                if (typeof dnode.draggable === 'function') {
-                  dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+              let dragStarted = false;
+
+              const onMove = (ev: Konva.KonvaEventObject<MouseEvent>) => {
+                const dx = Math.abs(ev.evt.clientX - startX);
+                const dy = Math.abs(ev.evt.clientY - startY);
+                if (!dragStarted && (dx > threshold || dy > threshold)) {
+                  dragStarted = true;
+                  if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                    dnode.draggable(true);
+                  selKonva.on('dragstart.selection-once-bbox', () => {
+                    stage.draggable(false);
+                  });
+                  selKonva.on('dragend.selection-once-bbox', () => {
+                    stage.draggable(prevStageDraggable);
+                    if (typeof dnode.draggable === 'function') {
+                      dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                    }
+                    // После drag вернуть рамку
+                    if (this._selected) {
+                      this._refreshTransformer();
+                      this._core?.nodes.layer.batchDraw();
+                    }
+                    selKonva.off('.selection-once-bbox');
+                  });
+                  selKonva.startDrag();
+                  e.cancelBubble = true;
                 }
-                // Гарантированно показать рамку выделения после перетаскивания из bbox
-                if (this._selected) {
-                  this._refreshTransformer();
-                  this._core?.nodes.layer.batchDraw();
-                }
-                selKonva.off('.selection-once-bbox');
-              });
-              selKonva.startDrag();
-              e.cancelBubble = true;
-              return; // не снимать выделение
+              };
+              const onUp = () => {
+                // Если drag не стартовал — это клик: только тогда снимаем выделение
+                if (!dragStarted && this._options.deselectOnEmptyClick) this._clearSelection();
+                stage.off('mousemove.selection-once-bbox');
+                stage.off('mouseup.selection-once-bbox');
+              };
+              stage.on('mousemove.selection-once-bbox', onMove);
+              stage.on('mouseup.selection-once-bbox', onUp);
             }
           }
         }
       }
-      if (this._options.deselectOnEmptyClick) this._clearSelection();
+      // Если клик пришёл ВНЕ bbox — снимаем выделение мгновенно
+      if (!insideHandled) {
+        if (this._options.deselectOnEmptyClick) this._clearSelection();
+      }
       return;
     }
 
