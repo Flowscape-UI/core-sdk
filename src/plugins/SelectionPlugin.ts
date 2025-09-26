@@ -429,30 +429,50 @@ export class SelectionPlugin extends Plugin {
     const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
     const thicknessPx = 6; // толщина зоны захвата в экранных пикселях
 
+    // Точечная правка для ротации: когда нода повернута, длину сторон берём из «родных» размеров
+    // (ширина/высота без трансформаций) умноженных на абсолютный масштаб, а не из bbox.
+    // Это предотвращает «перестановку» короткой/длинной стороны.
+    const localRect = node.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: false,
+    });
+    const abs = node.getAbsoluteScale();
+    const absX = Math.abs(abs.x) || 1;
+    const absY = Math.abs(abs.y) || 1;
+    const sideLenW = localRect.width * absX; // фактическая длина верх/низ в экранных координатах
+    const sideLenH = localRect.height * absY; // фактическая длина лево/право в экранных координатах
+    const rotDeg = (() => {
+      const d = node.getAbsoluteTransform().decompose();
+      return typeof d.rotation === 'number' ? d.rotation : 0;
+    })();
+    // Небольшой эпсилон, чтобы не перескакивать при очень малых дрожаниях
+    const isRotated = Math.abs(((rotDeg % 180) + 180) % 180) > 0.5;
+
     const aTop = this._transformer.findOne<Konva.Rect>('.top-center');
     const aRight = this._transformer.findOne<Konva.Rect>('.middle-right');
     const aBottom = this._transformer.findOne<Konva.Rect>('.bottom-center');
     const aLeft = this._transformer.findOne<Konva.Rect>('.middle-left');
 
     if (aTop) {
-      const width = bbox.width;
+      const width = isRotated ? sideLenW : bbox.width;
       const height = thicknessPx;
-      aTop.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: 0 });
+      aTop.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: 0 });
     }
     if (aBottom) {
-      const width = bbox.width;
+      const width = isRotated ? sideLenW : bbox.width;
       const height = thicknessPx;
-      aBottom.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: height });
+      aBottom.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: height });
     }
     if (aLeft) {
       const width = thicknessPx;
-      const height = bbox.height;
-      aLeft.setAttrs({ opacity: 0, width, height, offsetX: 0, offsetY: height / 2 });
+      const height = isRotated ? sideLenH : bbox.height;
+      aLeft.setAttrs({ opacity: 1, width, height, offsetX: 0, offsetY: height / 2 });
     }
     if (aRight) {
       const width = thicknessPx;
-      const height = bbox.height;
-      aRight.setAttrs({ opacity: 0, width, height, offsetX: width, offsetY: height / 2 });
+      const height = isRotated ? sideLenH : bbox.height;
+      aRight.setAttrs({ opacity: 1, width, height, offsetX: width, offsetY: height / 2 });
     }
     // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации (coalescing в один кадр)
 
