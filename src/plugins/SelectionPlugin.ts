@@ -38,6 +38,8 @@ export class SelectionPlugin extends Plugin {
   private _transformerWasVisibleBeforeDrag = false;
   private _cornerHandlesWereVisibleBeforeDrag = false;
   private _sizeLabelWasVisibleBeforeDrag = false;
+  // Состояние видимости для ротационных хендлеров во время drag
+  private _rotateHandlesWereVisibleBeforeDrag = false;
   // Группа и ссылки на угловые хендлеры для скругления
   private _cornerHandlesGroup: Konva.Group | null = null;
   private _cornerHandles: {
@@ -50,6 +52,17 @@ export class SelectionPlugin extends Plugin {
   private _sizeLabel: Konva.Label | null = null;
   // Label для отображения радиуса при наведении/перетаскивании corner-хендлеров
   private _radiusLabel: Konva.Label | null = null;
+  // Группа и ссылки на угловые хендлеры ротации
+  private _rotateHandlesGroup: Konva.Group | null = null;
+  private _rotateHandles: {
+    tl: Konva.Circle | null;
+    tr: Konva.Circle | null;
+    br: Konva.Circle | null;
+    bl: Konva.Circle | null;
+  } = { tl: null, tr: null, br: null, bl: null };
+  private _rotateDragState: { base: number; start: number } | null = null;
+  // Абсолютный центр на момент старта ротации — для компенсации позиции
+  private _rotateCenterAbsStart: { x: number; y: number } | null = null;
 
   // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
@@ -339,6 +352,10 @@ export class SelectionPlugin extends Plugin {
         this._cornerHandlesWereVisibleBeforeDrag = this._cornerHandlesGroup.visible();
         this._cornerHandlesGroup.visible(false);
       }
+      if (this._rotateHandlesGroup) {
+        this._rotateHandlesWereVisibleBeforeDrag = this._rotateHandlesGroup.visible();
+        this._rotateHandlesGroup.visible(false);
+      }
       if (this._sizeLabel) {
         this._sizeLabelWasVisibleBeforeDrag = this._sizeLabel.visible();
         this._sizeLabel.visible(false);
@@ -361,6 +378,12 @@ export class SelectionPlugin extends Plugin {
           this._cornerHandlesGroup.visible(true);
         }
         this._cornerHandlesWereVisibleBeforeDrag = false;
+      }
+      if (this._rotateHandlesGroup) {
+        if (this._rotateHandlesWereVisibleBeforeDrag) {
+          this._rotateHandlesGroup.visible(true);
+        }
+        this._rotateHandlesWereVisibleBeforeDrag = false;
       }
       if (this._sizeLabel) {
         if (this._sizeLabelWasVisibleBeforeDrag) {
@@ -408,6 +431,8 @@ export class SelectionPlugin extends Plugin {
 
     // Удалить кастомные хендлеры радиуса
     this._destroyCornerRadiusHandles();
+    // Удалить ротационные хендлеры
+    this._destroyRotateHandles();
 
     // Удалить размерный label
     this._destroySizeLabel();
@@ -435,8 +460,13 @@ export class SelectionPlugin extends Plugin {
 
     const layer = this._core.nodes.layer;
     const transformer = new Konva.Transformer({
-      rotateEnabled: true,
-      rotationSnaps: [0, 90, 180, 270, 360],
+      // Отключаем стандартную ротацию Transformer — вращаем только кастомными хендлерами
+      rotateEnabled: false,
+      rotationSnapTolerance: 15,
+      rotationSnaps: [
+        0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285,
+        300, 315, 330, 345, 360,
+      ],
       enabledAnchors: [
         'top-left',
         'top-center',
@@ -455,8 +485,44 @@ export class SelectionPlugin extends Plugin {
     this._restyleSideAnchors();
     // Добавить угловые хендлеры для cornerRadius, если поддерживается
     this._setupCornerRadiusHandles();
+    // Добавить угловые хендлеры ротации
+    this._setupRotateHandles();
     // Добавить/обновить размерный label
     this._setupSizeLabel();
+    // Во время трансформации (ресайз/скейл) синхронизировать позиции всех оверлеев
+    transformer.on('transform.corner-sync', () => {
+      // На лету «впитываем» неравномерный масштаб в width/height для Rect,
+      // чтобы скругления оставались полукруглыми, а не эллипсами
+      const n = this._selected?.getNode() as unknown as Konva.Node | undefined;
+      if (n) this._bakeRectScale(n);
+      this._restyleSideAnchors();
+      this._updateCornerRadiusHandlesPosition();
+      this._updateRotateHandlesPosition();
+      this._updateSizeLabel();
+      this._core?.nodes.layer.batchDraw();
+    });
+    transformer.on('transformend.corner-sync', () => {
+      this._restyleSideAnchors();
+      this._updateCornerRadiusHandlesPosition();
+      this._updateRotateHandlesPosition();
+      this._updateSizeLabel();
+      this._core?.nodes.layer.batchDraw();
+    });
+    // Слушать изменения атрибутов выбранной ноды, если размеры/позиция меняются программно
+    const selNode = this._selected.getNode() as unknown as Konva.Node;
+    // Снять прежние обработчики, если были, затем повесить новые с namespace
+    selNode.off('.overlay-sync');
+    const syncOverlays = () => {
+      this._restyleSideAnchors();
+      this._updateCornerRadiusHandlesPosition();
+      this._updateRotateHandlesPosition();
+      this._updateSizeLabel();
+      this._core?.nodes.layer.batchDraw();
+    };
+    selNode.on(
+      'widthChange.overlay-sync heightChange.overlay-sync scaleXChange.overlay-sync scaleYChange.overlay-sync rotationChange.overlay-sync xChange.overlay-sync yChange.overlay-sync',
+      syncOverlays,
+    );
     layer.batchDraw();
   }
 
@@ -473,10 +539,12 @@ export class SelectionPlugin extends Plugin {
     // Точечная правка для ротации: когда нода повернута, длину сторон берём из «родных» размеров
     // (ширина/высота без трансформаций) умноженных на абсолютный масштаб, а не из bbox.
     // Это предотвращает «перестановку» короткой/длинной стороны.
+    // Логический размер для текста лейбла должен соответствовать заданным размерам без учёта обводки
+    // поэтому исключаем stroke при вычислении localRect
     const localRect = node.getClientRect({
       skipTransform: true,
       skipShadow: true,
-      skipStroke: false,
+      skipStroke: true,
     });
     const abs = node.getAbsoluteScale();
     const absX = Math.abs(abs.x) || 1;
@@ -571,6 +639,7 @@ export class SelectionPlugin extends Plugin {
     this._transformer.on('transform.selection-anchors', () => {
       // немедленно обновить без requestAnimFrame
       this._updateCornerRadiusHandlesPosition();
+      this._updateRotateHandlesPosition();
       this._updateSizeLabel();
       this._core?.nodes.layer.batchDraw();
     });
@@ -578,8 +647,265 @@ export class SelectionPlugin extends Plugin {
 
     // Параллельно обновляем позиции угловых хендлеров радиуса
     this._updateCornerRadiusHandlesPosition();
+    // Обновляем позиции ротационных хендлеров
+    this._updateRotateHandlesPosition();
     // И обновим позицию/текст размерного label
     this._updateSizeLabel();
+  }
+
+  // ===================== Rotate Handles (four corners) =====================
+  private _setupRotateHandles() {
+    if (!this._core || !this._selected) return;
+    const layer = this._core.nodes.layer;
+    this._destroyRotateHandles();
+    const group = new Konva.Group({ name: 'rotate-handles-group', listening: true });
+    layer.add(group);
+    group.moveToTop();
+    this._rotateHandlesGroup = group;
+
+    const makeHandle = (name: string): Konva.Circle => {
+      const c = new Konva.Circle({
+        name,
+        radius: 4,
+        fill: '#ffffff',
+        stroke: '#2b83ff',
+        strokeWidth: 1.5,
+        // Делаем хендлер невидимым визуально, но сохраняем интерактивность
+        opacity: 0,
+        // Увеличим зону попадания курсора, чтобы было легче навести
+        hitStrokeWidth: 16,
+        draggable: true,
+        dragOnTop: true,
+        listening: true,
+      });
+      return c;
+    };
+
+    const tl = makeHandle('rotate-tl');
+    const tr = makeHandle('rotate-tr');
+    const br = makeHandle('rotate-br');
+    const bl = makeHandle('rotate-bl');
+    // Добавляем по одному, чтобы исключить проблемы с varargs в рантайме/типах
+    group.add(tl);
+    group.add(tr);
+    group.add(br);
+    group.add(bl);
+    this._rotateHandles = { tl, tr, br, bl };
+
+    const bindRotate = (h: Konva.Circle) => {
+      h.on('dragstart.rotate', () => {
+        if (!this._selected) return;
+        const node = this._selected.getNode() as unknown as Konva.Node;
+        const dec = node.getAbsoluteTransform().decompose();
+        // Вариант 2: не меняем offset/pivot. Фиксируем абсолютный центр для компенсации смещения в dragmove
+        const center = this._getNodeCenterAbs(node);
+        this._rotateCenterAbsStart = center;
+        const p = this._core?.stage.getPointerPosition() ?? h.getAbsolutePosition();
+        const start = (Math.atan2(p.y - center.y, p.x - center.x) * 180) / Math.PI;
+        this._rotateDragState = { base: dec.rotation || 0, start };
+        // Отключим drag сцены и самой ноды
+        if (typeof node.draggable === 'function') node.draggable(false);
+        this._core?.stage.draggable(false);
+        // Курсор: во время ротации показываем 'grabbing'
+        if (this._core) this._core.stage.container().style.cursor = 'grabbing';
+      });
+      h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
+        if (!this._core || !this._selected || !this._rotateDragState) return;
+        const node = this._selected.getNode() as unknown as Konva.Node;
+        // Используем зафиксированный центр, если он есть, чтобы исключить дрейф
+        const centerRef = this._rotateCenterAbsStart ?? this._getNodeCenterAbs(node);
+        const pointer = this._core.stage.getPointerPosition() ?? h.getAbsolutePosition();
+        const curr = (Math.atan2(pointer.y - centerRef.y, pointer.x - centerRef.x) * 180) / Math.PI;
+        let rot = this._rotateDragState.base + (curr - this._rotateDragState.start);
+        // Snapping как у Transformer, но с корректной нормализацией углов
+        const norm = (deg: number) => {
+          let x = deg % 360;
+          if (x < 0) x += 360;
+          return x;
+        };
+        const angDiff = (a: number, b: number) => {
+          // минимальная signed-разница между a и b по модулю 360 в диапазоне [-180, 180)
+          let d = norm(a - b + 180) - 180;
+          return d;
+        };
+        // Snap только при зажатом Shift. Без Shift — свободная ротация
+        if (e.evt.shiftKey) {
+          const tr = this._transformer;
+          let snaps: number[] | undefined;
+          let tol = 5;
+          if (tr) {
+            const s = tr.rotationSnaps();
+            if (Array.isArray(s)) snaps = s.map((v) => norm(v)); // нормализуем снэпы (360 -> 0)
+            const t = tr.rotationSnapTolerance();
+            if (typeof t === 'number') tol = t;
+          }
+          if (snaps?.length) {
+            const rotN = norm(rot);
+            let best = rot;
+            let bestDiff = Infinity;
+            for (const a of snaps) {
+              const d = Math.abs(angDiff(rotN, a));
+              if (d < bestDiff && d <= tol) {
+                best = a; // используем нормализованный угол снэпа
+                bestDiff = d;
+              }
+            }
+            if (bestDiff !== Infinity) rot = best;
+          }
+        }
+        node.rotation(rot);
+        // Компенсация позиции: удерживаем центр неизменным
+        if (this._rotateCenterAbsStart) {
+          const centerAfter = this._getNodeCenterAbs(node);
+          const dxAbs = this._rotateCenterAbsStart.x - centerAfter.x;
+          const dyAbs = this._rotateCenterAbsStart.y - centerAfter.y;
+          const parent = node.getParent();
+          if (parent) {
+            const inv = parent.getAbsoluteTransform().copy().invert();
+            const from = inv.point({ x: centerAfter.x, y: centerAfter.y });
+            const to = inv.point({ x: centerAfter.x + dxAbs, y: centerAfter.y + dyAbs });
+            const nx = node.x() + (to.x - from.x);
+            const ny = node.y() + (to.y - from.y);
+            if (typeof node.position === 'function') node.position({ x: nx, y: ny });
+          }
+        }
+        // Обновить рамку трансформера немедленно
+        this._transformer?.forceUpdate();
+        this._core.nodes.layer.batchDraw();
+        this._updateRotateHandlesPosition();
+        this._updateCornerRadiusHandlesPosition();
+        // Обновить позицию и текст размерного label под новое положение/вращение
+        this._updateSizeLabel();
+      });
+      h.on('dragend.rotate', () => {
+        this._rotateDragState = null;
+        this._rotateCenterAbsStart = null;
+        // Вернём pan сцены, draggable ноды — согласно настройкам
+        if (this._selected) {
+          const node = this._selected.getNode() as unknown as Konva.Node;
+          if (this._options.dragEnabled && typeof node.draggable === 'function') {
+            node.draggable(true);
+          }
+        }
+        this._core?.stage.draggable(true);
+        this._updateRotateHandlesPosition();
+        this._updateSizeLabel();
+        this._core?.nodes.layer.batchDraw();
+        // Вернуть курсор в состояние 'grab' при окончании перетаскивания хендлера
+        if (this._core) this._core.stage.container().style.cursor = 'grab';
+      });
+    };
+
+    bindRotate(tl);
+    bindRotate(tr);
+    bindRotate(br);
+    bindRotate(bl);
+
+    // Hover-курсоры для хендлеров ротации
+    const setCursor = (c: string) => {
+      if (this._core) this._core.stage.container().style.cursor = c;
+    };
+    if (this._rotateHandles.tl) {
+      this._rotateHandles.tl.on('mouseenter.rotate-cursor', () => {
+        setCursor('grab');
+      });
+      this._rotateHandles.tl.on('mouseleave.rotate-cursor', () => {
+        setCursor('default');
+      });
+    }
+    if (this._rotateHandles.tr) {
+      this._rotateHandles.tr.on('mouseenter.rotate-cursor', () => {
+        setCursor('grab');
+      });
+      this._rotateHandles.tr.on('mouseleave.rotate-cursor', () => {
+        setCursor('default');
+      });
+    }
+    if (this._rotateHandles.br) {
+      this._rotateHandles.br.on('mouseenter.rotate-cursor', () => {
+        setCursor('grab');
+      });
+      this._rotateHandles.br.on('mouseleave.rotate-cursor', () => {
+        setCursor('default');
+      });
+    }
+    if (this._rotateHandles.bl) {
+      this._rotateHandles.bl.on('mouseenter.rotate-cursor', () => {
+        setCursor('grab');
+      });
+      this._rotateHandles.bl.on('mouseleave.rotate-cursor', () => {
+        setCursor('default');
+      });
+    }
+
+    this._updateRotateHandlesPosition();
+  }
+
+  private _destroyRotateHandles() {
+    if (this._rotateHandlesGroup) {
+      this._rotateHandlesGroup.destroy();
+      this._rotateHandlesGroup = null;
+    }
+    this._rotateHandles = { tl: null, tr: null, br: null, bl: null };
+    this._rotateDragState = null;
+  }
+
+  private _getNodeCenterAbs(node: Konva.Node) {
+    const tr = node.getAbsoluteTransform().copy();
+    const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
+    // ВАЖНО: учитываем local.x/local.y, иначе центр смещается
+    return tr.point({ x: local.x + local.width / 2, y: local.y + local.height / 2 });
+  }
+
+  private _updateRotateHandlesPosition() {
+    if (!this._core || !this._selected || !this._rotateHandlesGroup) return;
+    const node = this._selected.getNode() as unknown as Konva.Node;
+    const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
+    const width = local.width;
+    const height = local.height;
+    if (width <= 0 || height <= 0) return;
+    const tr = node.getAbsoluteTransform().copy();
+    const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
+    const offset = 24; // вынесем хендлер чуть наружу от угла вдоль направления от центра
+    // ВАЖНО: corners и центр нужно брать с учётом local.x/local.y
+    const centerAbs = mapAbs({ x: local.x + width / 2, y: local.y + height / 2 });
+    const c0 = mapAbs({ x: local.x, y: local.y });
+    const c1 = mapAbs({ x: local.x + width, y: local.y });
+    const c2 = mapAbs({ x: local.x + width, y: local.y + height });
+    const c3 = mapAbs({ x: local.x, y: local.y + height });
+    const dir = (c: { x: number; y: number }) => {
+      const vx = c.x - centerAbs.x;
+      const vy = c.y - centerAbs.y;
+      const len = Math.hypot(vx, vy) || 1;
+      return { x: vx / len, y: vy / len };
+    };
+    const d0 = dir(c0),
+      d1 = dir(c1),
+      d2 = dir(c2),
+      d3 = dir(c3);
+    const p0 = { x: c0.x + d0.x * offset, y: c0.y + d0.y * offset };
+    const p1 = { x: c1.x + d1.x * offset, y: c1.y + d1.y * offset };
+    const p2 = { x: c2.x + d2.x * offset, y: c2.y + d2.y * offset };
+    const p3 = { x: c3.x + d3.x * offset, y: c3.y + d3.y * offset };
+
+    if (this._rotateHandles.tl) this._rotateHandles.tl.absolutePosition(p0);
+    if (this._rotateHandles.tr) this._rotateHandles.tr.absolutePosition(p1);
+    if (this._rotateHandles.br) this._rotateHandles.br.absolutePosition(p2);
+    if (this._rotateHandles.bl) this._rotateHandles.bl.absolutePosition(p3);
+
+    // Компенсация зума: фиксированный визуальный размер
+    const parent = this._rotateHandlesGroup.getParent();
+    if (parent) {
+      const pd = parent.getAbsoluteTransform().decompose();
+      const invX = 1 / (Math.abs(pd.scaleX) || 1);
+      const invY = 1 / (Math.abs(pd.scaleY) || 1);
+      if (this._rotateHandles.tl) this._rotateHandles.tl.scale({ x: invX, y: invY });
+      if (this._rotateHandles.tr) this._rotateHandles.tr.scale({ x: invX, y: invY });
+      if (this._rotateHandles.br) this._rotateHandles.br.scale({ x: invX, y: invY });
+      if (this._rotateHandles.bl) this._rotateHandles.bl.scale({ x: invX, y: invY });
+    }
+    // Z-index наверх
+    this._rotateHandlesGroup.moveToTop();
   }
 
   // ===================== Size Label (width × height) =====================
@@ -623,7 +949,8 @@ export class SelectionPlugin extends Plugin {
     const localRect = node.getClientRect({
       skipTransform: true,
       skipShadow: true,
-      skipStroke: false,
+      // Исключаем stroke/border, чтобы показывать реальные размеры ноды
+      skipStroke: true,
     });
     const nodeDec = node.getAbsoluteTransform().decompose();
     const stageDec = stage.getAbsoluteTransform().decompose();
@@ -759,55 +1086,69 @@ export class SelectionPlugin extends Plugin {
       const height = node.height();
       if (width <= 0 || height <= 0) return;
 
-      // Абсолютные точки: смещённый старт (как в _updateCornerRadiusHandlesPosition) и центр
+      // Трансформации: прямое и обратное преобразование
       const absT = node.getAbsoluteTransform().copy();
       const mapAbs = (pt: { x: number; y: number }) => absT.point(pt);
-      const OFFSET = 12; // тот же визуальный отступ внутрь
+      const mapLocal = (ptAbs: { x: number; y: number }) => absT.copy().invert().point(ptAbs);
+      // Инвариантный визуальный отступ 12px: пересчитываем в локальные координаты с учётом масштаба
+      const absScale = node.getAbsoluteScale();
+      const invX = 1 / (Math.abs(absScale.x) || 1);
+      const invY = 1 / (Math.abs(absScale.y) || 1);
+      const OFFSET_X_LOCAL = 12 * invX;
+      const OFFSET_Y_LOCAL = 12 * invY;
       let cornerLocalX = 0;
       let cornerLocalY = 0;
       switch (cornerIndex) {
         case 0:
-          cornerLocalX = OFFSET;
-          cornerLocalY = OFFSET;
+          cornerLocalX = OFFSET_X_LOCAL;
+          cornerLocalY = OFFSET_Y_LOCAL;
           break;
         case 1:
-          cornerLocalX = width - OFFSET;
-          cornerLocalY = OFFSET;
+          cornerLocalX = width - OFFSET_X_LOCAL;
+          cornerLocalY = OFFSET_Y_LOCAL;
           break;
         case 2:
-          cornerLocalX = width - OFFSET;
-          cornerLocalY = height - OFFSET;
+          cornerLocalX = width - OFFSET_X_LOCAL;
+          cornerLocalY = height - OFFSET_Y_LOCAL;
           break;
         case 3:
-          cornerLocalX = OFFSET;
-          cornerLocalY = height - OFFSET;
+          cornerLocalX = OFFSET_X_LOCAL;
+          cornerLocalY = height - OFFSET_Y_LOCAL;
           break;
       }
-      const cornerAbs = mapAbs({ x: cornerLocalX, y: cornerLocalY });
-      const centerAbs = mapAbs({ x: width / 2, y: height / 2 });
+      const cornerLocal = { x: cornerLocalX, y: cornerLocalY };
+      const centerLocal = { x: width / 2, y: height / 2 };
       const maxR = Math.min(width, height) / 2;
 
-      // Проецируем текущую позицию курсора/хендлера на отрезок corner->center
+      // Текущая позиция хендлера в локальных координатах ноды
       const handle = e.target as Konva.Circle;
-      const p = handle.getAbsolutePosition();
-      const vx = centerAbs.x - cornerAbs.x;
-      const vy = centerAbs.y - cornerAbs.y;
-      const vLen2 = vx * vx + vy * vy || 1;
-      const wx = p.x - cornerAbs.x;
-      const wy = p.y - cornerAbs.y;
-      let t = (wx * vx + wy * vy) / vLen2;
-      t = Math.max(0, Math.min(1, t));
-      const r = t * maxR;
+      const pAbs = handle.getAbsolutePosition();
+      const pLocal = mapLocal(pAbs);
 
-      // Зафиксировать хендлер на линии (исключая отрицательное движение за старт)
-      const snapped = { x: cornerAbs.x + vx * t, y: cornerAbs.y + vy * t };
-      handle.absolutePosition(snapped);
+      // Направление вдоль прямой из угла к центру в ЛОКАЛЬНЫХ координатах
+      let ux = centerLocal.x - cornerLocal.x;
+      let uy = centerLocal.y - cornerLocal.y;
+      const uLen = Math.hypot(ux, uy) || 1;
+      ux /= uLen;
+      uy /= uLen;
+
+      // Скалярное расстояние от угла вдоль этой прямой в локальных координатах
+      const wxLocalX = pLocal.x - cornerLocal.x;
+      const wyLocalY = pLocal.y - cornerLocal.y;
+      let dist = wxLocalX * ux + wyLocalY * uy; // signed расстояние вдоль направления
+      dist = Math.max(0, Math.min(maxR, dist)); // clamp [0, maxR]
+      const r = dist; // радиус в локальных единицах
+
+      // Зафиксировать хендлер на прямой линии corner->center на расстоянии dist
+      const snappedLocal = { x: cornerLocal.x + ux * dist, y: cornerLocal.y + uy * dist };
+      const snappedAbs = mapAbs(snappedLocal);
+      handle.absolutePosition(snappedAbs);
 
       const current = this._getCornerRadiusArray(node);
       // DragEvent наследует MouseEvent, поэтому доступны ctrlKey/metaKey
       const me = e.evt as MouseEvent;
       const onlyThisCorner = me.altKey;
-      if (!onlyThisCorner) {
+      if (onlyThisCorner) {
         current[cornerIndex] = r;
       } else {
         current[0] = r;
@@ -892,6 +1233,30 @@ export class SelectionPlugin extends Plugin {
     if (this._core) this._core.stage.container().style.cursor = 'default';
     // Уничтожить и radius label
     this._destroyRadiusLabel();
+    // Снять подписки overlay-sync с выбранной ноды, чтобы не держать висящие обработчики
+    if (this._selected) {
+      const n = this._selected.getNode() as unknown as Konva.Node;
+      n.off('.overlay-sync');
+    }
+  }
+
+  // «Запекает» неравномерный масштаб в размеры прямоугольника, сохраняя абсолютную позицию
+  private _bakeRectScale(node: Konva.Node) {
+    if (!(node instanceof Konva.Rect)) return;
+    const sx = node.scaleX();
+    const sy = node.scaleY();
+    if (sx === 1 && sy === 1) return;
+    const absBefore = node.getAbsolutePosition();
+    const w = node.width();
+    const h = node.height();
+    const nx = Math.abs(sx) * w;
+    const ny = Math.abs(sy) * h;
+    node.width(nx);
+    node.height(ny);
+    node.scaleX(1);
+    node.scaleY(1);
+    // Восстановить абсолютную позицию ноды
+    node.setAbsolutePosition(absBefore);
   }
 
   private _updateCornerRadiusHandlesPosition() {
@@ -910,29 +1275,49 @@ export class SelectionPlugin extends Plugin {
       x: number;
       y: number;
     }
-    const cornerAbsPoints: [Point, Point, Point, Point] = [
-      mapAbs({ x: 12, y: 12 }),
-      mapAbs({ x: width - 12, y: 12 }),
-      mapAbs({ x: width - 12, y: height - 12 }),
-      mapAbs({ x: 12, y: height - 12 }),
-    ];
-    const centerAbs = mapAbs({ x: width / 2, y: height / 2 });
+    // Инвариантный визуальный отступ 12px: приведём к локальным координатам, чтобы на экране он оставался постоянным
+    const absScale = node.getAbsoluteScale();
+    const invX = 1 / (Math.abs(absScale.x) || 1);
+    const invY = 1 / (Math.abs(absScale.y) || 1);
+    const offXLocal = 12 * invX;
+    const offYLocal = 12 * invY;
+    // Абсолютные точки для каждого угла будут вычислены из локальных точек ниже
 
     const radii = this._getCornerRadiusArray(node);
     const maxR = Math.min(width, height) / 2 || 1;
-    const lerp = (a: { x: number; y: number }, b: { x: number; y: number }, t: number) => ({
-      x: a.x + (b.x - a.x) * t,
-      y: a.y + (b.y - a.y) * t,
-    });
+    // Вектор направления в локальных координатах для каждого угла
+    const normalize = (v: { x: number; y: number }) => {
+      const len = Math.hypot(v.x, v.y) || 1;
+      return { x: v.x / len, y: v.y / len };
+    };
+    const dirLocal = [
+      normalize({ x: width / 2 - offXLocal, y: height / 2 - offYLocal }), // tl -> center
+      normalize({ x: -(width / 2 - offXLocal), y: height / 2 - offYLocal }), // tr -> center
+      normalize({ x: -(width / 2 - offXLocal), y: -(height / 2 - offYLocal) }), // br -> center
+      normalize({ x: width / 2 - offXLocal, y: -(height / 2 - offYLocal) }), // bl -> center
+    ] as const;
 
-    const t0 = Math.max(0, Math.min(1, radii[0] / maxR));
-    const t1 = Math.max(0, Math.min(1, radii[1] / maxR));
-    const t2 = Math.max(0, Math.min(1, radii[2] / maxR));
-    const t3 = Math.max(0, Math.min(1, radii[3] / maxR));
-    const p0 = lerp(cornerAbsPoints[0], centerAbs, t0);
-    const p1 = lerp(cornerAbsPoints[1], centerAbs, t1);
-    const p2 = lerp(cornerAbsPoints[2], centerAbs, t2);
-    const p3 = lerp(cornerAbsPoints[3], centerAbs, t3);
+    const p0Local = {
+      x: offXLocal + dirLocal[0].x * Math.min(maxR, radii[0]),
+      y: offYLocal + dirLocal[0].y * Math.min(maxR, radii[0]),
+    };
+    const p1Local = {
+      x: width - offXLocal + dirLocal[1].x * Math.min(maxR, radii[1]),
+      y: offYLocal + dirLocal[1].y * Math.min(maxR, radii[1]),
+    };
+    const p2Local = {
+      x: width - offXLocal + dirLocal[2].x * Math.min(maxR, radii[2]),
+      y: height - offYLocal + dirLocal[2].y * Math.min(maxR, radii[2]),
+    };
+    const p3Local = {
+      x: offXLocal + dirLocal[3].x * Math.min(maxR, radii[3]),
+      y: height - offYLocal + dirLocal[3].y * Math.min(maxR, radii[3]),
+    };
+
+    const p0 = mapAbs(p0Local);
+    const p1 = mapAbs(p1Local);
+    const p2 = mapAbs(p2Local);
+    const p3 = mapAbs(p3Local);
 
     if (this._cornerHandles.tl) this._cornerHandles.tl.absolutePosition(p0);
     if (this._cornerHandles.tr) this._cornerHandles.tr.absolutePosition(p1);

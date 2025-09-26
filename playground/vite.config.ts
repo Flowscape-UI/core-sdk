@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     port: 5174,
     open: true,
-    allowedHosts: ['committee-world-participated-confidence.trycloudflare.com'],
+    allowedHosts: ['trust-math-meat-science.trycloudflare.com'],
   },
   resolve: {
     alias: {

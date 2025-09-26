@@ -137,10 +137,10 @@ const rect = core.nodes.addShape({
   x: 500,
   y: 250,
   width: 200,
-  height: 120,
+  height: 150,
   fill: 'skyblue',
   stroke: 'red',
-  strokeWidth: 4,
+  strokeWidth: 14,
 });
 
 core.nodes.addArc({
