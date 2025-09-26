@@ -37,6 +37,7 @@ export class SelectionPlugin extends Plugin {
   private _transformer: Konva.Transformer | null = null;
   private _transformerWasVisibleBeforeDrag = false;
   private _cornerHandlesWereVisibleBeforeDrag = false;
+  private _sizeLabelWasVisibleBeforeDrag = false;
   // Группа и ссылки на угловые хендлеры для скругления
   private _cornerHandlesGroup: Konva.Group | null = null;
   private _cornerHandles: {
@@ -45,6 +46,8 @@ export class SelectionPlugin extends Plugin {
     br: Konva.Circle | null;
     bl: Konva.Circle | null;
   } = { tl: null, tr: null, br: null, bl: null };
+  // Label с размерами выбранной ноды (ширина × высота)
+  private _sizeLabel: Konva.Label | null = null;
 
   // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
@@ -313,6 +316,10 @@ export class SelectionPlugin extends Plugin {
         this._cornerHandlesWereVisibleBeforeDrag = this._cornerHandlesGroup.visible();
         this._cornerHandlesGroup.visible(false);
       }
+      if (this._sizeLabel) {
+        this._sizeLabelWasVisibleBeforeDrag = this._sizeLabel.visible();
+        this._sizeLabel.visible(false);
+      }
       this._core?.stage.batchDraw();
     });
     konvaNode.on('dragmove.selection', () => {
@@ -331,6 +338,12 @@ export class SelectionPlugin extends Plugin {
           this._cornerHandlesGroup.visible(true);
         }
         this._cornerHandlesWereVisibleBeforeDrag = false;
+      }
+      if (this._sizeLabel) {
+        if (this._sizeLabelWasVisibleBeforeDrag) {
+          this._sizeLabel.visible(true);
+        }
+        this._sizeLabelWasVisibleBeforeDrag = false;
       }
       this._select(node);
       this._core?.stage.batchDraw();
@@ -372,6 +385,9 @@ export class SelectionPlugin extends Plugin {
 
     // Удалить кастомные хендлеры радиуса
     this._destroyCornerRadiusHandles();
+
+    // Удалить размерный label
+    this._destroySizeLabel();
 
     // Удалить transformer, если был
     if (this._transformer) {
@@ -416,6 +432,8 @@ export class SelectionPlugin extends Plugin {
     this._restyleSideAnchors();
     // Добавить угловые хендлеры для cornerRadius, если поддерживается
     this._setupCornerRadiusHandles();
+    // Добавить/обновить размерный label
+    this._setupSizeLabel();
     layer.batchDraw();
   }
 
@@ -457,22 +475,22 @@ export class SelectionPlugin extends Plugin {
     if (aTop) {
       const width = isRotated ? sideLenW : bbox.width;
       const height = thicknessPx;
-      aTop.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: 0 });
+      aTop.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: 0 });
     }
     if (aBottom) {
       const width = isRotated ? sideLenW : bbox.width;
       const height = thicknessPx;
-      aBottom.setAttrs({ opacity: 1, width, height, offsetX: width / 2, offsetY: height });
+      aBottom.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: height });
     }
     if (aLeft) {
       const width = thicknessPx;
       const height = isRotated ? sideLenH : bbox.height;
-      aLeft.setAttrs({ opacity: 1, width, height, offsetX: 0, offsetY: height / 2 });
+      aLeft.setAttrs({ opacity: 0, width, height, offsetX: 0, offsetY: height / 2 });
     }
     if (aRight) {
       const width = thicknessPx;
       const height = isRotated ? sideLenH : bbox.height;
-      aRight.setAttrs({ opacity: 1, width, height, offsetX: width, offsetY: height / 2 });
+      aRight.setAttrs({ opacity: 0, width, height, offsetX: width, offsetY: height / 2 });
     }
     // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации (coalescing в один кадр)
 
@@ -484,6 +502,7 @@ export class SelectionPlugin extends Plugin {
       Konva.Util.requestAnimFrame(() => {
         anchorsPending = false;
         this._restyleSideAnchors();
+        this._updateSizeLabel();
         this._core?.nodes.layer.batchDraw();
       });
     };
@@ -533,6 +552,99 @@ export class SelectionPlugin extends Plugin {
 
     // Параллельно обновляем позиции угловых хендлеров радиуса
     this._updateCornerRadiusHandlesPosition();
+    // И обновим позицию/текст размерного label
+    this._updateSizeLabel();
+  }
+
+  // ===================== Size Label (width × height) =====================
+  private _setupSizeLabel() {
+    if (!this._core || !this._selected) return;
+    const layer = this._core.nodes.layer;
+
+    // Уничтожить предыдущий, если был
+    this._destroySizeLabel();
+
+    // Собираем Konva.Label с Tag и Text
+    const label = new Konva.Label({ listening: false, opacity: 0.95 });
+    const tag = new Konva.Tag({
+      fill: '#2b83ff',
+      cornerRadius: 4,
+      shadowColor: '#000',
+      shadowBlur: 6,
+      shadowOpacity: 0.25,
+    } as Konva.TagConfig);
+    const text = new Konva.Text({
+      text: '',
+      fontFamily: 'Inter, Calibri, Arial, sans-serif',
+      fontSize: 12,
+      padding: 4,
+      fill: '#ffffff',
+    } as Konva.TextConfig);
+    label.add(tag);
+    label.add(text);
+    layer.add(label);
+    this._sizeLabel = label;
+    this._updateSizeLabel();
+  }
+
+  private _updateSizeLabel() {
+    if (!this._core || !this._selected || !this._sizeLabel) return;
+    const stage = this._core.stage;
+    const node = this._selected.getNode();
+    // Визуальный bbox — для позиционирования (привязка к нижнему центру экрана)
+    const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
+    // Логический размер — независим от зума сцены: localRect * (absNodeScale / absStageScale)
+    const localRect = node.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: false,
+    });
+    const nodeDec = node.getAbsoluteTransform().decompose();
+    const stageDec = stage.getAbsoluteTransform().decompose();
+    const nodeAbsX = Math.abs(nodeDec.scaleX) || 1;
+    const nodeAbsY = Math.abs(nodeDec.scaleY) || 1;
+    const stageAbsX = Math.abs(stageDec.scaleX) || 1;
+    const stageAbsY = Math.abs(stageDec.scaleY) || 1;
+    const logicalW = localRect.width * (nodeAbsX / stageAbsX);
+    const logicalH = localRect.height * (nodeAbsY / stageAbsY);
+    const w = Math.max(0, Math.round(logicalW));
+    const h = Math.max(0, Math.round(logicalH));
+
+    const text = this._sizeLabel.getText();
+    text.text(String(w) + ' × ' + String(h));
+
+    // Позиционируем по нижнему центру bbox с небольшим отступом вниз
+    const offset = 8; // пикселей
+    const centerX = bbox.x + bbox.width / 2;
+    const bottomY = bbox.y + bbox.height + offset;
+
+    // Синхронно ставим абсолютную позицию и центровку без кадра задержки
+    const labelRect = this._sizeLabel.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: true,
+    });
+    const labelW = labelRect.width;
+    this._sizeLabel.absolutePosition({ x: centerX, y: bottomY });
+    this._sizeLabel.offsetX(labelW / 2);
+    this._sizeLabel.offsetY(0);
+    // Компенсировать любые трансформации родителя (слоя/сцены): инверсия абсолютного масштаба родителя
+    const parent = this._sizeLabel.getParent();
+    if (parent) {
+      const pDec = parent.getAbsoluteTransform().decompose();
+      const invScaleX = 1 / (Math.abs(pDec.scaleX) || 1);
+      const invScaleY = 1 / (Math.abs(pDec.scaleY) || 1);
+      this._sizeLabel.scale({ x: invScaleX, y: invScaleY });
+    }
+    this._sizeLabel.moveToTop();
+    if (this._transformer) this._transformer.moveToTop();
+  }
+
+  private _destroySizeLabel() {
+    if (this._sizeLabel) {
+      this._sizeLabel.destroy();
+      this._sizeLabel = null;
+    }
   }
 
   // ===================== Corner Radius Handles =====================
