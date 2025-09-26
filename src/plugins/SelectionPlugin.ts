@@ -48,6 +48,8 @@ export class SelectionPlugin extends Plugin {
   } = { tl: null, tr: null, br: null, bl: null };
   // Label с размерами выбранной ноды (ширина × высота)
   private _sizeLabel: Konva.Label | null = null;
+  // Label для отображения радиуса при наведении/перетаскивании corner-хендлеров
+  private _radiusLabel: Konva.Label | null = null;
 
   // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
@@ -544,11 +546,14 @@ export class SelectionPlugin extends Plugin {
     // Node: движение и трансформации выбранной ноды
     node.on('dragmove.selection-anchors transform.selection-anchors', scheduleUpdate);
 
-    // Transformer: изменение и завершение трансформации
-    this._transformer.on(
-      'transform.selection-anchors transformend.selection-anchors',
-      scheduleUpdate,
-    );
+    // Transformer: синхронное обновление в процессе трансформации (без лагов) и финальное через schedule
+    this._transformer.on('transform.selection-anchors', () => {
+      // немедленно обновить без requestAnimFrame
+      this._updateCornerRadiusHandlesPosition();
+      this._updateSizeLabel();
+      this._core?.nodes.layer.batchDraw();
+    });
+    this._transformer.on('transformend.selection-anchors', scheduleUpdate);
 
     // Параллельно обновляем позиции угловых хендлеров радиуса
     this._updateCornerRadiusHandlesPosition();
@@ -638,6 +643,8 @@ export class SelectionPlugin extends Plugin {
     }
     this._sizeLabel.moveToTop();
     if (this._transformer) this._transformer.moveToTop();
+    // Поднять круглые corner‑handles выше трансформера
+    if (this._cornerHandlesGroup) this._cornerHandlesGroup.moveToTop();
   }
 
   private _destroySizeLabel() {
@@ -685,6 +692,8 @@ export class SelectionPlugin extends Plugin {
 
     const group = new Konva.Group({ name: 'corner-radius-handles-group', listening: true });
     layer.add(group);
+    // Обеспечить, чтобы хендлеры были поверх трансформера
+    group.moveToTop();
     this._cornerHandlesGroup = group;
 
     const makeHandle = (name: string): Konva.Circle => {
@@ -795,6 +804,39 @@ export class SelectionPlugin extends Plugin {
     br.on('dragmove.corner-radius', dragHandler(2));
     bl.on('dragmove.corner-radius', dragHandler(3));
 
+    // ===== Radius label: показать при hover/drag, скрыть при leave/end =====
+    const showRadius = (cornerIndex: 0 | 1 | 2 | 3) => () => {
+      this._showRadiusLabelForCorner(cornerIndex);
+    };
+    const hideRadius = () => {
+      this._hideRadiusLabel();
+    };
+    const updateDuringDrag = (cornerIndex: 0 | 1 | 2 | 3) => () => {
+      this._showRadiusLabelForCorner(cornerIndex);
+    };
+
+    tl.on('mouseenter.corner-radius', showRadius(0));
+    tr.on('mouseenter.corner-radius', showRadius(1));
+    br.on('mouseenter.corner-radius', showRadius(2));
+    bl.on('mouseenter.corner-radius', showRadius(3));
+    tl.on('mouseleave.corner-radius', hideRadius);
+    tr.on('mouseleave.corner-radius', hideRadius);
+    br.on('mouseleave.corner-radius', hideRadius);
+    bl.on('mouseleave.corner-radius', hideRadius);
+
+    tl.on('dragstart.corner-radius', showRadius(0));
+    tr.on('dragstart.corner-radius', showRadius(1));
+    br.on('dragstart.corner-radius', showRadius(2));
+    bl.on('dragstart.corner-radius', showRadius(3));
+    tl.on('dragmove.corner-radius', updateDuringDrag(0));
+    tr.on('dragmove.corner-radius', updateDuringDrag(1));
+    br.on('dragmove.corner-radius', updateDuringDrag(2));
+    bl.on('dragmove.corner-radius', updateDuringDrag(3));
+    tl.on('dragend.corner-radius', hideRadius);
+    tr.on('dragend.corner-radius', hideRadius);
+    br.on('dragend.corner-radius', hideRadius);
+    bl.on('dragend.corner-radius', hideRadius);
+
     // Блокируем перетаскивание выбранной ноды на время правки радиуса
     const onDown = () => {
       if (!this._selected) return;
@@ -827,6 +869,8 @@ export class SelectionPlugin extends Plugin {
     this._cornerHandles = { tl: null, tr: null, br: null, bl: null };
     // Сброс курсора, если вдруг остался
     if (this._core) this._core.stage.container().style.cursor = 'default';
+    // Уничтожить и radius label
+    this._destroyRadiusLabel();
   }
 
   private _updateCornerRadiusHandlesPosition() {
@@ -873,6 +917,108 @@ export class SelectionPlugin extends Plugin {
     if (this._cornerHandles.tr) this._cornerHandles.tr.absolutePosition(p1);
     if (this._cornerHandles.br) this._cornerHandles.br.absolutePosition(p2);
     if (this._cornerHandles.bl) this._cornerHandles.bl.absolutePosition(p3);
+
+    // Компенсировать масштаб родителя (слоя/сцены), чтобы кружки были постоянного размера,
+    // не двигая их координаты: масштабируем каждый кружок, а НЕ всю группу
+    const grpParent = this._cornerHandlesGroup.getParent();
+    if (grpParent) {
+      const pd = grpParent.getAbsoluteTransform().decompose();
+      const invX = 1 / (Math.abs(pd.scaleX) || 1);
+      const invY = 1 / (Math.abs(pd.scaleY) || 1);
+      if (this._cornerHandles.tl) this._cornerHandles.tl.scale({ x: invX, y: invY });
+      if (this._cornerHandles.tr) this._cornerHandles.tr.scale({ x: invX, y: invY });
+      if (this._cornerHandles.br) this._cornerHandles.br.scale({ x: invX, y: invY });
+      if (this._cornerHandles.bl) this._cornerHandles.bl.scale({ x: invX, y: invY });
+    }
+    // Гарантировать z-index над квадратными якорями трансформера
+    this._cornerHandlesGroup.moveToTop();
+  }
+
+  private _ensureRadiusLabel(): Konva.Label | null {
+    if (!this._core) return null;
+    if (this._radiusLabel) return this._radiusLabel;
+    const layer = this._core.nodes.layer;
+    const label = new Konva.Label({ listening: false, opacity: 0.95 });
+    const tag = new Konva.Tag({
+      fill: '#2b83ff',
+      cornerRadius: 4,
+      shadowColor: '#000',
+      shadowBlur: 6,
+      shadowOpacity: 0.25,
+    } as Konva.TagConfig);
+    const text = new Konva.Text({
+      text: '',
+      fontFamily: 'Inter, Calibri, Arial, sans-serif',
+      fontSize: 12,
+      padding: 4,
+      fill: '#ffffff',
+    } as Konva.TextConfig);
+    label.add(tag);
+    label.add(text);
+    label.visible(false);
+    layer.add(label);
+    this._radiusLabel = label;
+    return label;
+  }
+
+  private _updateRadiusLabelAt(absPt: { x: number; y: number }, textStr: string) {
+    const lbl = this._ensureRadiusLabel();
+    if (!lbl) return;
+    const text = lbl.getText();
+    text.text(textStr);
+    const labelRect = lbl.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: true,
+    });
+    const labelW = labelRect.width;
+    // Расположим левее и чуть ниже точки (handle) на 8px
+    const offset = { x: 8, y: 8 };
+    lbl.absolutePosition({ x: absPt.x - offset.x, y: absPt.y + offset.y });
+    lbl.offsetX(labelW);
+    lbl.offsetY(0);
+    // Компенсация масштаба родителя
+    const parent = lbl.getParent();
+    if (parent) {
+      const pDec = parent.getAbsoluteTransform().decompose();
+      const invScaleX = 1 / (Math.abs(pDec.scaleX) || 1);
+      const invScaleY = 1 / (Math.abs(pDec.scaleY) || 1);
+      lbl.scale({ x: invScaleX, y: invScaleY });
+    }
+    lbl.visible(true);
+    lbl.moveToTop();
+    if (this._transformer) this._transformer.moveToTop();
+  }
+
+  private _showRadiusLabelForCorner(cornerIndex: 0 | 1 | 2 | 3) {
+    if (!this._core || !this._selected) return;
+    const nodeRaw = this._selected.getNode() as unknown as Konva.Node;
+    if (!this._isCornerRadiusSupported(nodeRaw)) return;
+    const node = nodeRaw;
+    const radii = this._getCornerRadiusArray(node);
+    const r = Math.round(radii[cornerIndex]);
+    const handle =
+      cornerIndex === 0
+        ? this._cornerHandles.tl
+        : cornerIndex === 1
+          ? this._cornerHandles.tr
+          : cornerIndex === 2
+            ? this._cornerHandles.br
+            : this._cornerHandles.bl;
+    if (!handle) return;
+    const p = handle.getAbsolutePosition();
+    this._updateRadiusLabelAt(p, 'Radius ' + String(r));
+  }
+
+  private _hideRadiusLabel() {
+    if (this._radiusLabel) this._radiusLabel.visible(false);
+  }
+
+  private _destroyRadiusLabel() {
+    if (this._radiusLabel) {
+      this._radiusLabel.destroy();
+      this._radiusLabel = null;
+    }
   }
 
   // ===================== Helpers =====================
