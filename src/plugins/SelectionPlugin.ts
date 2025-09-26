@@ -43,6 +43,10 @@ export class SelectionPlugin extends Plugin {
     bl: Konva.Circle | null;
   } = { tl: null, tr: null, br: null, bl: null };
 
+  // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
+  private _parentGroupDuringChildEdit: Konva.Group | null = null;
+  private _parentGroupPrevDraggable: boolean | null = null;
+
   constructor(options: SelectionPluginOptions = {}) {
     super();
     const {
@@ -119,7 +123,17 @@ export class SelectionPlugin extends Plugin {
         e.cancelBubble = true; // не даём всплыть до логики выбора группы
         this._select(exact);
         const node = exact.getNode();
-        if (typeof node.draggable === 'function') node.draggable(false);
+        // Включаем перетаскивание для выбранной дочерней ноды
+        if (typeof node.draggable === 'function') node.draggable(true);
+        // Временно отключаем перетаскивание у родительской группы, чтобы тянулась не вся группа
+        let parent: Konva.Node | null = (e.target as Konva.Node).getParent();
+        while (parent && !(parent instanceof Konva.Group)) parent = parent.getParent();
+        if (parent && parent instanceof Konva.Group) {
+          this._parentGroupDuringChildEdit = parent;
+          this._parentGroupPrevDraggable =
+            typeof parent.draggable === 'function' ? parent.draggable() : null;
+          if (typeof parent.draggable === 'function') parent.draggable(false);
+        }
         this._core.stage.batchDraw();
       }
     });
@@ -295,6 +309,16 @@ export class SelectionPlugin extends Plugin {
       node.draggable(this._prevDraggable);
     }
     this._prevDraggable = null;
+
+    // Вернуть состояние draggable у родительской группы, если мы были в режиме редактирования дочерней ноды
+    if (this._parentGroupDuringChildEdit) {
+      const grp = this._parentGroupDuringChildEdit;
+      if (typeof grp.draggable === 'function' && this._parentGroupPrevDraggable !== null) {
+        grp.draggable(this._parentGroupPrevDraggable);
+      }
+      this._parentGroupDuringChildEdit = null;
+      this._parentGroupPrevDraggable = null;
+    }
 
     // Снять слушатели drag c namespace
     node.off('.selection');
@@ -574,8 +598,8 @@ export class SelectionPlugin extends Plugin {
       const current = this._getCornerRadiusArray(node);
       // DragEvent наследует MouseEvent, поэтому доступны ctrlKey/metaKey
       const me = e.evt as MouseEvent;
-      const onlyThisCorner = me.ctrlKey || me.metaKey;
-      if (onlyThisCorner) {
+      const onlyThisCorner = me.altKey;
+      if (!onlyThisCorner) {
         current[cornerIndex] = r;
       } else {
         current[0] = r;
@@ -676,6 +700,15 @@ export class SelectionPlugin extends Plugin {
   // ===================== Helpers =====================
   private _findBaseNodeByTarget(target: Konva.Node): BaseNode | null {
     if (!this._core) return null;
+    // Если уже выбрана дочерняя нода и клик пришёл по ней (или её внутренним частям),
+    // отдаём приоритет именно ей, чтобы drag шёл по дочернему элементу, а не по группе
+    if (this._selected) {
+      const selectedKonva = this._selected.getNode() as unknown as Konva.Node;
+      if (selectedKonva === target) return this._selected;
+      if (typeof selectedKonva.isAncestorOf === 'function' && selectedKonva.isAncestorOf(target)) {
+        return this._selected;
+      }
+    }
     // Ищем соответствующую BaseNode по ссылке на внутренний konvaNode
     // 1) Сначала ищем родителя: если нода-обёртка (например, Group) является предком кликаемого target — выбираем её
     for (const n of this._core.nodes.list()) {
