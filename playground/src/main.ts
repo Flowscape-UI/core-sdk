@@ -236,7 +236,6 @@ group.addChild(gCircle.getNode());
 group.addChild(polygon.getNode());
 
 setTimeout(() => {
-  group.addChild(rect.getNode());
   img.setSrc(Image);
   core.eventBus.off('node:removed', onNodeRemoved);
 }, 5000);

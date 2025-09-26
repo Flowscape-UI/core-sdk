@@ -667,6 +667,8 @@ export class SelectionPlugin extends Plugin {
       const c = new Konva.Circle({
         name,
         radius: 4,
+        width: 25,
+        height: 25,
         fill: '#ffffff',
         stroke: '#2b83ff',
         strokeWidth: 1.5,
@@ -866,7 +868,7 @@ export class SelectionPlugin extends Plugin {
     if (width <= 0 || height <= 0) return;
     const tr = node.getAbsoluteTransform().copy();
     const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
-    const offset = 24; // вынесем хендлер чуть наружу от угла вдоль направления от центра
+    const offset = 12; // вынесем хендлер чуть наружу от угла вдоль направления от центра
     // ВАЖНО: corners и центр нужно брать с учётом local.x/local.y
     const centerAbs = mapAbs({ x: local.x + width / 2, y: local.y + height / 2 });
     const c0 = mapAbs({ x: local.x, y: local.y });
@@ -1271,10 +1273,7 @@ export class SelectionPlugin extends Plugin {
 
     const tr = node.getAbsoluteTransform().copy();
     const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
-    interface Point {
-      x: number;
-      y: number;
-    }
+
     // Инвариантный визуальный отступ 12px: приведём к локальным координатам, чтобы на экране он оставался постоянным
     const absScale = node.getAbsoluteScale();
     const invX = 1 / (Math.abs(absScale.x) || 1);
