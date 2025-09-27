@@ -484,7 +484,7 @@ export class SelectionPlugin extends Plugin {
     // Растянуть якоря на всю сторону и скрыть их визуально (оставив hit-area)
     this._restyleSideAnchors();
     // Добавить угловые хендлеры для cornerRadius, если поддерживается
-    this._setupCornerRadiusHandles();
+    this._setupCornerRadiusHandles(true);
     // Добавить угловые хендлеры ротации
     this._setupRotateHandles();
     // Добавить/обновить размерный label
@@ -1030,7 +1030,7 @@ export class SelectionPlugin extends Plugin {
     }
   }
 
-  private _setupCornerRadiusHandles() {
+  private _setupCornerRadiusHandles(showCornerPerimeters: boolean = false) {
     if (!this._core || !this._selected) return;
     const node = this._selected.getNode() as unknown as Konva.Node;
     if (!this._isCornerRadiusSupported(node)) return;
@@ -1100,9 +1100,9 @@ export class SelectionPlugin extends Plugin {
     const makeSquare = (name: string): Konva.Line => new Konva.Line({
       name,
       points: [],
-      stroke: '#4a90e2',
-      strokeWidth: 1,
-      dash: [4, 4],
+      stroke: showCornerPerimeters ? '#4a90e2' : '',
+      strokeWidth: showCornerPerimeters ? 1 : 0,
+      dash: showCornerPerimeters ? [4, 4] : [],
       closed: true,
       listening: false,
     });
