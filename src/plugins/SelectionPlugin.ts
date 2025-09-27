@@ -293,7 +293,7 @@ export class SelectionPlugin extends Plugin {
     let baseNode = this._findBaseNodeByTarget(target);
     if (!baseNode) return;
 
-    // Если клик пришёл внутри уже выбранной ноды — фиксируем выбор на ней (не перепрыгиваем на группу)
+    // Если есть выделение и клик пришёл внутри уже выделенной ноды — тянем именно её
     if (this._selected) {
       const selKonva = this._selected.getNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
@@ -307,14 +307,7 @@ export class SelectionPlugin extends Plugin {
       if (isAncestor(selKonva, target)) {
         baseNode = this._selected;
       }
-    }
-
-    // При зажатом Ctrl — если под курсором зарегистрированная leaf-нода, выбрать её как baseNode
-    if (e.evt.ctrlKey) {
-      const exact = this._core.nodes.list().find((n) => n.getNode() === target);
-      if (exact) {
-        baseNode = exact;
-      }
+      // Иначе — остаётся группа (baseNode найден выше)
     }
 
     // this._select(baseNode); // uncomment if needed
