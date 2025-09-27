@@ -6,6 +6,7 @@ import type { CoreEvents } from '../types/core.events.interface';
 export interface CameraManagerOptions {
   stage: Konva.Stage;
   eventBus: EventBus<CoreEvents>;
+  target?: Konva.Node; // по умолчанию сам stage, но лучше передавать world-группу
   initialScale?: number;
   minScale?: number;
   maxScale?: number;
@@ -17,6 +18,7 @@ export interface CameraManagerOptions {
 export class CameraManager {
   private _stage: Konva.Stage;
   private _eventBus: EventBus<CoreEvents>;
+  private _target: Konva.Node;
   private _scale: number;
   private _minScale: number;
   private _maxScale: number;
@@ -26,19 +28,21 @@ export class CameraManager {
   constructor(options: CameraManagerOptions) {
     this._stage = options.stage;
     this._eventBus = options.eventBus;
+    this._target = options.target ?? options.stage;
     this._scale = options.initialScale ?? 1;
     this._minScale = options.minScale ?? 0.1;
     this._maxScale = options.maxScale ?? 5;
     this._zoomStep = options.zoomStep ?? 1.05;
     this._panStep = options.panStep ?? 40;
-    this._stage.draggable(options.draggable);
+    // Перетаскивание лучше делать на target, но Konva.Layer/Group не имеют draggable по умолчанию.
+    // Мы оставляем Stage недраггибл и управляем позицией через камеру.
     this._initWheelZoom();
   }
 
   private _initWheelZoom() {
     this._stage.on('wheel', (e) => {
       e.evt.preventDefault();
-      const oldScale = this._stage.scaleX();
+      const oldScale = this._target.scaleX() || 1;
       const pointer = this._stage.getPointerPosition();
       if (!pointer) return;
       const scaleBy = this._zoomStep;
@@ -46,15 +50,15 @@ export class CameraManager {
       let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
       newScale = Math.max(this._minScale, Math.min(this._maxScale, newScale));
       const mousePointTo = {
-        x: (pointer.x - this._stage.x()) / oldScale,
-        y: (pointer.y - this._stage.y()) / oldScale,
+        x: (pointer.x - this._target.x()) / oldScale,
+        y: (pointer.y - this._target.y()) / oldScale,
       };
-      this._stage.scale({ x: newScale, y: newScale });
+      this._target.scale({ x: newScale, y: newScale });
       const newPos = {
         x: pointer.x - mousePointTo.x * newScale,
         y: pointer.y - mousePointTo.y * newScale,
       };
-      this._stage.position(newPos);
+      this._target.position(newPos);
       this._stage.batchDraw();
       this._scale = newScale;
       this._eventBus.emit('camera:zoom', { scale: this._scale, position: newPos });
@@ -71,7 +75,7 @@ export class CameraManager {
 
   public setZoom(zoom: number) {
     this._scale = Math.max(this._minScale, Math.min(this._maxScale, zoom));
-    this._stage.scale({ x: this._scale, y: this._scale });
+    this._target.scale({ x: this._scale, y: this._scale });
     this._stage.batchDraw();
     this._eventBus.emit('camera:setZoom', { scale: this._scale });
   }
@@ -94,12 +98,13 @@ export class CameraManager {
 
   public reset() {
     this.setZoom(1);
-    this._stage.position({ x: 0, y: 0 });
+    this._target.position({ x: 0, y: 0 });
     this._stage.batchDraw();
     this._eventBus.emit('camera:reset');
   }
 
   public setDraggable(enabled: boolean) {
+    // оставлено для совместимости — теперь не используется
     this._stage.draggable(enabled);
   }
 

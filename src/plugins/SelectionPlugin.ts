@@ -64,6 +64,11 @@ export class SelectionPlugin extends Plugin {
   // Абсолютный центр на момент старта ротации — для компенсации позиции
   private _rotateCenterAbsStart: { x: number; y: number } | null = null;
 
+  // RAF-id для коалесцирования синхронизации оверлеев во время зума/панорамирования мира
+  private _worldSyncRafId: number | null = null;
+  // Ссылка на обработчик событий камеры для on/off
+  private _onCameraZoomEvent: (() => void) | null = null;
+
   // Минимальная hover-рамка (синяя граница при наведении)
   private _hoverTr: Konva.Transformer | null = null;
   private _isPointerDown = false;
@@ -191,6 +196,46 @@ export class SelectionPlugin extends Plugin {
     this._core.nodes.layer.on('dragmove.hover', () => {
       this._destroyHoverTr();
     });
+
+    // Когда панорамируется «камера» через перемещение world, необходимо синхронизировать все оверлеи
+    const world = this._core.nodes.world;
+    const syncOverlaysOnWorldChange = () => {
+      if (!this._core) return;
+      // Коалесцируем множественные события (scale, x, y) в один апдейт на кадр
+      if (this._worldSyncRafId != null) return;
+      this._worldSyncRafId = globalThis.requestAnimationFrame(() => {
+        this._worldSyncRafId = null;
+        if (!this._core) return;
+        if (
+          this._transformer ||
+          this._cornerHandlesGroup ||
+          this._rotateHandlesGroup ||
+          this._sizeLabel
+        ) {
+          // Пересчитать привязку и все пользовательские оверлеи в экранных координатах
+          this._transformer?.forceUpdate();
+          this._hoverTr?.forceUpdate();
+          this._restyleSideAnchors();
+          this._updateCornerRadiusHandlesPosition();
+          this._updateRotateHandlesPosition();
+          this._updateSizeLabel();
+          this._core.nodes.layer.batchDraw();
+        }
+        // Hover-оверлей убираем до следующего mousemove, чтобы избежать мерцаний
+        this._destroyHoverTr();
+      });
+    };
+    world.on(
+      'xChange.selectionCamera yChange.selectionCamera scaleXChange.selectionCamera scaleYChange.selectionCamera',
+      syncOverlaysOnWorldChange,
+    );
+    // Слушаем события камеры для зума (CameraManager)
+    this._onCameraZoomEvent = () => {
+      syncOverlaysOnWorldChange();
+    };
+    core.eventBus.on('camera:zoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
+    core.eventBus.on('camera:setZoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
+    core.eventBus.on('camera:reset', this._onCameraZoomEvent as unknown as () => void);
   }
 
   protected onDetach(core: CoreEngine): void {
@@ -201,6 +246,23 @@ export class SelectionPlugin extends Plugin {
     core.stage.off('.selection');
     core.stage.off('.hover');
     this._core?.nodes.layer.off('.hover');
+    // Снять слушатели world и сбросить отложенный RAF
+    this._core?.nodes.world.off('.selectionCamera');
+    // Отменяем незавершённый RAF, если есть
+    if (this._worldSyncRafId != null) {
+      globalThis.cancelAnimationFrame(this._worldSyncRafId);
+      this._worldSyncRafId = null;
+    }
+    // Снять слушатели событий камеры
+    if (this._onCameraZoomEvent) {
+      core.eventBus.off('camera:zoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
+      core.eventBus.off(
+        'camera:setZoom',
+        this._onCameraZoomEvent as unknown as (p: unknown) => void,
+      );
+      core.eventBus.off('camera:reset', this._onCameraZoomEvent as unknown as () => void);
+      this._onCameraZoomEvent = null;
+    }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 
     // Снять hover-оверлей

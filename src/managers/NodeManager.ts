@@ -17,12 +17,15 @@ import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
 
 export class NodeManager {
   private _layer: Konva.Layer;
+  private _world: Konva.Group;
   private _nodes = new Map<string, BaseNode>();
   private _stage: Konva.Stage;
   private _eventBus: EventBus<CoreEvents>;
 
   constructor(stage: Konva.Stage, eventBus: EventBus<CoreEvents>) {
     this._layer = new Konva.Layer();
+    this._world = new Konva.Group();
+    this._layer.add(this._world);
     this._stage = stage;
     this._stage.add(this._layer);
     this._eventBus = eventBus;
@@ -30,6 +33,10 @@ export class NodeManager {
 
   public get layer(): Konva.Layer {
     return this._layer;
+  }
+
+  public get world(): Konva.Group {
+    return this._world;
   }
 
   public get stage(): Konva.Stage {
@@ -42,7 +49,7 @@ export class NodeManager {
 
   public addShape(options: ShapeNodeOptions): ShapeNode {
     const shape = new ShapeNode(options);
-    this._layer.add(shape.getNode());
+    this._world.add(shape.getNode());
     this._nodes.set(shape.id, shape);
     this._layer.batchDraw();
     return shape;
@@ -50,7 +57,7 @@ export class NodeManager {
 
   public addText(options: TextNodeOptions): TextNode {
     const text = new TextNode(options);
-    this._layer.add(text.getNode());
+    this._world.add(text.getNode());
     this._nodes.set(text.id, text);
     this._layer.batchDraw();
     return text;
@@ -58,7 +65,7 @@ export class NodeManager {
 
   public addImage(options: ImageNodeOptions): ImageNode {
     const image = new ImageNode(options);
-    this._layer.add(image.getNode());
+    this._world.add(image.getNode());
     this._nodes.set(image.id, image);
     this._layer.batchDraw();
     return image;
@@ -66,7 +73,7 @@ export class NodeManager {
 
   public addCircle(options: CircleNodeOptions): CircleNode {
     const circle = new CircleNode(options);
-    this._layer.add(circle.getNode());
+    this._world.add(circle.getNode());
     this._nodes.set(circle.id, circle);
     this._layer.batchDraw();
     return circle;
@@ -74,7 +81,7 @@ export class NodeManager {
 
   public addEllipse(options: EllipseNodeOptions): EllipseNode {
     const ellipse = new EllipseNode(options);
-    this._layer.add(ellipse.getNode());
+    this._world.add(ellipse.getNode());
     this._nodes.set(ellipse.id, ellipse);
     this._layer.batchDraw();
     return ellipse;
@@ -82,7 +89,7 @@ export class NodeManager {
 
   public addArc(options: ArcNodeOptions): ArcNode {
     const arc = new ArcNode(options);
-    this._layer.add(arc.getNode());
+    this._world.add(arc.getNode());
     this._nodes.set(arc.id, arc);
     this._layer.batchDraw();
     return arc;
@@ -90,7 +97,7 @@ export class NodeManager {
 
   public addStar(options: StarNodeOptions): StarNode {
     const star = new StarNode(options);
-    this._layer.add(star.getNode());
+    this._world.add(star.getNode());
     this._nodes.set(star.id, star);
     this._layer.batchDraw();
     return star;
@@ -98,7 +105,7 @@ export class NodeManager {
 
   public addArrow(options: ArrowNodeOptions): ArrowNode {
     const arrow = new ArrowNode(options);
-    this._layer.add(arrow.getNode());
+    this._world.add(arrow.getNode());
     this._nodes.set(arrow.id, arrow);
     this._layer.batchDraw();
     return arrow;
@@ -106,7 +113,7 @@ export class NodeManager {
 
   public addRing(options: RingNodeOptions): RingNode {
     const ring = new RingNode(options);
-    this._layer.add(ring.getNode());
+    this._world.add(ring.getNode());
     this._nodes.set(ring.id, ring);
     this._layer.batchDraw();
     return ring;
@@ -114,7 +121,7 @@ export class NodeManager {
 
   public addRegularPolygon(options: RegularPolygonNodeOptions): RegularPolygonNode {
     const poly = new RegularPolygonNode(options);
-    this._layer.add(poly.getNode());
+    this._world.add(poly.getNode());
     this._nodes.set(poly.id, poly);
     this._layer.batchDraw();
     return poly;
@@ -122,7 +129,7 @@ export class NodeManager {
 
   public addGroup(options: GroupNodeOptions): GroupNode {
     const group = new GroupNode(options);
-    this._layer.add(group.getNode());
+    this._world.add(group.getNode());
     this._nodes.set(group.id, group);
     this._layer.batchDraw();
     return group;

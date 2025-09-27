@@ -35,3 +35,5 @@ export { RingNode } from './nodes/RingNode';
 export { RegularPolygonNode } from './nodes/RegularPolygonNode';
 
 export { GroupNode } from './nodes/GroupNode';
+
+export { GridPlugin } from './plugins/GridPlugin';

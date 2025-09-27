@@ -1,7 +1,12 @@
-import { CoreEngine, LogoPlugin, SelectionPlugin } from '@flowscape-ui/core-sdk';
+import {
+  CoreEngine,
+  GridPlugin,
+  LogoPlugin,
+  SelectionPlugin,
+  CameraHotkeysPlugin,
+} from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
-import { CameraHotkeysPlugin } from '../../src/plugins/CameraHotkeysPlugin';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -26,9 +31,18 @@ const selection = new SelectionPlugin({
 //   },
 // });
 
+// playground/src/main.ts
+const gridPlugin = new GridPlugin({
+  stepX: 10,
+  stepY: 10,
+  color: '#d9d9d9',
+  minScaleToShow: 3,
+  enableSnap: true,
+});
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
-  plugins: [logoPlugin, hotkeys, selection],
+  plugins: [logoPlugin, hotkeys, selection, gridPlugin],
 });
 
 const onNodeRemoved = (node: unknown) => {

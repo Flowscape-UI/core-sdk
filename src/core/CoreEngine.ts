@@ -29,6 +29,7 @@ export class CoreEngine {
   private _draggable: boolean;
   private _minScale: number;
   private _maxScale: number;
+  private _gridLayer: Konva.Layer;
 
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
@@ -43,12 +44,12 @@ export class CoreEngine {
     this._backgroundColor = options.backgroundColor ?? '#1e1e1e';
     this._draggable = options.draggable ?? true;
     this._minScale = options.minScale ?? 0.1;
-    this._maxScale = options.maxScale ?? 15;
+    this._maxScale = options.maxScale ?? 500;
     this._stage = new Konva.Stage({
       container: this.container,
       width: this._autoResize ? this.container.offsetWidth : this._initialWidth,
       height: this._autoResize ? this.container.offsetHeight : this._initialHeight,
-      draggable: this._draggable,
+      draggable: false,
     });
     if (!this._autoResize) {
       this.container.style.width = `${String(this._initialWidth)}px`;
@@ -56,12 +57,17 @@ export class CoreEngine {
     }
     this.container.style.background = this._backgroundColor;
     this._eventBus = new EventBus<CoreEvents>();
+    // Слой для сетки (не трансформируется камерой)
+    this._gridLayer = new Konva.Layer({ listening: false });
+    this._stage.add(this._gridLayer);
+
     this.nodes = new NodeManager(this._stage, this._eventBus);
     this.camera = new CameraManager({
       stage: this._stage,
+      target: this.nodes.world,
       eventBus: this._eventBus,
       initialScale: 1,
-      draggable: this._draggable,
+      draggable: false,
       minScale: this._minScale,
       maxScale: this._maxScale,
     });
@@ -74,6 +80,10 @@ export class CoreEngine {
 
   public get stage(): Konva.Stage {
     return this._stage;
+  }
+
+  public get gridLayer(): Konva.Layer {
+    return this._gridLayer;
   }
 
   public get draggable(): boolean {

@@ -343,8 +343,9 @@ export class CameraHotkeysPlugin extends Plugin {
 
   private _pan(dx: number, dy: number) {
     if (!this._core) return;
-    const stage = this._core.stage;
-    stage.position({ x: stage.x() + dx, y: stage.y() + dy });
-    stage.batchDraw();
+    // Панорамируем мир, а не stage, чтобы сетка и контент были в одной системе координат
+    const world = this._core.nodes.world;
+    world.position({ x: world.x() + dx, y: world.y() + dy });
+    this._core.stage.batchDraw();
   }
 }
