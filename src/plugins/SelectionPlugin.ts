@@ -1032,20 +1032,88 @@ export class SelectionPlugin extends Plugin {
 
   private _setupCornerRadiusHandles() {
     if (!this._core || !this._selected) return;
-    const konvaNode = this._selected.getNode() as unknown as Konva.Node;
-    if (!this._isCornerRadiusSupported(konvaNode)) return;
+    const node = this._selected.getNode() as unknown as Konva.Node;
+    if (!this._isCornerRadiusSupported(node)) return;
 
     const layer = this._core.nodes.layer;
+    const stage = this._core.stage;
 
-    // Уничтожить предыдущие
+    // Снести предыдущие
     this._destroyCornerRadiusHandles();
 
     const group = new Konva.Group({ name: 'corner-radius-handles-group', listening: true });
     layer.add(group);
-    // Обеспечить, чтобы хендлеры были поверх трансформера
     group.moveToTop();
     this._cornerHandlesGroup = group;
 
+    // ===== Хелперы =====
+    // Квадраты упираются в центральную линию по X или Y (что раньше)
+    const computeCornerSquares = () => {
+      const width = (node as any).width();
+      const height = (node as any).height();
+
+      const absScale = node.getAbsoluteScale();
+      const invX = 1 / (Math.abs(absScale.x) || 1);
+      const invY = 1 / (Math.abs(absScale.y) || 1);
+      const ox = 12 * invX;
+      const oy = 12 * invY;
+
+      const dxToCenter = Math.max(0, width / 2 - ox);
+      const dyToCenter = Math.max(0, height / 2 - oy);
+      const side = Math.min(dxToCenter, dyToCenter);
+
+      return {
+        tl: { corner: { x: ox, y: oy }, sign: { x: 1, y: 1 }, side },
+        tr: { corner: { x: width - ox, y: oy }, sign: { x: -1, y: 1 }, side },
+        br: { corner: { x: width - ox, y: height - oy }, sign: { x: -1, y: -1 }, side },
+        bl: { corner: { x: ox, y: height - oy }, sign: { x: 1, y: -1 }, side },
+      } as const;
+    };
+
+    const snapToCornerDiagonal = (
+      absPos: Konva.Vector2d,
+      key: 'tl' | 'tr' | 'br' | 'bl'
+    ) => {
+      const nodeAbsT = node.getAbsoluteTransform().copy();
+      const toLocal = (p: Konva.Vector2d) => nodeAbsT.copy().invert().point(p);
+      const toAbs = (p: Konva.Vector2d) => nodeAbsT.point(p);
+
+      const squares = computeCornerSquares();
+      const s = (squares as any)[key];
+
+      const pL = toLocal(absPos);
+      const dx = pL.x - s.corner.x;
+      const dy = pL.y - s.corner.y;
+
+      let t = (s.sign.x * dx + s.sign.y * dy) / 2;
+      t = Math.max(0, Math.min(s.side, t));
+
+      const snappedLocal: Konva.Vector2d = {
+        x: s.corner.x + s.sign.x * t,
+        y: s.corner.y + s.sign.y * t,
+      };
+      const snappedAbs = toAbs(snappedLocal) as Konva.Vector2d;
+      return { snappedAbs, r: t, meta: s };
+    };
+
+    // ===== Визуализация квадратов =====
+    const makeSquare = (name: string): Konva.Line => new Konva.Line({
+      name,
+      points: [],
+      stroke: '#4a90e2',
+      strokeWidth: 1,
+      dash: [4, 4],
+      closed: true,
+      listening: false,
+    });
+
+    const sqTL = makeSquare('corner-square-tl');
+    const sqTR = makeSquare('corner-square-tr');
+    const sqBR = makeSquare('corner-square-br');
+    const sqBL = makeSquare('corner-square-bl');
+    group.add(sqTL, sqTR, sqBR, sqBL);
+
+    // ===== Хэндлеры =====
     const makeHandle = (name: string): Konva.Circle => {
       const handle = new Konva.Circle({
         name,
@@ -1055,18 +1123,11 @@ export class SelectionPlugin extends Plugin {
         strokeWidth: 1.5,
         draggable: true,
         dragOnTop: true,
+        hitStrokeWidth: 16, // увеличенная зона попадания — меньше «срывов»
       });
-      // Cursor hints
       handle.on('mouseenter.corner-radius', () => {
-        if (this._core) {
-          this._core.stage.container().style.cursor = 'default';
-        }
+        if (this._core) this._core.stage.container().style.cursor = 'default';
       });
-      // handle.on('mouseleave.corner-radius', () => {
-      //   if (this._core) {
-      //     this._core.stage.container().style.cursor = 'default';
-      //   }
-      // });
       return handle;
     };
 
@@ -1074,110 +1135,246 @@ export class SelectionPlugin extends Plugin {
     const tr = makeHandle('corner-radius-tr');
     const br = makeHandle('corner-radius-br');
     const bl = makeHandle('corner-radius-bl');
-
     group.add(tl, tr, br, bl);
     this._cornerHandles = { tl, tr, br, bl };
 
-    const dragHandler = (cornerIndex: 0 | 1 | 2 | 3) => (e: Konva.KonvaEventObject<DragEvent>) => {
-      if (!this._core || !this._selected) return;
-      const nodeRaw = this._selected.getNode() as unknown as Konva.Node;
-      if (!this._isCornerRadiusSupported(nodeRaw)) return;
-      const node = nodeRaw;
+    // ===== “Умный роутинг” при совпадении хэндлеров =====
+    type Key = 'tl' | 'tr' | 'br' | 'bl';
+    const keyToIndex: Record<Key, 0 | 1 | 2 | 3> = { tl: 0, tr: 1, br: 2, bl: 3 };
+    let routeEnabled = false;            // на этом драге выбираем угол по направлению?
+    let routeActive: Key | null = null;  // какой угол выбран направлением
+    let routeStartAbs: Konva.Vector2d | null = null;
+    let lastAltOnly = false;             // Alt зафиксированный в текущем драге
 
-      const width = node.width();
-      const height = node.height();
-      if (width <= 0 || height <= 0) return;
-
-      // Трансформации: прямое и обратное преобразование
+    const getCenterAbs = () => {
       const absT = node.getAbsoluteTransform().copy();
-      const mapAbs = (pt: { x: number; y: number }) => absT.point(pt);
-      const mapLocal = (ptAbs: { x: number; y: number }) => absT.copy().invert().point(ptAbs);
-      // Инвариантный визуальный отступ 12px: пересчитываем в локальные координаты с учётом масштаба
-      const absScale = node.getAbsoluteScale();
-      const invX = 1 / (Math.abs(absScale.x) || 1);
-      const invY = 1 / (Math.abs(absScale.y) || 1);
-      const OFFSET_X_LOCAL = 12 * invX;
-      const OFFSET_Y_LOCAL = 12 * invY;
-      let cornerLocalX = 0;
-      let cornerLocalY = 0;
-      switch (cornerIndex) {
-        case 0:
-          cornerLocalX = OFFSET_X_LOCAL;
-          cornerLocalY = OFFSET_Y_LOCAL;
-          break;
-        case 1:
-          cornerLocalX = width - OFFSET_X_LOCAL;
-          cornerLocalY = OFFSET_Y_LOCAL;
-          break;
-        case 2:
-          cornerLocalX = width - OFFSET_X_LOCAL;
-          cornerLocalY = height - OFFSET_Y_LOCAL;
-          break;
-        case 3:
-          cornerLocalX = OFFSET_X_LOCAL;
-          cornerLocalY = height - OFFSET_Y_LOCAL;
-          break;
-      }
-      const cornerLocal = { x: cornerLocalX, y: cornerLocalY };
-      const centerLocal = { x: width / 2, y: height / 2 };
-      const maxR = Math.min(width, height) / 2;
+      const w = (node as any).width();
+      const h = (node as any).height();
+      return absT.point({ x: w / 2, y: h / 2 });
+    };
 
-      // Текущая позиция хендлера в локальных координатах ноды
-      const handle = e.target as Konva.Circle;
-      const pAbs = handle.getAbsolutePosition();
-      const pLocal = mapLocal(pAbs);
+    const getAllHandleAbs = () => {
+      const res: Partial<Record<Key, Konva.Vector2d>> = {};
+      if (this._cornerHandles?.tl) res.tl = this._cornerHandles.tl.getAbsolutePosition();
+      if (this._cornerHandles?.tr) res.tr = this._cornerHandles.tr.getAbsolutePosition();
+      if (this._cornerHandles?.br) res.br = this._cornerHandles.br.getAbsolutePosition();
+      if (this._cornerHandles?.bl) res.bl = this._cornerHandles.bl.getAbsolutePosition();
+      return res as Record<Key, Konva.Vector2d>;
+    };
 
-      // Направление вдоль прямой из угла к центру в ЛОКАЛЬНЫХ координатах
-      let ux = centerLocal.x - cornerLocal.x;
-      let uy = centerLocal.y - cornerLocal.y;
-      const uLen = Math.hypot(ux, uy) || 1;
-      ux /= uLen;
-      uy /= uLen;
+    const isNearCenterPoint = (p: Konva.Vector2d, epsPx = 8) => {
+      const c = getCenterAbs();
+      return Math.hypot(p.x - c.x, p.y - c.y) <= epsPx;
+    };
+    const isNearCenterLine = (p: Konva.Vector2d, epsPx = 6) => {
+      const c = getCenterAbs();
+      return Math.min(Math.abs(p.x - c.x), Math.abs(p.y - c.y)) <= epsPx;
+    };
+    const anyHandlesOverlapNear = (start: Konva.Vector2d, epsPx = 8) => {
+      const all = getAllHandleAbs();
+      let countNear = 0;
+      (['tl', 'tr', 'br', 'bl'] as Key[]).forEach(k => {
+        const hp = all[k];
+        if (hp && Math.hypot(hp.x - start.x, hp.y - start.y) <= epsPx) countNear++;
+      });
+      return countNear >= 2;
+    };
 
-      // Скалярное расстояние от угла вдоль этой прямой в локальных координатах
-      const wxLocalX = pLocal.x - cornerLocal.x;
-      const wyLocalY = pLocal.y - cornerLocal.y;
-      let dist = wxLocalX * ux + wyLocalY * uy; // signed расстояние вдоль направления
-      dist = Math.max(0, Math.min(maxR, dist)); // clamp [0, maxR]
-      const r = dist; // радиус в локальных единицах
+    // Выбор routeActive по абсолютной позиции указателя (или предложенной pos из dragBoundFunc)
+    const pickRouteByAbsPos = (posAbs: Konva.Vector2d) => {
+      if (!routeEnabled || routeActive) return;
+      const c = getCenterAbs();
+      let vx = posAbs.x - c.x, vy = posAbs.y - c.y;
+      const mag = Math.hypot(vx, vy);
+      if (mag < 0.1) return; // микрозона около центра — не выбираем
+      vx /= mag; vy /= mag;
 
-      // Зафиксировать хендлер на прямой линии corner->center на расстоянии dist
-      const snappedLocal = { x: cornerLocal.x + ux * dist, y: cornerLocal.y + uy * dist };
-      const snappedAbs = mapAbs(snappedLocal);
-      handle.absolutePosition(snappedAbs);
+      // Диагональные направления «центр→угол» в абсолюте (устойчиво к поворотам/скейлам)
+      const absT = node.getAbsoluteTransform().copy();
+      const squares = computeCornerSquares();
+      const diag: Record<Key, { x: number; y: number }> = (['tl', 'tr', 'br', 'bl'] as Key[]).reduce((acc, k) => {
+        const s = (squares as any)[k];
+        const cornerAbs = absT.point(s.corner);
+        const dx = cornerAbs.x - c.x;
+        const dy = cornerAbs.y - c.y;
+        const len = Math.hypot(dx, dy) || 1;
+        acc[k] = { x: dx / len, y: dy / len };
+        return acc;
+      }, {} as Record<Key, { x: number; y: number }>);
 
-      const current = this._getCornerRadiusArray(node);
-      // DragEvent наследует MouseEvent, поэтому доступны ctrlKey/metaKey
-      const me = e.evt as MouseEvent;
-      const onlyThisCorner = me.altKey;
-      if (onlyThisCorner) {
-        current[cornerIndex] = r;
+      let best: Key = 'tl', bestDot = -Infinity;
+      (['tl', 'tr', 'br', 'bl'] as Key[]).forEach(k => {
+        const d = diag[k];
+        const dot = vx * d.x + vy * d.y;
+        if (dot > bestDot) { bestDot = dot; best = k; }
+      });
+      routeActive = best;
+    };
+
+    // ===== Ограничитель + пересчёт радиуса внутри dragBoundFunc (устойчив к выходу курсора) =====
+    const makeBound = (defKey: Key) => (pos: Konva.Vector2d) => {
+      // Выбрать угол по направлению "центр → pos" если мы в умном режиме
+      pickRouteByAbsPos(pos);
+      const key = routeActive ?? defKey;
+
+      // Проекция на диагональ соответствующего квадрата
+      const { snappedAbs, r: t, meta: s } = snapToCornerDiagonal(pos, key);
+
+      // 0..100% → пиксельный радиус (целое число)
+      const w = (node as any).width();
+      const hgt = (node as any).height();
+      const maxR = Math.max(0, Math.min(w, hgt) / 2);
+      const percent = s.side > 0 ? (t / s.side) : 0;
+      let rPix = Math.round(percent * maxR);
+      rPix = Math.max(0, Math.min(rPix, maxR));
+
+      // Применить радиус (Alt — только выбранный угол, иначе все 4)
+      const arr = this._getCornerRadiusArray(node as Konva.Rect);
+      const idx = keyToIndex[key];
+      if (lastAltOnly) {
+        arr[idx] = rPix;
       } else {
-        current[0] = r;
-        current[1] = r;
-        current[2] = r;
-        current[3] = r;
+        arr[0] = rPix; arr[1] = rPix; arr[2] = rPix; arr[3] = rPix;
       }
-      this._setCornerRadiusArray(node, current);
-      this._updateCornerRadiusHandlesPosition();
-      this._core.nodes.layer.batchDraw();
+      this._setCornerRadiusArray(node as Konva.Rect, arr);
+
+      // Обновить визуалку и лейбл (делаем здесь — даже если dragmove не пришёл)
+      this._showRadiusLabelForCorner(idx);
+      updatePositions();
+      this._core?.nodes.layer.batchDraw();
+
+      return snappedAbs; // Конва поставит хэндлер туда, куда мы «снэпнули»
     };
 
-    tl.on('dragmove.corner-radius', dragHandler(0));
-    tr.on('dragmove.corner-radius', dragHandler(1));
-    br.on('dragmove.corner-radius', dragHandler(2));
-    bl.on('dragmove.corner-radius', dragHandler(3));
+    tl.dragBoundFunc(makeBound('tl'));
+    tr.dragBoundFunc(makeBound('tr'));
+    br.dragBoundFunc(makeBound('br'));
+    bl.dragBoundFunc(makeBound('bl'));
 
-    // ===== Radius label: показать при hover/drag, скрыть при leave/end =====
-    const showRadius = (cornerIndex: 0 | 1 | 2 | 3) => () => {
-      this._showRadiusLabelForCorner(cornerIndex);
+    // ===== Обновление позиций (ручки + квадраты) =====
+    const updatePositions = () => {
+      if (!this._cornerHandles) return;
+      const { tl, tr, br, bl } = this._cornerHandles;
+      if (!tl || !tr || !br || !bl) return;
+
+      const nodeAbsT = node.getAbsoluteTransform().copy();
+      const layerInvAbsT = layer.getAbsoluteTransform().copy().invert();
+      const toAbs = (p: { x: number; y: number }) => nodeAbsT.point(p);
+      const toLayer = (p: { x: number; y: number }) => layerInvAbsT.point(nodeAbsT.point(p));
+
+      const squares = computeCornerSquares();
+      const radii = this._getCornerRadiusArray(node);
+
+      const placeHandle = (key: Key, idx: 0 | 1 | 2 | 3, h: Konva.Circle) => {
+        const s = (squares as any)[key];                      // { corner, sign, side }
+        const w = (node as any).width();
+        const hgt = (node as any).height();
+        const maxR = Math.max(0, Math.min(w, hgt) / 2);
+
+        const rPix = Math.max(0, Math.min(maxR, (radii[idx] || 0))); // radii[] уже в пикселях
+        const percent = maxR > 0 ? (rPix / maxR) : 0;                 // 0..1
+        const t = Math.max(0, Math.min(s.side, percent * s.side));    // обратно в ось-смещение квадрата
+
+        const pLocal = {
+          x: s.corner.x + s.sign.x * t,
+          y: s.corner.y + s.sign.y * t,
+        };
+        h.absolutePosition(toAbs(pLocal));
+      };
+
+      const placeSquare = (key: Key, line: Konva.Line) => {
+        const s = (squares as any)[key];
+        const c = s.corner;
+        const e = { x: s.corner.x + s.sign.x * s.side, y: s.corner.y + s.sign.y * s.side };
+
+        const p1 = toLayer({ x: c.x, y: c.y });
+        const p2 = toLayer({ x: e.x, y: c.y });
+        const p3 = toLayer({ x: e.x, y: e.y });
+        const p4 = toLayer({ x: c.x, y: e.y });
+
+        line.points([p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y]);
+      };
+
+      placeSquare('tl', sqTL);
+      placeSquare('tr', sqTR);
+      placeSquare('br', sqBR);
+      placeSquare('bl', sqBL);
+
+      placeHandle('tl', 0, tl);
+      placeHandle('tr', 1, tr);
+      placeHandle('br', 2, br);
+      placeHandle('bl', 3, bl);
+
+      // фиксированный визуальный размер кружков
+      const grpParent = this._cornerHandlesGroup?.getParent();
+      if (grpParent) {
+        const pd = grpParent.getAbsoluteTransform().decompose();
+        const invX = 1 / (Math.abs(pd.scaleX) || 1);
+        const invY = 1 / (Math.abs(pd.scaleY) || 1);
+        tl.scale({ x: invX, y: invY });
+        tr.scale({ x: invX, y: invY });
+        br.scale({ x: invX, y: invY });
+        bl.scale({ x: invX, y: invY });
+      }
+      this._cornerHandlesGroup?.moveToTop();
     };
-    const hideRadius = () => {
-      this._hideRadiusLabel();
+    (this as any)._updateCornerRadiusHandlesPosition = updatePositions;
+
+    // ===== Drag-логика с роутингом (минимальная) =====
+    const onDragStartRoute = (h: Konva.Circle, ev?: Konva.KonvaEventObject<DragEvent>) => {
+      lastAltOnly = !!(ev?.evt as MouseEvent | undefined)?.altKey; // зафиксировать Alt на старте
+      const startAbs = h.getAbsolutePosition();
+      // включаем умный режим если выполнено ЛЮБОЕ из условий:
+      // - рядом с центром-точкой
+      // - рядом с любой центральной линией
+      // - рядом одновременно несколько хэндлеров (зона слияния)
+      routeEnabled =
+        isNearCenterPoint(startAbs, 8) ||
+        isNearCenterLine(startAbs, 6) ||
+        anyHandlesOverlapNear(startAbs, 8);
+
+      routeActive = null;
+      routeStartAbs = startAbs;
+
+      if (routeEnabled) {
+        const p = this._core?.stage.getPointerPosition() ?? startAbs;
+        pickRouteByAbsPos(p); // сразу выбрать угол, чтобы не было кадра неопределённости
+      }
     };
-    const updateDuringDrag = (cornerIndex: 0 | 1 | 2 | 3) => () => {
-      this._showRadiusLabelForCorner(cornerIndex);
+
+    const dragHandler = (defaultKey: Key, _defaultIndex: 0 | 1 | 2 | 3) =>
+      (e: Konva.KonvaEventObject<DragEvent>) => {
+        // только обновляем Alt во время драга; остальное делает dragBoundFunc
+        lastAltOnly = !!(e.evt as MouseEvent).altKey;
+      };
+
+    const dragEndReset = () => {
+      routeEnabled = false;
+      routeActive = null;
+      routeStartAbs = null;
+      lastAltOnly = false;
     };
+
+    // биндинги
+    tl.on('dragstart.corner-radius', (ev) => onDragStartRoute(tl, ev));
+    tr.on('dragstart.corner-radius', (ev) => onDragStartRoute(tr, ev));
+    br.on('dragstart.corner-radius', (ev) => onDragStartRoute(br, ev));
+    bl.on('dragstart.corner-radius', (ev) => onDragStartRoute(bl, ev));
+
+    tl.on('dragmove.corner-radius', dragHandler('tl', 0));
+    tr.on('dragmove.corner-radius', dragHandler('tr', 1));
+    br.on('dragmove.corner-radius', dragHandler('br', 2));
+    bl.on('dragmove.corner-radius', dragHandler('bl', 3));
+
+    tl.on('dragend.corner-radius', dragEndReset);
+    tr.on('dragend.corner-radius', dragEndReset);
+    br.on('dragend.corner-radius', dragEndReset);
+    bl.on('dragend.corner-radius', dragEndReset);
+
+    // ===== Лейблы (как было) =====
+    const showRadius = (cornerIndex: 0 | 1 | 2 | 3) => () => this._showRadiusLabelForCorner(cornerIndex);
+    const hideRadius = () => this._hideRadiusLabel();
+    const updateDuringDrag = (cornerIndex: 0 | 1 | 2 | 3) => () => this._showRadiusLabelForCorner(cornerIndex);
 
     tl.on('mouseenter.corner-radius', showRadius(0));
     tr.on('mouseenter.corner-radius', showRadius(1));
@@ -1201,7 +1398,7 @@ export class SelectionPlugin extends Plugin {
     br.on('dragend.corner-radius', hideRadius);
     bl.on('dragend.corner-radius', hideRadius);
 
-    // Блокируем перетаскивание выбранной ноды на время правки радиуса
+    // Блокируем перетаскивание ноды на время правки радиуса
     const onDown = () => {
       if (!this._selected) return;
       const n = this._selected.getNode() as unknown as Konva.Node;
@@ -1221,9 +1418,38 @@ export class SelectionPlugin extends Plugin {
     br.on('mouseup.corner-radius touchend.corner-radius', onUp);
     bl.on('mouseup.corner-radius touchend.corner-radius', onUp);
 
-    // Инициализировать позиции
-    this._updateCornerRadiusHandlesPosition();
+    // ===== Автосинк при пане/зуме/трансформациях =====
+    const ns = '.corner-squares';
+    let pending = false;
+    const schedule = () => {
+      if (pending) return;
+      pending = true;
+      Konva.Util.requestAnimFrame(() => {
+        pending = false;
+        updatePositions();
+        this._core?.nodes.layer.batchDraw();
+      });
+    };
+    stage.on(['wheel', 'resize', 'xChange', 'yChange', 'positionChange', 'scaleXChange', 'scaleYChange', 'scaleChange'].map(e => e + ns).join(' '), schedule);
+    layer.on(['xChange', 'yChange', 'positionChange', 'scaleXChange', 'scaleYChange', 'scaleChange'].map(e => e + ns).join(' '), schedule);
+    node.on(['dragmove', 'transform', 'xChange', 'yChange', 'widthChange', 'heightChange', 'rotationChange', 'scaleXChange', 'scaleYChange', 'positionChange', 'scaleChange'].map(e => e + ns).join(' '), schedule);
+    if (this._transformer) {
+      this._transformer.on('transform' + ns, () => { updatePositions(); this._core?.nodes.layer.batchDraw(); });
+      this._transformer.on('transformend' + ns, schedule);
+    }
+    group.on('destroy' + ns, () => {
+      stage.off(ns); layer.off(ns); node.off(ns); this._transformer?.off(ns);
+    });
+
+    // Инициализация
+    updatePositions();
+    layer.batchDraw();
   }
+
+
+
+
+
 
   private _destroyCornerRadiusHandles() {
     if (this._cornerHandlesGroup) {
