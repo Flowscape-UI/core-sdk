@@ -27,7 +27,7 @@ export class CameraManager {
     this._stage = options.stage;
     this._eventBus = options.eventBus;
     this._scale = options.initialScale ?? 1;
-    this._minScale = options.minScale ?? 0.2;
+    this._minScale = options.minScale ?? 0.1;
     this._maxScale = options.maxScale ?? 5;
     this._zoomStep = options.zoomStep ?? 1.05;
     this._panStep = options.panStep ?? 40;

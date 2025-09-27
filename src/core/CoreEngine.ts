@@ -42,8 +42,8 @@ export class CoreEngine {
     this._autoResize = options.autoResize ?? true;
     this._backgroundColor = options.backgroundColor ?? '#1e1e1e';
     this._draggable = options.draggable ?? true;
-    this._minScale = options.minScale ?? 0.2;
-    this._maxScale = options.maxScale ?? 5;
+    this._minScale = options.minScale ?? 0.1;
+    this._maxScale = options.maxScale ?? 15;
     this._stage = new Konva.Stage({
       container: this.container,
       width: this._autoResize ? this.container.offsetWidth : this._initialWidth,
