@@ -37,3 +37,5 @@ export { RegularPolygonNode } from './nodes/RegularPolygonNode';
 export { GroupNode } from './nodes/GroupNode';
 
 export { GridPlugin } from './plugins/GridPlugin';
+
+export { RulerPlugin } from './plugins/RulerPlugin';

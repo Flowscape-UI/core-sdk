@@ -393,6 +393,16 @@ export class GridPlugin extends Plugin {
     this._visible = visible;
     if (this._core) this._core.stage.batchDraw();
   }
+  // Геттеры для синхронизации с линейкой
+  public get stepX(): number {
+    return this._stepX;
+  }
+  public get stepY(): number {
+    return this._stepY;
+  }
+  public get minScaleToShow(): number | null {
+    return this._minScaleToShow;
+  }
   public setStep(stepX: number, stepY: number): void {
     this._stepX = Math.max(1, stepX);
     this._stepY = Math.max(1, stepY);

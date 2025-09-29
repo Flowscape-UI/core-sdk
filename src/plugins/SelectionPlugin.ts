@@ -86,6 +86,11 @@ export class SelectionPlugin extends Plugin {
   private _autoPanMaxSpeedPx: number; // макс. скорость автопана в px/кадр
   private _draggingNode: Konva.Node | null = null; // текущая нода в drag
 
+  // --- Пропорциональный ресайз по Shift для угловых хендлеров ---
+  private _ratioKeyPressed = false;
+  private _onGlobalKeyDown: ((e: KeyboardEvent) => void) | null = null;
+  private _onGlobalKeyUp: ((e: KeyboardEvent) => void) | null = null;
+
   private _startAutoPanLoop() {
     if (!this._core) return;
     if (this._autoPanRafId != null) return;
@@ -326,6 +331,16 @@ export class SelectionPlugin extends Plugin {
     core.eventBus.on('camera:zoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
     core.eventBus.on('camera:setZoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
     core.eventBus.on('camera:reset', this._onCameraZoomEvent as unknown as () => void);
+
+    // Глобальные слушатели для Shift (пропорциональный ресайз только для угловых якорей)
+    this._onGlobalKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') this._ratioKeyPressed = true;
+    };
+    this._onGlobalKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') this._ratioKeyPressed = false;
+    };
+    globalThis.addEventListener('keydown', this._onGlobalKeyDown);
+    globalThis.addEventListener('keyup', this._onGlobalKeyUp);
   }
 
   protected onDetach(core: CoreEngine): void {
@@ -359,6 +374,12 @@ export class SelectionPlugin extends Plugin {
 
     // Снять hover-оверлей
     this._destroyHoverTr();
+
+    // Удалить глобальные слушатели клавиш
+    if (this._onGlobalKeyDown) globalThis.removeEventListener('keydown', this._onGlobalKeyDown);
+    if (this._onGlobalKeyUp) globalThis.removeEventListener('keyup', this._onGlobalKeyUp);
+    this._onGlobalKeyDown = null;
+    this._onGlobalKeyUp = null;
   }
 
   // ===================== Selection logic =====================
@@ -832,6 +853,8 @@ export class SelectionPlugin extends Plugin {
       // Отключаем стандартную ротацию Transformer — вращаем только кастомными хендлерами
       rotateEnabled: false,
       rotationSnapTolerance: 15,
+      // По умолчанию свободный ресайз. Пропорции включаем динамически по Shift.
+      keepRatio: false,
       rotationSnaps: [
         0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285,
         300, 315, 330, 345, 360,
@@ -859,6 +882,19 @@ export class SelectionPlugin extends Plugin {
     // Добавить/обновить размерный label
     this._setupSizeLabel();
     // Во время трансформации (ресайз/скейл) синхронизировать позиции всех оверлеев
+    const updateKeepRatio = () => {
+      const active =
+        typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
+      const isCorner =
+        active === 'top-left' ||
+        active === 'top-right' ||
+        active === 'bottom-left' ||
+        active === 'bottom-right';
+      transformer.keepRatio(isCorner && this._ratioKeyPressed);
+    };
+    transformer.on('transformstart.keepratio', updateKeepRatio);
+    transformer.on('transform.keepratio', updateKeepRatio);
+
     transformer.on('transform.corner-sync', () => {
       // На лету «впитываем» неравномерный масштаб в width/height для Rect,
       // чтобы скругления оставались полукруглыми, а не эллипсами

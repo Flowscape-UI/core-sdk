@@ -7,6 +7,7 @@ import {
 } from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
+import { RulerPlugin } from '../../src/plugins/RulerPlugin';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -37,9 +38,11 @@ const gridPlugin = new GridPlugin({
   minScaleToShow: 15,
 });
 
+const rulerPlugin = new RulerPlugin();
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
-  plugins: [logoPlugin, hotkeys, selection, gridPlugin],
+  plugins: [logoPlugin, hotkeys, selection, gridPlugin, rulerPlugin],
 });
 
 const onNodeRemoved = (node: unknown) => {
