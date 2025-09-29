@@ -149,18 +149,17 @@ export class GridPlugin extends Plugin {
       const pixelMode = this._minScaleToShow != null ? sx >= this._minScaleToShow : false;
 
       if (pixelMode) {
-        // Попиксельный снап в экранных координатах: объект всегда на целых пикселях
-        const screenX = abs.x * sx + world.x();
-        const screenY = abs.y * sy + world.y();
-        const snappedScreenX = Math.round(screenX);
-        const snappedScreenY = Math.round(screenY);
-        if (
-          Math.abs(snappedScreenX - screenX) > 0.001 ||
-          Math.abs(snappedScreenY - screenY) > 0.001
-        ) {
-          const newAbsX = (snappedScreenX - world.x()) / sx;
-          const newAbsY = (snappedScreenY - world.y()) / sy;
-          target.absolutePosition({ x: newAbsX, y: newAbsY });
+        // Снап по клеткам мировой сетки (кратность stepX/stepY в мировых координатах)
+        const wx = (abs.x - world.x()) / sx;
+        const wy = (abs.y - world.y()) / sy;
+        const stepX = Math.max(1, this._stepX);
+        const stepY = Math.max(1, this._stepY);
+        const snappedWX = Math.round(wx / stepX) * stepX;
+        const snappedWY = Math.round(wy / stepY) * stepY;
+        const snappedAbsX = snappedWX * sx + world.x();
+        const snappedAbsY = snappedWY * sy + world.y();
+        if (Math.abs(snappedAbsX - abs.x) > 0.001 || Math.abs(snappedAbsY - abs.y) > 0.001) {
+          target.absolutePosition({ x: snappedAbsX, y: snappedAbsY });
         }
       } else {
         // Мировой снап: кратность шагу в мире, независимо от масштаба
@@ -203,41 +202,65 @@ export class GridPlugin extends Plugin {
         const anchor = typeof anyN.getActiveAnchor === 'function' ? anyN.getActiveAnchor() : '';
         if (anchor === 'rotater') return base;
 
-        const stage = this._core.stage;
-        const scale = stage.scaleX();
-        const pixelMode = this._minScaleToShow != null ? scale >= this._minScaleToShow : false;
+        // Снап рёбер по мировой сетке: в каких единицах приходит base? В координатах родителя ноды,
+        // которые соотносятся с "миром" (узлы в world). Поэтому квантуем по stepX/stepY напрямую.
+        // СНАП РЁБЕР В МИРЕ (через абсолютные трансформации)
+        const stepX = Math.max(1, this._stepX);
+        const stepY = Math.max(1, this._stepY);
+        const a = typeof anchor === 'string' ? anchor : '';
 
-        let snappedW = base.width;
-        let snappedH = base.height;
-        if (pixelMode) {
-          const scaleX = stage.scaleX();
-          const scaleY = stage.scaleY();
-          // Размеры в экранных пикселях
-          const widthPx = base.width * scaleX;
-          const heightPx = base.height * scaleY;
-          const snappedWidthPx = Math.max(1, Math.round(widthPx));
-          const snappedHeightPx = Math.max(1, Math.round(heightPx));
-          // Обратно в мировые
-          snappedW = snappedWidthPx / Math.max(1e-6, scaleX);
-          snappedH = snappedHeightPx / Math.max(1e-6, scaleY);
-        } else {
-          // Снап к мировой сетке
-          const stepX = Math.max(1, this._stepX);
-          const stepY = Math.max(1, this._stepY);
-          snappedW = Math.max(stepX, Math.round(base.width / stepX) * stepX);
-          snappedH = Math.max(stepY, Math.round(base.height / stepY) * stepY);
+        // Для неповернутых — точный snap рёбер в мировых координатах.
+        const worldAbs = this._core.nodes.world.getAbsoluteTransform();
+        const invWorldAbs = worldAbs.copy();
+        invWorldAbs.invert();
+
+        // Бокс boundBoxFunc (base/newBox) — в АБСОЛЮТНЫХ координатах
+        const leftA = base.x;
+        const rightA = base.x + base.width;
+        const topA = base.y;
+        const bottomA = base.y + base.height;
+
+        // Перевод в МИР: abs -> world
+        const Lw = invWorldAbs.point({ x: leftA, y: topA }).x;
+        const Rw = invWorldAbs.point({ x: rightA, y: topA }).x;
+        const Tw = invWorldAbs.point({ x: leftA, y: topA }).y;
+        const Bw = invWorldAbs.point({ x: leftA, y: bottomA }).y;
+
+        let newLw = Lw;
+        let newRw = Rw;
+        let newTw = Tw;
+        let newBw = Bw;
+
+        // Снапим только движущиеся рёбра к ближайшим линиям мировой сетки (eps для стабильности)
+        const q = (v: number, s: number) => Math.round((v + 1e-9) / s) * s;
+        if (a.includes('left')) newLw = q(Lw, stepX);
+        if (a.includes('right')) newRw = q(Rw, stepX);
+        if (a.includes('top')) newTw = q(Tw, stepY);
+        if (a.includes('bottom')) newBw = q(Bw, stepY);
+
+        // Минимальные размеры в МИРЕ
+        if (newRw - newLw < stepX) {
+          if (a.includes('left')) newLw = newRw - stepX;
+          else newRw = newLw + stepX;
+        }
+        if (newBw - newTw < stepY) {
+          if (a.includes('top')) newTw = newBw - stepY;
+          else newBw = newTw + stepY;
         }
 
-        const dx = snappedW - base.width;
-        const dy = snappedH - base.height;
+        // Обратно в АБСОЛЮТНЫЕ координаты: world -> abs
+        const leftAbs = worldAbs.point({ x: newLw, y: newTw }).x;
+        const topAbs = worldAbs.point({ x: newLw, y: newTw }).y;
+        const rightAbs = worldAbs.point({ x: newRw, y: newTw }).x;
+        const bottomAbs = worldAbs.point({ x: newLw, y: newBw }).y;
 
+        // 1) Сборка итогового бокса напрямую из ABS-координат, полученных из заснапленных мировых рёбер
+        const round3 = (v: number) => Math.round(v * 1000) / 1000;
         const result = { ...base };
-        result.width = snappedW;
-        result.height = snappedH;
-        if (typeof anchor === 'string') {
-          if (anchor.includes('left')) result.x = base.x - dx;
-          if (anchor.includes('top')) result.y = base.y - dy;
-        }
+        result.x = round3(leftAbs);
+        result.y = round3(topAbs);
+        result.width = round3(rightAbs - leftAbs);
+        result.height = round3(bottomAbs - topAbs);
         return result;
       };
       (
@@ -310,12 +333,12 @@ export class GridPlugin extends Plugin {
       } & Konva.Rect;
       const cls = typeof node.getClassName === 'function' ? node.getClassName() : '';
       if (cls !== 'Rect') return;
-      const getCR = (node as unknown as { cornerRadius: () => number | number[] }).cornerRadius;
+      const getCR = (node as { cornerRadius: () => number | number[] }).cornerRadius;
       if (typeof getCR !== 'function') return;
       const value = getCR.call(node);
       const apply = (rounded: number | number[]) => {
         // В Konva API setter — та же функция cornerRadius(value)
-        (node as unknown as { cornerRadius: (v: number | number[]) => void }).cornerRadius(rounded);
+        (node as { cornerRadius: (v: number | number[]) => void }).cornerRadius(rounded);
       };
       const stage = this._core?.stage;
       const scale = stage?.scaleX() ?? 1;

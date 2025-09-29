@@ -33,11 +33,8 @@ const selection = new SelectionPlugin({
 
 // playground/src/main.ts
 const gridPlugin = new GridPlugin({
-  stepX: 10,
-  stepY: 10,
-  color: '#d9d9d9',
-  minScaleToShow: 3,
-  enableSnap: true,
+  color: '#3d3d3d',
+  minScaleToShow: 15,
 });
 
 const core = new CoreEngine({

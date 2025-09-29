@@ -17,6 +17,12 @@ export interface SelectionPluginOptions {
   deselectOnEmptyClick?: boolean;
   // Пользовательская проверка, можно ли выделять конкретный Konva.Node
   selectablePredicate?: (node: Konva.Node) => boolean;
+  // Автопанорамирование мира при перетаскивании у краёв экрана
+  autoPanEnabled?: boolean;
+  // Ширина зоны у края экрана (px)
+  autoPanEdgePx?: number;
+  // Максимальная скорость автопана в px/кадр
+  autoPanMaxSpeedPx?: number;
 }
 
 /**
@@ -73,6 +79,62 @@ export class SelectionPlugin extends Plugin {
   private _hoverTr: Konva.Transformer | null = null;
   private _isPointerDown = false;
 
+  // Автопанорамирование мира при перетаскивании у краёв экрана
+  private _autoPanRafId: number | null = null;
+  private _autoPanActive = false;
+  private _autoPanEdgePx: number; // ширина зоны у края экрана (px)
+  private _autoPanMaxSpeedPx: number; // макс. скорость автопана в px/кадр
+  private _draggingNode: Konva.Node | null = null; // текущая нода в drag
+
+  private _startAutoPanLoop() {
+    if (!this._core) return;
+    if (this._autoPanRafId != null) return;
+    this._autoPanActive = true;
+    const world = this._core.nodes.world;
+    const stage = this._core.stage;
+    const tick = () => {
+      this._autoPanRafId = null;
+      if (!this._core || !this._autoPanActive) return;
+      const ptr = stage.getPointerPosition();
+      if (ptr) {
+        const w = stage.width();
+        const h = stage.height();
+        const edge = this._autoPanEdgePx;
+        let vx = 0;
+        let vy = 0;
+        const leftPress = Math.max(0, edge - ptr.x);
+        const rightPress = Math.max(0, ptr.x - (w - edge));
+        const topPress = Math.max(0, edge - ptr.y);
+        const bottomPress = Math.max(0, ptr.y - (h - edge));
+        const norm = (p: number) => Math.min(1, p / edge);
+        vx = this._autoPanMaxSpeedPx * (norm(rightPress) - norm(leftPress));
+        vy = this._autoPanMaxSpeedPx * (norm(bottomPress) - norm(topPress));
+        if (vx !== 0 || vy !== 0) {
+          // Смещение мира так, чтобы «подтягивать» поле под курсор (в экранных пикселях)
+          world.x(world.x() - vx);
+          world.y(world.y() - vy);
+          // Компенсация для перетаскиваемой ноды: оставляем под курсором
+          if (this._draggingNode && typeof this._draggingNode.setAbsolutePosition === 'function') {
+            const abs = this._draggingNode.getAbsolutePosition();
+            this._draggingNode.setAbsolutePosition({ x: abs.x + vx, y: abs.y + vy });
+            this._transformer?.forceUpdate();
+          }
+          this._core.nodes.layer.batchDraw();
+        }
+      }
+      this._autoPanRafId = globalThis.requestAnimationFrame(tick);
+    };
+    this._autoPanRafId = globalThis.requestAnimationFrame(tick);
+  }
+
+  private _stopAutoPanLoop() {
+    this._autoPanActive = false;
+    if (this._autoPanRafId != null) {
+      globalThis.cancelAnimationFrame(this._autoPanRafId);
+      this._autoPanRafId = null;
+    }
+  }
+
   // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
   private _parentGroupPrevDraggable: boolean | null = null;
@@ -91,13 +153,26 @@ export class SelectionPlugin extends Plugin {
       enableTransformer,
       deselectOnEmptyClick,
       selectablePredicate: selectablePredicate ?? (() => true),
+      autoPanEnabled: options.autoPanEnabled ?? true,
+      autoPanEdgePx: options.autoPanEdgePx ?? 40,
+      autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
     };
+
+    // Инициализация приватных полей автопана из опций
+    this._autoPanEdgePx = this._options.autoPanEdgePx;
+    this._autoPanMaxSpeedPx = this._options.autoPanMaxSpeedPx;
   }
 
   public setOptions(patch: Partial<SelectionPluginOptions>) {
     this._options = { ...this._options, ...patch } as typeof this._options;
     // Обновляем Transformer под новое состояние опций
     if (this._core) this._refreshTransformer();
+    // Применяем новые значения автопана к приватным полям, если заданы
+    if (typeof patch.autoPanEdgePx === 'number') this._autoPanEdgePx = patch.autoPanEdgePx;
+    if (typeof patch.autoPanMaxSpeedPx === 'number')
+      this._autoPanMaxSpeedPx = patch.autoPanMaxSpeedPx;
+    // Если автопан был выключен — остановить цикл
+    if (patch.autoPanEnabled === false) this._stopAutoPanLoop();
   }
 
   protected onAttach(core: CoreEngine): void {
@@ -197,6 +272,21 @@ export class SelectionPlugin extends Plugin {
       this._destroyHoverTr();
     });
 
+    // Автопан: запускать уже при первом перетаскивании, даже если нода ещё не была выбрана
+    const layer = this._core.nodes.layer;
+    layer.on('dragstart.selectionAutoPan', (e: Konva.KonvaEventObject<DragEvent>) => {
+      if (!this._options.autoPanEnabled) return;
+      const target = e.target as Konva.Node;
+      // Учитываем пользовательский фильтр выбираемости, чтобы не реагировать на служебные ноды
+      if (!this._options.selectablePredicate(target)) return;
+      this._draggingNode = target;
+      this._startAutoPanLoop();
+    });
+    layer.on('dragend.selectionAutoPan', () => {
+      this._draggingNode = null;
+      this._stopAutoPanLoop();
+    });
+
     // Когда панорамируется «камера» через перемещение world, необходимо синхронизировать все оверлеи
     const world = this._core.nodes.world;
     const syncOverlaysOnWorldChange = () => {
@@ -248,6 +338,8 @@ export class SelectionPlugin extends Plugin {
     this._core?.nodes.layer.off('.hover');
     // Снять слушатели world и сбросить отложенный RAF
     this._core?.nodes.world.off('.selectionCamera');
+    // Снять layer-уровневые обработчики автопана
+    this._core?.nodes.layer.off('.selectionAutoPan');
     // Отменяем незавершённый RAF, если есть
     if (this._worldSyncRafId != null) {
       globalThis.cancelAnimationFrame(this._worldSyncRafId);
@@ -459,6 +551,8 @@ export class SelectionPlugin extends Plugin {
     // Перетаскивание уже обрабатывается самим Konva Node при draggable(true)
     // Прячем/показываем рамку и хендлеры радиуса на время drag
     konvaNode.on('dragstart.selection', () => {
+      // Запоминаем активную ноду для компенсации смещения при автопане
+      this._draggingNode = konvaNode;
       if (this._transformer) {
         this._transformerWasVisibleBeforeDrag = this._transformer.visible();
         this._transformer.visible(false);
@@ -476,12 +570,16 @@ export class SelectionPlugin extends Plugin {
         this._sizeLabel.visible(false);
       }
       this._core?.stage.batchDraw();
+      // Запустить автопан при перетаскивании
+      this._startAutoPanLoop();
     });
     konvaNode.on('dragmove.selection', () => {
       // Ничего дополнительно, просто перерисовка
       this._core?.stage.batchDraw();
     });
     konvaNode.on('dragend.selection', () => {
+      // Сбросить ссылку на активную ноду
+      this._draggingNode = null;
       if (this._transformer) {
         if (this._transformerWasVisibleBeforeDrag) {
           this._transformer.visible(true);
@@ -506,6 +604,8 @@ export class SelectionPlugin extends Plugin {
         }
         this._sizeLabelWasVisibleBeforeDrag = false;
       }
+      // Остановить автопан
+      this._stopAutoPanLoop();
       this._select(node);
       this._core?.stage.batchDraw();
     });
@@ -1042,6 +1142,8 @@ export class SelectionPlugin extends Plugin {
         }
         // Обновить рамку трансформера немедленно
         this._transformer?.forceUpdate();
+        // Пересчитать кастомные middle‑хендлеры под текущее вращение
+        this._restyleSideAnchors();
         this._core.nodes.layer.batchDraw();
         this._updateRotateHandlesPosition();
         this._updateCornerRadiusHandlesPosition();
@@ -1059,6 +1161,8 @@ export class SelectionPlugin extends Plugin {
           }
         }
         this._core?.stage.draggable(true);
+        // Финально пересчитать кастомные middle‑хендлеры
+        this._restyleSideAnchors();
         this._updateRotateHandlesPosition();
         this._updateSizeLabel();
         this._core?.nodes.layer.batchDraw();
@@ -1212,11 +1316,10 @@ export class SelectionPlugin extends Plugin {
 
   private _updateSizeLabel() {
     if (!this._core || !this._selected || !this._sizeLabel) return;
-    const stage = this._core.stage;
     const node = this._selected.getNode();
     // Визуальный bbox — для позиционирования (привязка к нижнему центру экрана)
     const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
-    // Логический размер — независим от зума сцены: localRect * (absNodeScale / absStageScale)
+    // Логический размер — независим от зума камеры (world): localRect * (absNodeScale / absWorldScale)
     const localRect = node.getClientRect({
       skipTransform: true,
       skipShadow: true,
@@ -1224,13 +1327,13 @@ export class SelectionPlugin extends Plugin {
       skipStroke: true,
     });
     const nodeDec = node.getAbsoluteTransform().decompose();
-    const stageDec = stage.getAbsoluteTransform().decompose();
+    const worldDec = this._core.nodes.world.getAbsoluteTransform().decompose();
     const nodeAbsX = Math.abs(nodeDec.scaleX) || 1;
     const nodeAbsY = Math.abs(nodeDec.scaleY) || 1;
-    const stageAbsX = Math.abs(stageDec.scaleX) || 1;
-    const stageAbsY = Math.abs(stageDec.scaleY) || 1;
-    const logicalW = localRect.width * (nodeAbsX / stageAbsX);
-    const logicalH = localRect.height * (nodeAbsY / stageAbsY);
+    const worldAbsX = Math.abs(worldDec.scaleX) || 1;
+    const worldAbsY = Math.abs(worldDec.scaleY) || 1;
+    const logicalW = localRect.width * (nodeAbsX / worldAbsX);
+    const logicalH = localRect.height * (nodeAbsY / worldAbsY);
     const w = Math.max(0, Math.round(logicalW));
     const h = Math.max(0, Math.round(logicalH));
 
@@ -1822,24 +1925,24 @@ export class SelectionPlugin extends Plugin {
     if (!this._isCornerRadiusSupported(nodeRaw)) return;
     const node = nodeRaw;
 
-    const width = node.width();
-    const height = node.height();
+    // Используем локальный прямоугольник, как для rotate-хендлеров, чтобы учесть local.x/local.y, stroke и т.п.
+    const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: true });
+    const width = local.width;
+    const height = local.height;
     if (width <= 0 || height <= 0) return;
 
     const tr = node.getAbsoluteTransform().copy();
     const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
 
-    // Инвариантный визуальный отступ 12px: приведём к локальным координатам, чтобы на экране он оставался постоянным
+    // Инвариантный визуальный отступ 12px: приводим к локальным координатам, чтобы на экране он оставался постоянным
     const absScale = node.getAbsoluteScale();
     const invX = 1 / (Math.abs(absScale.x) || 1);
     const invY = 1 / (Math.abs(absScale.y) || 1);
     const offXLocal = 12 * invX;
     const offYLocal = 12 * invY;
-    // Абсолютные точки для каждого угла будут вычислены из локальных точек ниже
 
     const radii = this._getCornerRadiusArray(node);
     const maxR = Math.min(width, height) / 2 || 1;
-    // Вектор направления в локальных координатах для каждого угла
     const normalize = (v: { x: number; y: number }) => {
       const len = Math.hypot(v.x, v.y) || 1;
       return { x: v.x / len, y: v.y / len };
@@ -1851,27 +1954,23 @@ export class SelectionPlugin extends Plugin {
       normalize({ x: width / 2 - offXLocal, y: -(height / 2 - offYLocal) }), // bl -> center
     ] as const;
 
-    const p0Local = {
-      x: offXLocal + dirLocal[0].x * Math.min(maxR, radii[0]),
-      y: offYLocal + dirLocal[0].y * Math.min(maxR, radii[0]),
-    };
-    const p1Local = {
-      x: width - offXLocal + dirLocal[1].x * Math.min(maxR, radii[1]),
-      y: offYLocal + dirLocal[1].y * Math.min(maxR, radii[1]),
-    };
-    const p2Local = {
-      x: width - offXLocal + dirLocal[2].x * Math.min(maxR, radii[2]),
-      y: height - offYLocal + dirLocal[2].y * Math.min(maxR, radii[2]),
-    };
-    const p3Local = {
-      x: offXLocal + dirLocal[3].x * Math.min(maxR, radii[3]),
-      y: height - offYLocal + dirLocal[3].y * Math.min(maxR, radii[3]),
-    };
-
-    const p0 = mapAbs(p0Local);
-    const p1 = mapAbs(p1Local);
-    const p2 = mapAbs(p2Local);
-    const p3 = mapAbs(p3Local);
+    // Учитываем смещение локального прямоугольника (local.x/local.y)
+    const p0 = mapAbs({
+      x: local.x + offXLocal + dirLocal[0].x * Math.min(maxR, radii[0]),
+      y: local.y + offYLocal + dirLocal[0].y * Math.min(maxR, radii[0]),
+    });
+    const p1 = mapAbs({
+      x: local.x + width - offXLocal + dirLocal[1].x * Math.min(maxR, radii[1]),
+      y: local.y + offYLocal + dirLocal[1].y * Math.min(maxR, radii[1]),
+    });
+    const p2 = mapAbs({
+      x: local.x + width - offXLocal + dirLocal[2].x * Math.min(maxR, radii[2]),
+      y: local.y + height - offYLocal + dirLocal[2].y * Math.min(maxR, radii[2]),
+    });
+    const p3 = mapAbs({
+      x: local.x + offXLocal + dirLocal[3].x * Math.min(maxR, radii[3]),
+      y: local.y + height - offYLocal + dirLocal[3].y * Math.min(maxR, radii[3]),
+    });
 
     if (this._cornerHandles.tl) this._cornerHandles.tl.absolutePosition(p0);
     if (this._cornerHandles.tr) this._cornerHandles.tr.absolutePosition(p1);
@@ -1883,12 +1982,12 @@ export class SelectionPlugin extends Plugin {
     const grpParent = this._cornerHandlesGroup.getParent();
     if (grpParent) {
       const pd = grpParent.getAbsoluteTransform().decompose();
-      const invX = 1 / (Math.abs(pd.scaleX) || 1);
-      const invY = 1 / (Math.abs(pd.scaleY) || 1);
-      if (this._cornerHandles.tl) this._cornerHandles.tl.scale({ x: invX, y: invY });
-      if (this._cornerHandles.tr) this._cornerHandles.tr.scale({ x: invX, y: invY });
-      if (this._cornerHandles.br) this._cornerHandles.br.scale({ x: invX, y: invY });
-      if (this._cornerHandles.bl) this._cornerHandles.bl.scale({ x: invX, y: invY });
+      const invPX = 1 / (Math.abs(pd.scaleX) || 1);
+      const invPY = 1 / (Math.abs(pd.scaleY) || 1);
+      if (this._cornerHandles.tl) this._cornerHandles.tl.scale({ x: invPX, y: invPY });
+      if (this._cornerHandles.tr) this._cornerHandles.tr.scale({ x: invPX, y: invPY });
+      if (this._cornerHandles.br) this._cornerHandles.br.scale({ x: invPX, y: invPY });
+      if (this._cornerHandles.bl) this._cornerHandles.bl.scale({ x: invPX, y: invPY });
     }
     // Гарантировать z-index над квадратными якорями трансформера
     this._cornerHandlesGroup.moveToTop();
