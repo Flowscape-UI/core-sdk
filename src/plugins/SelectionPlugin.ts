@@ -2,6 +2,10 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { MultiGroupController } from '../utils/MultiGroupController';
+import { restyleSideAnchorsForTr as restyleSideAnchorsUtil } from '../utils/OverlayAnchors';
+import { makeRotateHandle } from '../utils/RotateHandleFactory';
+import { OverlayFrameManager } from '../utils/OverlayFrameManager';
 
 import { Plugin } from './Plugin';
 
@@ -90,6 +94,62 @@ export class SelectionPlugin extends Plugin {
   private _ratioKeyPressed = false;
   private _onGlobalKeyDown: ((e: KeyboardEvent) => void) | null = null;
   private _onGlobalKeyUp: ((e: KeyboardEvent) => void) | null = null;
+
+  // Временная мульти-группа (Shift+Click)
+  private _tempMultiSet = new Set<BaseNode>();
+  private _tempMultiGroup: Konva.Group | null = null;
+  private _tempMultiTr: Konva.Transformer | null = null;
+  // Единый менеджер оверлеев для временной группы
+  private _tempOverlay: OverlayFrameManager | null = null;
+  private _tempRotateHandlesGroup: Konva.Group | null = null;
+  private _tempRotateHandles: {
+    tl: Konva.Circle | null;
+    tr: Konva.Circle | null;
+    br: Konva.Circle | null;
+    bl: Konva.Circle | null;
+  } = { tl: null, tr: null, br: null, bl: null };
+  private _tempPlacement = new Map<
+    Konva.Node,
+    {
+      parent: Konva.Container;
+      zIndex: number;
+      abs: { x: number; y: number };
+      prevDraggable: boolean | null;
+    }
+  >();
+
+  public getMultiGroupController(): MultiGroupController {
+    if (!this._core) throw new Error('Core is not attached');
+    this._multiCtrl ??= new MultiGroupController(this._core, {
+      ensureTempMulti: (nodes) => {
+        this._ensureTempMulti(nodes);
+      },
+      destroyTempMulti: () => {
+        this._destroyTempMulti();
+      },
+      commitTempMultiToGroup: () => {
+        this._commitTempMultiToGroup();
+      },
+      isActive: () => !!this._tempMultiGroup || this._tempMultiSet.size > 0,
+      forceUpdate: () => {
+        this._tempOverlay?.forceUpdate();
+      },
+      onWorldChanged: () => {
+        this._tempOverlay?.onWorldChanged();
+      },
+      isInsideTempByTarget: (target) => {
+        if (!this._tempMultiGroup) return false;
+        if (target === this._tempMultiGroup) return true;
+        return (
+          target.isAncestorOf(this._tempMultiGroup) || this._tempMultiGroup.isAncestorOf(target)
+        );
+      },
+    });
+    return this._multiCtrl;
+  }
+  private _tempMultiSizeLabel: Konva.Label | null = null;
+  private _tempMultiHitRect: Konva.Rect | null = null;
+  private _multiCtrl: MultiGroupController | null = null;
 
   private _startAutoPanLoop() {
     if (!this._core) return;
@@ -182,6 +242,44 @@ export class SelectionPlugin extends Plugin {
 
   protected onAttach(core: CoreEngine): void {
     this._core = core;
+    // Инициализация контроллера временной мульти‑группы, проксирующего приватные методы
+    this._multiCtrl = new MultiGroupController(core, {
+      ensureTempMulti: (nodes) => {
+        this._ensureTempMulti(nodes);
+      },
+      destroyTempMulti: () => {
+        this._destroyTempMulti();
+      },
+      commitTempMultiToGroup: () => {
+        this._commitTempMultiToGroup();
+      },
+      isActive: () => !!this._tempMultiGroup,
+      isInsideTempByTarget: (target: Konva.Node) => {
+        if (!this._tempMultiGroup) return false;
+        let cur: Konva.Node | null = target;
+        while (cur) {
+          if (cur === this._tempMultiGroup) return true;
+          cur = cur.getParent();
+        }
+        return false;
+      },
+      forceUpdate: () => {
+        this._tempMultiTr?.forceUpdate();
+        this._updateTempMultiSizeLabel();
+        this._updateTempMultiHitRect();
+        this._updateTempRotateHandlesPosition();
+        this._core?.nodes.layer.batchDraw();
+      },
+      onWorldChanged: () => {
+        // Коалесцируем как в основном обработчике мира
+        this._tempMultiTr?.forceUpdate();
+        this._updateTempMultiSizeLabel();
+        this._updateTempMultiHitRect();
+        this._updateTempRotateHandlesPosition();
+        this._core?.nodes.layer.batchDraw();
+        this._destroyHoverTr();
+      },
+    });
 
     // Навешиваем обработчики на сцену (namespace .selection)
     const stage = core.stage;
@@ -197,13 +295,57 @@ export class SelectionPlugin extends Plugin {
 
       // Клик по пустому месту — снимаем выделение (если включено)
       if (e.target === stage || e.target.getLayer() !== layer) {
-        if (this._options.deselectOnEmptyClick) this._clearSelection();
+        if (this._options.deselectOnEmptyClick) {
+          this._destroyTempMulti();
+          this._clearSelection();
+        }
         return;
       }
 
       // Обычное выделение ноды (для группы — выберется группа)
       const target = e.target;
       if (!this._options.selectablePredicate(target)) return;
+
+      // Shift+Click: собрать временную группу
+      if (e.evt.shiftKey) {
+        const base = this._findBaseNodeByTarget(target);
+        if (!base) return;
+
+        if (this._tempMultiSet.size === 0 && this._selected && this._selected !== base) {
+          // перенести текущую выбранную ноду в набор и убрать её одиночные оверлеи
+          this._tempMultiSet.add(this._selected);
+          if (this._transformer) {
+            this._transformer.destroy();
+            this._transformer = null;
+          }
+          this._destroyCornerRadiusHandles();
+          this._destroyRotateHandles();
+          this._destroySizeLabel();
+          this._selected = null;
+        }
+
+        if (Array.from(this._tempMultiSet).includes(base)) this._tempMultiSet.delete(base);
+        else this._tempMultiSet.add(base);
+
+        if (this._tempMultiSet.size === 0) {
+          this._destroyTempMulti();
+          this._clearSelection();
+          return;
+        }
+        if (this._tempMultiSet.size === 1) {
+          const iter = this._tempMultiSet.values();
+          const step = iter.next();
+          const only = step.done ? null : step.value;
+          if (!only) return;
+          this._destroyTempMulti();
+          this._select(only);
+          this._core.stage.batchDraw();
+          return;
+        }
+        this._ensureTempMulti(Array.from(this._tempMultiSet));
+        this._core.stage.batchDraw();
+        return;
+      }
 
       // Ctrl-клик: выбрать точную зарегистрированную ноду под курсором (если есть)
       if (e.evt.ctrlKey) {
@@ -219,6 +361,8 @@ export class SelectionPlugin extends Plugin {
       const baseNode = this._findBaseNodeByTarget(target);
       if (!baseNode) return;
 
+      // Обычный клик — разрушить временную группу и выделить одну ноду
+      this._destroyTempMulti();
       this._select(baseNode);
       this._core.stage.batchDraw();
     });
@@ -305,7 +449,8 @@ export class SelectionPlugin extends Plugin {
           this._transformer ||
           this._cornerHandlesGroup ||
           this._rotateHandlesGroup ||
-          this._sizeLabel
+          this._sizeLabel ||
+          this._tempMultiGroup
         ) {
           // Пересчитать привязку и все пользовательские оверлеи в экранных координатах
           this._transformer?.forceUpdate();
@@ -314,6 +459,8 @@ export class SelectionPlugin extends Plugin {
           this._updateCornerRadiusHandlesPosition();
           this._updateRotateHandlesPosition();
           this._updateSizeLabel();
+          // Временная группа: форс‑апдейт единого менеджера оверлеев
+          this._tempOverlay?.forceUpdate();
           this._core.nodes.layer.batchDraw();
         }
         // Hover-оверлей убираем до следующего mousemove, чтобы избежать мерцаний
@@ -335,6 +482,16 @@ export class SelectionPlugin extends Plugin {
     // Глобальные слушатели для Shift (пропорциональный ресайз только для угловых якорей)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
+      // Ctrl+G — закрепить временную группу в постоянную (по коду клавиши, независимо от раскладки)
+      if (e.ctrlKey && !e.shiftKey && e.code === 'KeyG') {
+        e.preventDefault();
+        this._commitTempMultiToGroup();
+      }
+      // Ctrl+Shift+G — разгруппировать выбранную постоянную группу (по коду клавиши)
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyG') {
+        e.preventDefault();
+        this._tryUngroupSelectedGroup();
+      }
     };
     this._onGlobalKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = false;
@@ -345,6 +502,7 @@ export class SelectionPlugin extends Plugin {
 
   protected onDetach(core: CoreEngine): void {
     // Снимаем выделение и чистим состояния
+    this._destroyTempMulti();
     this._clearSelection();
 
     // Отписки
@@ -683,6 +841,311 @@ export class SelectionPlugin extends Plugin {
     this._core?.stage.batchDraw();
   }
 
+  // ===== Helpers: временная мульти-группа =====
+  private _ensureTempMulti(nodes: BaseNode[]) {
+    if (!this._core) return;
+    const world = this._core.nodes.world;
+    const layer = this._core.nodes.layer;
+    if (!this._tempMultiGroup) {
+      const grp = new Konva.Group({ name: 'temp-multi-group' });
+      world.add(grp);
+      this._tempMultiGroup = grp;
+      this._tempPlacement.clear();
+      for (const b of nodes) {
+        const kn = b.getNode() as unknown as Konva.Node;
+        const parent = kn.getParent();
+        if (!parent) continue;
+        const z = kn.zIndex();
+        const abs = kn.getAbsolutePosition();
+        const prevDraggable =
+          typeof (kn as unknown as { draggable?: (v?: boolean) => boolean }).draggable ===
+          'function'
+            ? (kn as unknown as { draggable: (v?: boolean) => boolean }).draggable()
+            : null;
+        this._tempPlacement.set(kn, { parent, zIndex: z, abs, prevDraggable });
+        grp.add(kn as unknown as Konva.Group | Konva.Shape);
+        kn.setAbsolutePosition(abs);
+        if (
+          typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+        )
+          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
+        // Блокируем drag у детей и перенаправляем на группу
+        kn.off('.tempMultiChild');
+        kn.on('dragstart.tempMultiChild', (ev: Konva.KonvaEventObject<DragEvent>) => {
+          ev.cancelBubble = true;
+          const anyKn = kn as unknown as { stopDrag?: () => void };
+          if (typeof anyKn.stopDrag === 'function') anyKn.stopDrag();
+        });
+        kn.on('mousedown.tempMultiChild', (ev: Konva.KonvaEventObject<MouseEvent>) => {
+          if (ev.evt.button !== 0) return;
+          ev.cancelBubble = true;
+          const anyGrp = grp as unknown as { startDrag?: () => void };
+          if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
+        });
+      }
+      // Единый менеджер оверлеев для временной группы
+      this._tempOverlay ??= new OverlayFrameManager(this._core);
+      this._tempOverlay.attach(grp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
+      // Поведение, как у обычной группы: drag группы, без панорамирования сцены
+      const stage = this._core.stage;
+      const prevStageDraggable = stage.draggable();
+      grp.draggable(true);
+      const forceUpdate = () => {
+        this._tempOverlay?.forceUpdate();
+        layer.batchDraw();
+      };
+      grp.on('dragstart.tempMulti', () => {
+        stage.draggable(false);
+        this._draggingNode = grp;
+        this._startAutoPanLoop();
+        // Спрятать рамку/лейбл/хендлеры временной группы на время перетаскивания
+        this._tempOverlay?.hideOverlaysForDrag();
+        forceUpdate();
+      });
+      grp.on('dragmove.tempMulti', forceUpdate);
+      grp.on('transform.tempMulti', forceUpdate);
+      grp.on('dragend.tempMulti', () => {
+        stage.draggable(prevStageDraggable);
+        this._draggingNode = null;
+        this._stopAutoPanLoop();
+        // Вернуть рамку/лейбл/хендлеры после перетаскивания
+        this._tempOverlay?.restoreOverlaysAfterDrag();
+        forceUpdate();
+      });
+      return;
+    }
+    // обновить состав
+    const curr = [...this._tempMultiGroup.getChildren()];
+    const want = nodes.map((b) => b.getNode() as unknown as Konva.Node);
+    const same = curr.length === want.length && want.every((n) => curr.includes(n as Konva.Group));
+    if (same) return;
+    this._destroyTempMulti();
+    this._ensureTempMulti(nodes);
+  }
+
+  private _destroyTempMulti() {
+    if (!this._core) return;
+    if (!this._tempMultiGroup && this._tempMultiSet.size === 0) return;
+    // Снять единый менеджер оверлеев (уберёт transformer/лейбл/rotate/hit)
+    if (this._tempOverlay) {
+      this._tempOverlay.detach();
+      this._tempOverlay = null;
+    }
+    if (this._tempMultiGroup) {
+      this._tempMultiGroup.off('.tempMulti');
+      const children = [...this._tempMultiGroup.getChildren()];
+      for (const kn of children) {
+        // снять перехваты с детей
+        kn.off('.tempMultiChild');
+        const info = this._tempPlacement.get(kn);
+        // Сохраняем абсолютный трансформ ребёнка (позиция/скейл/вращение)
+        const absBefore = kn.getAbsoluteTransform().copy();
+        // Родитель-назначение: сохранённый или world
+        const dstParent = info?.parent ?? this._core.nodes.world;
+        // Переместить к родителю-назначению
+        kn.moveTo(dstParent);
+        // Рассчитать локальный трансформ, эквивалентный ранее абсолютному
+        const parentAbs = dstParent.getAbsoluteTransform().copy();
+        parentAbs.invert();
+        const local = parentAbs.multiply(absBefore);
+        const d = local.decompose();
+        // Применить локальные x/y/rotation/scale, чтобы сохранить визуальный результат
+        if (
+          typeof (kn as unknown as { position?: (p: Konva.Vector2d) => void }).position ===
+          'function'
+        ) {
+          (kn as unknown as { position: (p: Konva.Vector2d) => void }).position({ x: d.x, y: d.y });
+        } else {
+          kn.setAbsolutePosition({ x: d.x, y: d.y });
+        }
+        if (typeof (kn as unknown as { rotation?: (r: number) => void }).rotation === 'function') {
+          (kn as unknown as { rotation: (r: number) => void }).rotation(d.rotation);
+        }
+        if (
+          typeof (kn as unknown as { scale?: (p: Konva.Vector2d) => void }).scale === 'function'
+        ) {
+          (kn as unknown as { scale: (p: Konva.Vector2d) => void }).scale({
+            x: d.scaleX,
+            y: d.scaleY,
+          });
+        }
+        // Восстановить порядок и draggable
+        if (info) {
+          try {
+            kn.zIndex(info.zIndex);
+          } catch {
+            /* ignore */
+          }
+          if (
+            typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+              'function' &&
+            info.prevDraggable !== null
+          ) {
+            (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(info.prevDraggable);
+          }
+        }
+      }
+      this._tempMultiGroup.destroy();
+      this._tempMultiGroup = null;
+    }
+    this._tempPlacement.clear();
+    this._tempMultiSet.clear();
+  }
+
+  private _updateTempRotateHandlesPosition() {
+    if (!this._core || !this._tempMultiGroup || !this._tempRotateHandlesGroup) return;
+    const grp = this._tempMultiGroup;
+    const local = grp.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
+    const width = local.width;
+    const height = local.height;
+    if (width <= 0 || height <= 0) return;
+    const tr = grp.getAbsoluteTransform().copy();
+    const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
+    const offset = 12;
+    const centerAbs = mapAbs({ x: local.x + width / 2, y: local.y + height / 2 });
+    const c0 = mapAbs({ x: local.x, y: local.y });
+    const c1 = mapAbs({ x: local.x + width, y: local.y });
+    const c2 = mapAbs({ x: local.x + width, y: local.y + height });
+    const c3 = mapAbs({ x: local.x, y: local.y + height });
+    const dir = (c: { x: number; y: number }) => {
+      const vx = c.x - centerAbs.x;
+      const vy = c.y - centerAbs.y;
+      const len = Math.hypot(vx, vy) || 1;
+      return { x: vx / len, y: vy / len };
+    };
+    const d0 = dir(c0),
+      d1 = dir(c1),
+      d2 = dir(c2),
+      d3 = dir(c3);
+    const p0 = { x: c0.x + d0.x * offset, y: c0.y + d0.y * offset };
+    const p1 = { x: c1.x + d1.x * offset, y: c1.y + d1.y * offset };
+    const p2 = { x: c2.x + d2.x * offset, y: c2.y + d2.y * offset };
+    const p3 = { x: c3.x + d3.x * offset, y: c3.y + d3.y * offset };
+    if (this._tempRotateHandles.tl) this._tempRotateHandles.tl.absolutePosition(p0);
+    if (this._tempRotateHandles.tr) this._tempRotateHandles.tr.absolutePosition(p1);
+    if (this._tempRotateHandles.br) this._tempRotateHandles.br.absolutePosition(p2);
+    if (this._tempRotateHandles.bl) this._tempRotateHandles.bl.absolutePosition(p3);
+    this._tempRotateHandlesGroup.moveToTop();
+  }
+
+  private _updateTempMultiSizeLabel() {
+    if (!this._core || !this._tempMultiGroup || !this._tempMultiSizeLabel) return;
+    const world = this._core.nodes.world;
+    // Визуальный bbox БЕЗ учёта stroke (и, соответственно, без рамки выделения)
+    const bbox = this._tempMultiGroup.getClientRect({ skipShadow: true, skipStroke: true });
+    const logicalW = bbox.width / Math.max(1e-6, world.scaleX());
+    const logicalH = bbox.height / Math.max(1e-6, world.scaleY());
+    const w = Math.max(0, Math.round(logicalW));
+    const h = Math.max(0, Math.round(logicalH));
+    const text = this._tempMultiSizeLabel.getText();
+    text.text(String(w) + ' × ' + String(h));
+    const offset = 8;
+    const bottomX = bbox.x + bbox.width / 2;
+    const bottomY = bbox.y + bbox.height + offset;
+    const labelRect = this._tempMultiSizeLabel.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: true,
+    });
+    const labelW = labelRect.width;
+    this._tempMultiSizeLabel.setAttrs({ x: bottomX - labelW / 2, y: bottomY });
+    this._tempMultiSizeLabel.moveToTop();
+  }
+
+  // Обновить/создать невидимую хит-зону, соответствующую bbox группы (для drag в пустых местах)
+  private _updateTempMultiHitRect() {
+    if (!this._core || !this._tempMultiGroup) return;
+    const layer = this._core.nodes.layer;
+    // Локальный bbox группы (без трансформации), чтобы прямоугольник корректно совпадал при любом повороте/скейле
+    const local = this._tempMultiGroup.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: true,
+    });
+    const topLeft = { x: local.x, y: local.y };
+    const w = local.width;
+    const h = local.height;
+    if (!this._tempMultiHitRect) {
+      const rect = new Konva.Rect({
+        name: 'temp-multi-hit',
+        x: topLeft.x,
+        y: topLeft.y,
+        width: w,
+        height: h,
+        fill: 'rgba(0,0,0,0.001)', // почти невидимая, но участвующая в hit-test
+        listening: true,
+        perfectDrawEnabled: false,
+      });
+      // Разрешаем drag группы при mousedown в пустой области
+      rect.on('mousedown.tempMultiHit', (ev: Konva.KonvaEventObject<MouseEvent>) => {
+        if (ev.evt.button !== 0) return;
+        ev.cancelBubble = true;
+        const anyGrp = this._tempMultiGroup as unknown as { startDrag?: () => void };
+        if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
+      });
+      // Добавляем в группу и держим на заднем плане
+      this._tempMultiGroup.add(rect);
+      rect.moveToBottom();
+      this._tempMultiHitRect = rect;
+      layer.batchDraw();
+      return;
+    }
+    // Обновляем геометрию существующего прямоугольника
+    this._tempMultiHitRect.position(topLeft);
+    this._tempMultiHitRect.size({ width: w, height: h });
+    this._tempMultiHitRect.moveToBottom();
+  }
+
+  private _commitTempMultiToGroup() {
+    if (!this._core) return;
+    if (!this._tempMultiGroup || this._tempMultiSet.size < 2) return;
+    const nm = this._core.nodes;
+    const pos = this._tempMultiGroup.getAbsolutePosition();
+    const newGroup = nm.addGroup({ x: pos.x, y: pos.y, draggable: true });
+    const g = newGroup.getNode();
+    const children = [...this._tempMultiGroup.getChildren()];
+    for (const kn of children) {
+      const abs = kn.getAbsolutePosition();
+      g.add(kn as unknown as Konva.Group | Konva.Shape);
+      kn.setAbsolutePosition(abs);
+      if (
+        typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+      )
+        (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
+    }
+    if (this._tempMultiTr) {
+      this._tempMultiTr.destroy();
+      this._tempMultiTr = null;
+    }
+    this._tempMultiGroup.destroy();
+    this._tempMultiGroup = null;
+    this._tempPlacement.clear();
+    this._tempMultiSet.clear();
+    // Явно включаем draggable для созданной группы (на случай, если downstream логика поменяет опции)
+    if (typeof g.draggable === 'function') g.draggable(true);
+    this._select(newGroup);
+    this._core.stage.batchDraw();
+  }
+
+  private _tryUngroupSelectedGroup() {
+    if (!this._core) return;
+    if (!this._selected) return;
+    const node = this._selected.getNode();
+    if (!(node instanceof Konva.Group)) return;
+    const children = [...node.getChildren()];
+    for (const kn of children) {
+      const abs = kn.getAbsolutePosition();
+      this._core.nodes.world.add(kn as unknown as Konva.Group | Konva.Shape);
+      kn.setAbsolutePosition(abs);
+    }
+    const sel = this._selected;
+    this._selected = null;
+    this._transformer?.destroy();
+    this._transformer = null;
+    this._core.nodes.remove(sel);
+    this._core.stage.batchDraw();
+  }
+
   // ===================== Hover (минимально) =====================
   private _ensureHoverTr(): Konva.Transformer {
     if (!this._core) throw new Error('Core is not attached');
@@ -690,6 +1153,10 @@ export class SelectionPlugin extends Plugin {
     const tr = new Konva.Transformer({
       rotateEnabled: false,
       enabledAnchors: [],
+      rotationSnaps: [
+        0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285,
+        300, 315, 330, 345, 360,
+      ],
       borderEnabled: true,
       borderStroke: '#2b83ff',
       borderStrokeWidth: 1.5,
@@ -713,6 +1180,37 @@ export class SelectionPlugin extends Plugin {
     const stage = this._core.stage;
     const layer = this._core.nodes.layer;
     const target = e.target;
+    // Если есть временная группа (наша или area-temp-group) и указатель внутри неё — подавить hover
+    const isInsideTemp = (() => {
+      const hasTemp = !!this._tempMultiGroup;
+      if (!hasTemp) {
+        // Проверим, не внутри ли area-temp-group
+        let cur: Konva.Node | null = target;
+        while (cur) {
+          if (cur instanceof Konva.Group && typeof cur.name === 'function') {
+            const nm = cur.name();
+            if (
+              typeof nm === 'string' &&
+              (nm.includes('temp-multi-group') || nm.includes('area-temp-group'))
+            )
+              return true;
+          }
+          cur = cur.getParent();
+        }
+        return false;
+      }
+      // есть _tempMultiGroup — проверим принадлежность
+      let cur: Konva.Node | null = target;
+      while (cur) {
+        if (cur === this._tempMultiGroup) return true;
+        cur = cur.getParent();
+      }
+      return false;
+    })();
+    if (isInsideTemp) {
+      this._destroyHoverTr();
+      return;
+    }
     // Если зажата кнопка мыши — hover не показываем
     const buttons = typeof e.evt.buttons === 'number' ? e.evt.buttons : 0;
     if (this._isPointerDown || buttons & 1) {
@@ -904,6 +1402,8 @@ export class SelectionPlugin extends Plugin {
       this._updateCornerRadiusHandlesPosition();
       this._updateRotateHandlesPosition();
       this._updateSizeLabel();
+      // Временная группа: обновить позиции ротационных хендлеров
+      this._updateTempRotateHandlesPosition();
       this._core?.nodes.layer.batchDraw();
     });
     transformer.on('transformend.corner-sync', () => {
@@ -934,128 +1434,8 @@ export class SelectionPlugin extends Plugin {
   // Растянуть side-anchors (top/right/bottom/left) на всю сторону выбранной ноды
   private _restyleSideAnchors() {
     if (!this._core || !this._selected || !this._transformer) return;
-    const stage = this._core.stage;
-    const layer = this._core.nodes.layer;
-    const node = this._selected.getNode();
-
-    const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
-    const thicknessPx = 6; // толщина зоны захвата в экранных пикселях
-
-    // Точечная правка для ротации: когда нода повернута, длину сторон берём из «родных» размеров
-    // (ширина/высота без трансформаций) умноженных на абсолютный масштаб, а не из bbox.
-    // Это предотвращает «перестановку» короткой/длинной стороны.
-    // Логический размер для текста лейбла должен соответствовать заданным размерам без учёта обводки
-    // поэтому исключаем stroke при вычислении localRect
-    const localRect = node.getClientRect({
-      skipTransform: true,
-      skipShadow: true,
-      skipStroke: true,
-    });
-    const abs = node.getAbsoluteScale();
-    const absX = Math.abs(abs.x) || 1;
-    const absY = Math.abs(abs.y) || 1;
-    const sideLenW = localRect.width * absX; // фактическая длина верх/низ в экранных координатах
-    const sideLenH = localRect.height * absY; // фактическая длина лево/право в экранных координатах
-    const rotDeg = (() => {
-      const d = node.getAbsoluteTransform().decompose();
-      return typeof d.rotation === 'number' ? d.rotation : 0;
-    })();
-    // Небольшой эпсилон, чтобы не перескакивать при очень малых дрожаниях
-    const isRotated = Math.abs(((rotDeg % 180) + 180) % 180) > 0.5;
-
-    const aTop = this._transformer.findOne<Konva.Rect>('.top-center');
-    const aRight = this._transformer.findOne<Konva.Rect>('.middle-right');
-    const aBottom = this._transformer.findOne<Konva.Rect>('.bottom-center');
-    const aLeft = this._transformer.findOne<Konva.Rect>('.middle-left');
-
-    if (aTop) {
-      const width = isRotated ? sideLenW : bbox.width;
-      const height = thicknessPx;
-      aTop.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: 0 });
-    }
-    if (aBottom) {
-      const width = isRotated ? sideLenW : bbox.width;
-      const height = thicknessPx;
-      aBottom.setAttrs({ opacity: 0, width, height, offsetX: width / 2, offsetY: height });
-    }
-    if (aLeft) {
-      const width = thicknessPx;
-      const height = isRotated ? sideLenH : bbox.height;
-      aLeft.setAttrs({ opacity: 0, width, height, offsetX: 0, offsetY: height / 2 });
-    }
-    if (aRight) {
-      const width = thicknessPx;
-      const height = isRotated ? sideLenH : bbox.height;
-      aRight.setAttrs({ opacity: 0, width, height, offsetX: width, offsetY: height / 2 });
-    }
-    // Обновлять размеры якорей при изменениях масштаба/позиции/трансформации (coalescing в один кадр)
-
-    // переменная нужна, если будет слишком много событий и чтобы они за раз в один кадр не попадали несколько одинаковых событий
-    let anchorsPending = false;
-    const scheduleUpdate = () => {
-      if (anchorsPending) return;
-      anchorsPending = true;
-      Konva.Util.requestAnimFrame(() => {
-        anchorsPending = false;
-        this._restyleSideAnchors();
-        this._updateSizeLabel();
-        this._core?.nodes.layer.batchDraw();
-      });
-    };
-
-    // Единый сброс слушателей нашего namespace и компактные подписки
-    stage.off('.selection-anchors');
-    layer.off('.selection-anchors');
-    node.off('.selection-anchors');
-    this._transformer.off('.selection-anchors');
-
-    // Stage: колесо/resize + программные position/scale изменения (стрелки, +/-)
-    stage.on(
-      [
-        'wheel.selection-anchors',
-        'resize.selection-anchors',
-        'xChange.selection-anchors',
-        'yChange.selection-anchors',
-        'positionChange.selection-anchors',
-        'scaleXChange.selection-anchors',
-        'scaleYChange.selection-anchors',
-        'scaleChange.selection-anchors',
-      ].join(' '),
-      scheduleUpdate,
-    );
-
-    // Layer: если пан/зум реализован через слой
-    layer.on(
-      [
-        'xChange.selection-anchors',
-        'yChange.selection-anchors',
-        'positionChange.selection-anchors',
-        'scaleXChange.selection-anchors',
-        'scaleYChange.selection-anchors',
-        'scaleChange.selection-anchors',
-      ].join(' '),
-      scheduleUpdate,
-    );
-
-    // Node: движение и трансформации выбранной ноды
-    node.on('dragmove.selection-anchors transform.selection-anchors', scheduleUpdate);
-
-    // Transformer: синхронное обновление в процессе трансформации (без лагов) и финальное через schedule
-    this._transformer.on('transform.selection-anchors', () => {
-      // немедленно обновить без requestAnimFrame
-      this._updateCornerRadiusHandlesPosition();
-      this._updateRotateHandlesPosition();
-      this._updateSizeLabel();
-      this._core?.nodes.layer.batchDraw();
-    });
-    this._transformer.on('transformend.selection-anchors', scheduleUpdate);
-
-    // Параллельно обновляем позиции угловых хендлеров радиуса
-    this._updateCornerRadiusHandlesPosition();
-    // Обновляем позиции ротационных хендлеров
-    this._updateRotateHandlesPosition();
-    // И обновим позицию/текст размерного label
-    this._updateSizeLabel();
+    const node = this._selected.getNode() as unknown as Konva.Node;
+    restyleSideAnchorsUtil(this._core, this._transformer, node);
   }
 
   // ===================== Rotate Handles (four corners) =====================
@@ -1067,31 +1447,10 @@ export class SelectionPlugin extends Plugin {
     layer.add(group);
     group.moveToTop();
     this._rotateHandlesGroup = group;
-
-    const makeHandle = (name: string): Konva.Circle => {
-      const c = new Konva.Circle({
-        name,
-        radius: 4,
-        width: 25,
-        height: 25,
-        fill: '#ffffff',
-        stroke: '#2b83ff',
-        strokeWidth: 1.5,
-        // Делаем хендлер невидимым визуально, но сохраняем интерактивность
-        opacity: 0,
-        // Увеличим зону попадания курсора, чтобы было легче навести
-        hitStrokeWidth: 16,
-        draggable: true,
-        dragOnTop: true,
-        listening: true,
-      });
-      return c;
-    };
-
-    const tl = makeHandle('rotate-tl');
-    const tr = makeHandle('rotate-tr');
-    const br = makeHandle('rotate-br');
-    const bl = makeHandle('rotate-bl');
+    const tl = makeRotateHandle('rotate-tl');
+    const tr = makeRotateHandle('rotate-tr');
+    const br = makeRotateHandle('rotate-br');
+    const bl = makeRotateHandle('rotate-bl');
     // Добавляем по одному, чтобы исключить проблемы с varargs в рантайме/типах
     group.add(tl);
     group.add(tr);

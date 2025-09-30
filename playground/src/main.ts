@@ -4,10 +4,10 @@ import {
   LogoPlugin,
   SelectionPlugin,
   CameraHotkeysPlugin,
+  AreaSelectionPlugin,
 } from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
-import { RulerPlugin } from '../../src/plugins/RulerPlugin';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -38,11 +38,13 @@ const gridPlugin = new GridPlugin({
   minScaleToShow: 15,
 });
 
-const rulerPlugin = new RulerPlugin();
+// const rulerPlugin = new RulerPlugin();
+
+const areaSelection = new AreaSelectionPlugin();
 
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
-  plugins: [logoPlugin, hotkeys, selection, gridPlugin, rulerPlugin],
+  plugins: [logoPlugin, hotkeys, selection, gridPlugin, areaSelection],
 });
 
 const onNodeRemoved = (node: unknown) => {
