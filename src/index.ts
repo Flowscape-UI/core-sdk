@@ -41,5 +41,9 @@ export { GridPlugin } from './plugins/GridPlugin';
 export { RulerPlugin } from './plugins/RulerPlugin';
 
 export { RulerGuidesPlugin } from './plugins/RulerGuidesPlugin';
- 
+
+export { RulerHighlightPlugin } from './plugins/RulerHighlightPlugin';
+
+export { RulerManagerPlugin } from './plugins/RulerManagerPlugin';
+
 export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';

@@ -7,6 +7,8 @@ import {
   AreaSelectionPlugin,
   RulerPlugin,
   RulerGuidesPlugin,
+  RulerHighlightPlugin,
+  RulerManagerPlugin,
 } from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
@@ -45,6 +47,13 @@ const rulerGuidesPlugin = new RulerGuidesPlugin({
   snapToGrid: true,  // привязка к сетке
   gridStep: 1,       // шаг 1px для точного позиционирования
 });
+const rulerHighlightPlugin = new RulerHighlightPlugin({
+  highlightColor: '#2b83ff',
+  highlightOpacity: 0.3,
+});
+const rulerManagerPlugin = new RulerManagerPlugin({
+  enabled: true, // включить управление по Shift+R
+});
 
 const areaSelection = new AreaSelectionPlugin();
 
@@ -58,6 +67,8 @@ const core = new CoreEngine({
     areaSelection,
     rulerPlugin,
     rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    rulerManagerPlugin, // Управление видимостью по Shift+R
   ],
 });
 
