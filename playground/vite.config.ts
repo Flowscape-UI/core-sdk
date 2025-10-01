@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     port: 5174,
     open: true,
-    allowedHosts: ['long-synopsis-card-peace.trycloudflare.com'],
+    allowedHosts: ['roll-balance-forty-aids.trycloudflare.com'],
   },
   resolve: {
     alias: {

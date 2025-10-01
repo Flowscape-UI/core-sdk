@@ -41,3 +41,5 @@ export { GridPlugin } from './plugins/GridPlugin';
 export { RulerPlugin } from './plugins/RulerPlugin';
  
 export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
+
+export { NodeHotkeysPlugin } from './plugins/NodeHotkeysPlugin';

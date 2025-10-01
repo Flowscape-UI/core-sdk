@@ -5,6 +5,7 @@ import {
   SelectionPlugin,
   CameraHotkeysPlugin,
   AreaSelectionPlugin,
+  NodeHotkeysPlugin,
 } from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
@@ -17,6 +18,8 @@ const logoPlugin = new LogoPlugin({
 });
 
 const hotkeys = new CameraHotkeysPlugin({});
+
+const nodeHotkeys = new NodeHotkeysPlugin({});
 
 const selection = new SelectionPlugin({
   // selectablePredicate: (node) => {
@@ -44,7 +47,7 @@ const areaSelection = new AreaSelectionPlugin();
 
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
-  plugins: [logoPlugin, hotkeys, selection, gridPlugin, areaSelection],
+  plugins: [logoPlugin, hotkeys, selection, nodeHotkeys, gridPlugin, areaSelection],
 });
 
 const onNodeRemoved = (node: unknown) => {

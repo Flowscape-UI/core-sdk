@@ -122,7 +122,11 @@ export class OverlayFrameManager {
       core: this.core,
       getNode: () => this.boundNode,
       getTransformer: () => this.tr,
-      keepRatioCornerOnlyShift: options?.keepRatioCornerOnlyShift,
+      onUpdate: () => {
+        // Обновляем позицию label снизу при ротации (как при зуме)
+        this.forceUpdate();
+        this.core.nodes.layer.batchDraw();
+      },
     });
     this.rotateCtrl.attach();
     // Сразу позиционировать хендлеры и гарантировать, что рамка выше них
