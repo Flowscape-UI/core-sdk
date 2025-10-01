@@ -20,5 +20,6 @@ export function makeRotateHandle(name: string): Konva.Circle {
     draggable: true,
     dragOnTop: true,
     listening: true,
+    cursor: 'pointer',
   });
 }

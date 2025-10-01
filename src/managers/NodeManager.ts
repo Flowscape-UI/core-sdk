@@ -142,6 +142,13 @@ export class NodeManager {
     this._layer.batchDraw();
   }
 
+  // Снять регистрацию BaseNode, НЕ удаляя его Konva-ноду из сцены.
+  // Полезно при переносе Konva-ноды внутрь другой группы без разрушения экземпляра.
+  // public unregister(node: BaseNode) {
+  //   this._nodes.delete(node.id);
+  //   this._layer.batchDraw();
+  // }
+
   public findById(id: string): BaseNode | undefined {
     return this._nodes.get(id);
   }

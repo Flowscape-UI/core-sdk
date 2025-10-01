@@ -31,6 +31,8 @@ export class OverlayFrameManager {
   private hitRect: Konva.Rect | null = null;
   private rotateDragState: { base: number; start: number } | null = null;
   private rotateCenterAbsStart: Konva.Vector2d | null = null;
+  // Сохранённая позиция противоположного угла при старте трансформации (для фиксации origin)
+  private transformOppositeCorner: { x: number; y: number } | null = null;
   // Состояние видимости на время drag
   private trWasVisibleBeforeDrag = false;
   private labelWasVisibleBeforeDrag = false;
@@ -74,6 +76,13 @@ export class OverlayFrameManager {
     });
     layer.add(tr);
     tr.nodes([node]);
+    // Глобальный ограничитель размеров: не даём схлопываться до 0
+    tr.boundBoxFunc((_, newBox) => {
+      const MIN = 1; // px
+      const w = Math.max(MIN, Math.abs(newBox.width));
+      const h = Math.max(MIN, Math.abs(newBox.height));
+      return { ...newBox, width: w, height: h };
+    });
     this.tr = tr;
 
     // Сайд‑анкоры в едином стиле
@@ -90,12 +99,137 @@ export class OverlayFrameManager {
       const pressed = this.keepRatioPredicate ? this.keepRatioPredicate() : false;
       tr.keepRatio(isCorner && pressed);
     };
-    tr.on('transformstart.overlayKeepRatio', updateKeepRatio);
+    tr.on('transformstart.overlayKeepRatio', () => {
+      updateKeepRatio();
+
+      // Сохраняем абсолютную позицию противоположного угла для фиксации origin
+      // ТОЛЬКО для угловых якорей
+      const activeAnchor = typeof tr.getActiveAnchor === 'function' ? tr.getActiveAnchor() : '';
+      const isCornerAnchor =
+        activeAnchor === 'top-left' ||
+        activeAnchor === 'top-right' ||
+        activeAnchor === 'bottom-left' ||
+        activeAnchor === 'bottom-right';
+
+      if (node && isCornerAnchor) {
+        // Для групп используем clientRect, для одиночных нод — width/height
+        const isGroup = node instanceof Konva.Group;
+        let width: number;
+        let height: number;
+        let localX = 0;
+        let localY = 0;
+
+        if (isGroup) {
+          const clientRect = node.getClientRect({
+            skipTransform: true,
+            skipShadow: true,
+            skipStroke: false,
+          });
+          width = clientRect.width;
+          height = clientRect.height;
+          localX = clientRect.x;
+          localY = clientRect.y;
+        } else {
+          width = node.width();
+          height = node.height();
+        }
+
+        const absTransform = node.getAbsoluteTransform();
+
+        // Определяем локальные координаты противоположного угла
+        let oppositeX = 0;
+        let oppositeY = 0;
+
+        if (activeAnchor === 'top-left') {
+          oppositeX = localX + width;
+          oppositeY = localY + height;
+        } else if (activeAnchor === 'top-right') {
+          oppositeX = localX;
+          oppositeY = localY + height;
+        } else if (activeAnchor === 'bottom-right') {
+          oppositeX = localX;
+          oppositeY = localY;
+        } else {
+          oppositeX = localX + width;
+          oppositeY = localY;
+        }
+
+        // Преобразуем в абсолютные координаты
+        this.transformOppositeCorner = absTransform.point({ x: oppositeX, y: oppositeY });
+      } else {
+        // Для боковых якорей не фиксируем угол
+        this.transformOppositeCorner = null;
+      }
+    });
     tr.on('transform.overlayKeepRatio', updateKeepRatio);
 
     // Обновление кастомных боковых якорей и ротационных кружков во время трансформации
     const onTransform = () => {
       if (!this.boundNode) return;
+
+      // Корректируем позицию ноды, чтобы противоположный угол оставался на месте
+      if (this.transformOppositeCorner) {
+        const activeAnchor = typeof tr.getActiveAnchor === 'function' ? tr.getActiveAnchor() : '';
+        const absTransform = this.boundNode.getAbsoluteTransform();
+
+        // Для групп используем clientRect, для одиночных нод — width/height
+        const isGroup = this.boundNode instanceof Konva.Group;
+        let width: number;
+        let height: number;
+        let localX = 0;
+        let localY = 0;
+
+        if (isGroup) {
+          const clientRect = this.boundNode.getClientRect({
+            skipTransform: true,
+            skipShadow: true,
+            skipStroke: false,
+          });
+          width = clientRect.width;
+          height = clientRect.height;
+          localX = clientRect.x;
+          localY = clientRect.y;
+        } else {
+          width = this.boundNode.width();
+          height = this.boundNode.height();
+        }
+
+        // Определяем локальные координаты противоположного угла
+        let oppositeX = 0;
+        let oppositeY = 0;
+
+        if (activeAnchor === 'top-left') {
+          oppositeX = localX + width;
+          oppositeY = localY + height;
+        } else if (activeAnchor === 'top-right') {
+          oppositeX = localX;
+          oppositeY = localY + height;
+        } else if (activeAnchor === 'bottom-right') {
+          oppositeX = localX;
+          oppositeY = localY;
+        } else if (activeAnchor === 'bottom-left') {
+          oppositeX = localX + width;
+          oppositeY = localY;
+        }
+
+        // Текущая абсолютная позиция противоположного угла
+        const currentOpposite = absTransform.point({ x: oppositeX, y: oppositeY });
+
+        // Вычисляем смещение
+        const dx = this.transformOppositeCorner.x - currentOpposite.x;
+        const dy = this.transformOppositeCorner.y - currentOpposite.y;
+
+        // Корректируем позицию ноды в локальных координатах родителя
+        const parent = this.boundNode.getParent();
+        if (parent && (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01)) {
+          const parentInv = parent.getAbsoluteTransform().copy().invert();
+          const currentPosAbs = this.boundNode.getAbsolutePosition();
+          const newPosAbs = { x: currentPosAbs.x + dx, y: currentPosAbs.y + dy };
+          const newPosLocal = parentInv.point(newPosAbs);
+          this.boundNode.position(newPosLocal);
+        }
+      }
+
       this.tr?.forceUpdate();
       restyleSideAnchorsForTr(this.core, this.tr, this.boundNode);
       this.rotateCtrl?.updatePosition();
@@ -104,7 +238,11 @@ export class OverlayFrameManager {
       layer.batchDraw();
     };
     tr.on('transform.overlayFrameTransform', onTransform);
-    tr.on('transformend.overlayFrameTransform', onTransform);
+    tr.on('transformend.overlayFrameTransform', () => {
+      // Сбрасываем сохранённый угол после завершения трансформации
+      this.transformOppositeCorner = null;
+      onTransform();
+    });
 
     // Size label
     this.ensureSizeLabel();
@@ -144,6 +282,7 @@ export class OverlayFrameManager {
       this.tr.destroy();
       this.tr = null;
     }
+    this.transformOppositeCorner = null;
     if (this.sizeLabel) {
       this.sizeLabel.destroy();
       this.sizeLabel = null;

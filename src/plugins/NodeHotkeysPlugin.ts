@@ -18,6 +18,8 @@ interface ClipboardData {
     position: { x: number; y: number };
     children?: ClipboardData['nodes'];
   }[];
+  // Визуальный центр в мировых координатах на момент копирования (учитывает offset/rotation/scale)
+  center?: { x: number; y: number };
 }
 
 export class NodeHotkeysPlugin extends Plugin {
@@ -111,9 +113,9 @@ export class NodeHotkeysPlugin extends Plugin {
     const selected = this._getSelectedNodes();
     if (selected.length === 0) return;
 
-    this._clipboard = {
-      nodes: selected.map((node) => this._serializeNode(node)),
-    };
+    const nodes = selected.map((node) => this._serializeNode(node));
+    const center = this._computeSelectionWorldCenter(selected);
+    this._clipboard = { nodes, center };
 
     // Copied successfully
   }
@@ -122,9 +124,9 @@ export class NodeHotkeysPlugin extends Plugin {
     const selected = this._getSelectedNodes();
     if (selected.length === 0) return;
 
-    this._clipboard = {
-      nodes: selected.map((node) => this._serializeNode(node)),
-    };
+    const nodes = selected.map((node) => this._serializeNode(node));
+    const center = this._computeSelectionWorldCenter(selected);
+    this._clipboard = { nodes, center };
 
     // Удаляем ноды
     this._deleteNodes(selected);
@@ -398,8 +400,8 @@ export class NodeHotkeysPlugin extends Plugin {
                 childKonvaNode.moveTo(groupKonvaNode);
                 // Устанавливаем относительные координаты
                 childKonvaNode.position({ x: childData.position.x, y: childData.position.y });
-                // ВАЖНО: Удаляем из NodeManager, чтобы не было конфликтов с событиями
-                this._core.nodes.remove(childBaseNode);
+                // ВАЖНО: Снимаем регистрацию в NodeManager, не удаляя Konva-ноду
+                // this._core.nodes.unregister(childBaseNode);
               }
             }
           }
@@ -561,18 +563,46 @@ export class NodeHotkeysPlugin extends Plugin {
     if (!this._clipboard || this._clipboard.nodes.length === 0) {
       return { x: 0, y: 0 };
     }
-
+    // Если сохранён точный визуальный центр — используем его
+    if (this._clipboard.center) return this._clipboard.center;
+    // Fallback: среднее по позициям
     let sumX = 0;
     let sumY = 0;
-
     for (const node of this._clipboard.nodes) {
       sumX += node.position.x;
       sumY += node.position.y;
     }
+    return { x: sumX / this._clipboard.nodes.length, y: sumY / this._clipboard.nodes.length };
+  }
 
-    return {
-      x: sumX / this._clipboard.nodes.length,
-      y: sumY / this._clipboard.nodes.length,
-    };
+  // Рассчитывает визуальный bbox выделенных нод и возвращает его центр в мировых координатах
+  private _computeSelectionWorldCenter(nodes: BaseNode[]): { x: number; y: number } {
+    if (!this._core || nodes.length === 0) return { x: 0, y: 0 };
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (const n of nodes) {
+      const kn = n.getNode() as unknown as Konva.Node;
+      // clientRect уже учитывает все трансформации (кроме stroke по умолчанию — нам не критично)
+      const r = kn.getClientRect({ skipShadow: true, skipStroke: true });
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.width);
+      maxY = Math.max(maxY, r.y + r.height);
+    }
+
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+      return { x: 0, y: 0 };
+    }
+
+    // Центр bbox сейчас в координатах сцены (stage). Переводим в координаты мира (world).
+    const cxStage = (minX + maxX) / 2;
+    const cyStage = (minY + maxY) / 2;
+    const world = this._core.nodes.world;
+    const invWorld = world.getAbsoluteTransform().copy().invert();
+    const ptWorld = invWorld.point({ x: cxStage, y: cyStage });
+    return { x: ptWorld.x, y: ptWorld.y };
   }
 }

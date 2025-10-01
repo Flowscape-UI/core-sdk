@@ -45,18 +45,18 @@ const gridPlugin = new GridPlugin({
   minScaleToShow: 15,
 });
 
-const rulerPlugin = new RulerPlugin();
-const rulerGuidesPlugin = new RulerGuidesPlugin({
-  snapToGrid: true,  // привязка к сетке
-  gridStep: 1,       // шаг 1px для точного позиционирования
-});
-const rulerHighlightPlugin = new RulerHighlightPlugin({
-  highlightColor: '#2b83ff',
-  highlightOpacity: 0.3,
-});
-const rulerManagerPlugin = new RulerManagerPlugin({
-  enabled: true, // включить управление по Shift+R
-});
+// const rulerPlugin = new RulerPlugin();
+// const rulerGuidesPlugin = new RulerGuidesPlugin({
+//   snapToGrid: true,  // привязка к сетке
+//   gridStep: 1,       // шаг 1px для точного позиционирования
+// });
+// const rulerHighlightPlugin = new RulerHighlightPlugin({
+//   highlightColor: '#2b83ff',
+//   highlightOpacity: 0.3,
+// });
+// const rulerManagerPlugin = new RulerManagerPlugin({
+//   enabled: true, // включить управление по Shift+R
+// });
 
 const areaSelection = new AreaSelectionPlugin();
 
@@ -69,10 +69,10 @@ const core = new CoreEngine({
     gridPlugin,
     areaSelection,
     nodeHotkeys,
-    rulerPlugin,
-    rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerManagerPlugin, // Управление видимостью по Shift+R
+    // rulerPlugin,
+    // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerManagerPlugin, // Управление видимостью по Shift+R
   ],
 });
 

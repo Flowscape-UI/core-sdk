@@ -67,8 +67,8 @@ export class RotateHandlesController {
         this.core.stage.container().style.cursor = 'pointer';
       });
       h.on('mouseleave.rotate', () => {
-        // Базовый курсор для интерактивных элементов поверхности
-        this.core.stage.container().style.cursor = 'grab';
+        // Возвращаем курсор по умолчанию
+        this.core.stage.container().style.cursor = 'default';
       });
       h.on('dragstart.rotate', () => {
         const n = this.getNode();
@@ -154,7 +154,7 @@ export class RotateHandlesController {
         this.core.stage.draggable(false);
         this.updatePosition();
         this.placeBelowTransformer();
-        this.core.stage.container().style.cursor = 'grab';
+        this.core.stage.container().style.cursor = 'pointer';
         if (this.onUpdate) this.onUpdate();
       });
     };
