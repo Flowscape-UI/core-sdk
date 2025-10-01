@@ -80,6 +80,24 @@ export class AreaSelectionPlugin extends Plugin {
       const p = stage.getPointerPosition();
       if (!p || !this._rect) return;
 
+      // Игнорируем клики на линейках (RulerPlugin)
+      const rulerLayer = stage.findOne('.ruler-layer');
+      if (rulerLayer && e.target.getLayer() === rulerLayer) {
+        return;
+      }
+
+      // Игнорируем клики на направляющих линиях (RulerGuidesPlugin)
+      const guidesLayer = stage.findOne('.guides-layer');
+      if (guidesLayer && e.target.getLayer() === guidesLayer) {
+        return;
+      }
+
+      // Игнорируем клики в области линейки по координатам (30px от краёв)
+      const rulerThickness = 30; // должно совпадать с RulerPlugin
+      if (p.y <= rulerThickness || p.x <= rulerThickness) {
+        return;
+      }
+
       // Если клик пришёлся в пределы bbox постоянной группы — запрещаем рамочный выбор
       if (this._pointerInsidePermanentGroupBBox(p)) {
         return;
@@ -95,8 +113,22 @@ export class AreaSelectionPlugin extends Plugin {
 
     stage.on('mousemove.area', () => {
       if (!this._selecting || !this._rect || !this._start) return;
+      
+      // Проверяем, не находимся ли мы над линейкой или направляющими
       const p = stage.getPointerPosition();
       if (!p) return;
+      
+      const rulerThickness = 30;
+      const overRuler = p.y <= rulerThickness || p.x <= rulerThickness;
+      
+      // Если начали выделение и попали на линейку - отменяем выделение
+      if (overRuler) {
+        this._selecting = false;
+        this._rect.visible(false);
+        this._layer?.batchDraw();
+        return;
+      }
+      
       const x = Math.min(this._start.x, p.x);
       const y = Math.min(this._start.y, p.y);
       const w = Math.abs(p.x - this._start.x);

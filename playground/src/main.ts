@@ -6,6 +6,7 @@ import {
   CameraHotkeysPlugin,
   AreaSelectionPlugin,
   RulerPlugin,
+  RulerGuidesPlugin,
 } from '@flowscape-ui/core-sdk';
 import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
@@ -40,6 +41,10 @@ const gridPlugin = new GridPlugin({
 });
 
 const rulerPlugin = new RulerPlugin();
+const rulerGuidesPlugin = new RulerGuidesPlugin({
+  snapToGrid: true,  // привязка к сетке
+  gridStep: 1,       // шаг 1px для точного позиционирования
+});
 
 const areaSelection = new AreaSelectionPlugin();
 
@@ -51,7 +56,8 @@ const core = new CoreEngine({
     selection,
     gridPlugin,
     areaSelection,
-    rulerPlugin
+    rulerPlugin,
+    rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
   ],
 });
 

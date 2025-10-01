@@ -85,11 +85,10 @@ export class RulerPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Создаём слой для линейки (не участвует в событиях, чтобы не блокировать взаимодействие с канвасом)
+    // Создаём слой для линейки
     this._layer = new Konva.Layer({
       name: 'ruler-layer',
-      listening: false,
-      hitGraphEnabled: false,
+      listening: true, // слушаем события для возможности взаимодействия с RulerGuidesPlugin
     });
     
     if (this._options.enabled) {
@@ -97,19 +96,22 @@ export class RulerPlugin extends Plugin {
     }
 
     // Группы для горизонтальной и вертикальной линейки
-    this._hGroup = new Konva.Group({ listening: false });
-    this._vGroup = new Konva.Group({ listening: false });
+    // listening: true чтобы события от фонов могли всплывать к RulerGuidesPlugin
+    this._hGroup = new Konva.Group({ listening: true });
+    this._vGroup = new Konva.Group({ listening: true });
     this._layer.add(this._hGroup);
     this._layer.add(this._vGroup);
 
-    // Фоны линеек
+    // Фоны линеек (могут слушать события от других плагинов, например RulerGuidesPlugin)
     this._hBg = new Konva.Rect({ 
       fill: this._options.bgColor, 
-      listening: false 
+      listening: true,
+      name: 'ruler-h-bg'
     });
     this._vBg = new Konva.Rect({ 
       fill: this._options.bgColor, 
-      listening: false 
+      listening: true,
+      name: 'ruler-v-bg'
     });
     this._hGroup.add(this._hBg);
     this._vGroup.add(this._vBg);
@@ -172,6 +174,30 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
+   * Получить активную направляющую из RulerGuidesPlugin
+   */
+  private _getActiveGuideInfo(): { type: 'h' | 'v'; coord: number } | null {
+    if (!this._core) return null;
+    
+    // Ищем RulerGuidesPlugin через stage
+    const guidesLayer = this._core.stage.findOne('.guides-layer') as Konva.Layer | undefined;
+    if (!guidesLayer) return null;
+    
+    // Получаем активную направляющую
+    const guides = guidesLayer.find('Line');
+    for (const guide of guides) {
+      const line = guide as any;
+      if (line.strokeWidth() === 2) { // активная линия имеет strokeWidth = 2
+        const worldCoord = line.worldCoord;
+        const type = line.name() === 'guide-h' ? 'h' : 'v';
+        return { type, coord: worldCoord };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
    * Отрисовка горизонтальной линейки
    */
   private _drawHorizontalRuler(ctx: Konva.Context) {
@@ -183,6 +209,11 @@ export class RulerPlugin extends Plugin {
     const stageW = stage.width();
     const tPx = this._options.thicknessPx;
     const worldX = world.x();
+    
+    // Получаем информацию об активной направляющей
+    // Горизонтальная линейка подсвечивает координату ВЕРТИКАЛЬНОЙ направляющей (guide-v)
+    const activeGuide = this._getActiveGuideInfo();
+    const highlightCoord = activeGuide?.type === 'v' ? activeGuide.coord : null;
 
     // Минимальный желаемый шаг между делениями в пикселях
     const minStepPx = 50;
@@ -236,6 +267,9 @@ export class RulerPlugin extends Plugin {
       if (screenX > stageW) break;
       if (screenX < 0) continue;
       
+      // Проверяем, является ли эта координата активной направляющей
+      const isHighlighted = highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStep * 0.01;
+      
       // Определяем тип деления на основе мировой координаты
       // Используем drawStep для точности проверки
       const isMajor = Math.abs(worldPos % majorStep) < drawStep * 0.01;
@@ -244,11 +278,11 @@ export class RulerPlugin extends Plugin {
       // Длина деления
       const tickLength = isMajor ? tPx * 0.6 : isMedium ? tPx * 0.4 : tPx * 0.25;
       
-      // Цвет деления
+      // Цвет деления (оранжевый для подсвеченной координаты)
       const alpha = isMajor ? 0.9 : isMedium ? 0.6 : 0.4;
-      ctx.strokeStyle = this._options.color;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isHighlighted ? '#ff8c00' : this._options.color;
+      ctx.globalAlpha = isHighlighted ? 1 : alpha;
+      ctx.lineWidth = isHighlighted ? 2 : 1;
       
       // Рисуем деление
       ctx.beginPath();
@@ -259,12 +293,39 @@ export class RulerPlugin extends Plugin {
       // Подпись: проверяем, кратна ли мировая координата шагу подписей
       const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStep * 0.01;
       if (shouldShowLabel) {
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = this._options.color;
+        ctx.globalAlpha = isHighlighted ? 1 : 0.9;
+        ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
         ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillText(this._formatNumber(worldPos), screenX + 4, 4);
+      }
+    }
+    
+    // Дополнительно рисуем подсвеченную координату, даже если она не попадает в обычную сетку
+    if (highlightCoord !== null) {
+      const screenX = worldX + highlightCoord * scale;
+      if (screenX >= 0 && screenX <= stageW) {
+        // Проверяем, не была ли эта координата уже нарисована в основном цикле
+        const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStep * 0.01;
+        
+        if (!alreadyDrawn) {
+          // Рисуем деление
+          ctx.strokeStyle = '#ff8c00';
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(screenX, tPx);
+          ctx.lineTo(screenX, tPx - tPx * 0.6);
+          ctx.stroke();
+          
+          // Рисуем подпись
+          ctx.fillStyle = '#ff8c00';
+          ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+          ctx.textBaseline = 'top';
+          ctx.textAlign = 'left';
+          ctx.fillText(this._formatNumber(highlightCoord), screenX + 4, 4);
+        }
       }
     }
     
@@ -283,6 +344,11 @@ export class RulerPlugin extends Plugin {
     const stageH = stage.height();
     const tPx = this._options.thicknessPx;
     const worldY = world.y();
+    
+    // Получаем информацию об активной направляющей
+    // Вертикальная линейка подсвечивает координату ГОРИЗОНТАЛЬНОЙ направляющей (guide-h)
+    const activeGuide = this._getActiveGuideInfo();
+    const highlightCoord = activeGuide?.type === 'h' ? activeGuide.coord : null;
 
     // Минимальный желаемый шаг между делениями в пикселях
     const minStepPx = 50;
@@ -336,6 +402,9 @@ export class RulerPlugin extends Plugin {
       if (screenY > stageH) break;
       if (screenY < 0) continue;
       
+      // Проверяем, является ли эта координата активной направляющей
+      const isHighlighted = highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStep * 0.01;
+      
       // Определяем тип деления на основе мировой координаты
       // Используем drawStep для точности проверки
       const isMajor = Math.abs(worldPos % majorStep) < drawStep * 0.01;
@@ -344,11 +413,11 @@ export class RulerPlugin extends Plugin {
       // Длина деления
       const tickLength = isMajor ? tPx * 0.6 : isMedium ? tPx * 0.4 : tPx * 0.25;
       
-      // Цвет деления
+      // Цвет деления (оранжевый для подсвеченной координаты)
       const alpha = isMajor ? 0.9 : isMedium ? 0.6 : 0.4;
-      ctx.strokeStyle = this._options.color;
-      ctx.globalAlpha = alpha;
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = isHighlighted ? '#ff8c00' : this._options.color;
+      ctx.globalAlpha = isHighlighted ? 1 : alpha;
+      ctx.lineWidth = isHighlighted ? 2 : 1;
       
       // Рисуем деление
       ctx.beginPath();
@@ -359,8 +428,8 @@ export class RulerPlugin extends Plugin {
       // Подпись: проверяем, кратна ли мировая координата шагу подписей
       const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStep * 0.01;
       if (shouldShowLabel) {
-        ctx.globalAlpha = 0.9;
-        ctx.fillStyle = this._options.color;
+        ctx.globalAlpha = isHighlighted ? 1 : 0.9;
+        ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
         ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
@@ -371,6 +440,39 @@ export class RulerPlugin extends Plugin {
         ctx.rotate(-Math.PI / 2);
         ctx.fillText(this._formatNumber(worldPos), 0, 0);
         ctx.restore();
+      }
+    }
+    
+    // Дополнительно рисуем подсвеченную координату, даже если она не попадает в обычную сетку
+    if (highlightCoord !== null) {
+      const screenY = worldY + highlightCoord * scale;
+      if (screenY >= 0 && screenY <= stageH) {
+        // Проверяем, не была ли эта координата уже нарисована в основном цикле
+        const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStep * 0.01;
+        
+        if (!alreadyDrawn) {
+          // Рисуем деление
+          ctx.strokeStyle = '#ff8c00';
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(tPx, screenY);
+          ctx.lineTo(tPx - tPx * 0.6, screenY);
+          ctx.stroke();
+          
+          // Рисуем подпись
+          ctx.fillStyle = '#ff8c00';
+          ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+          ctx.textBaseline = 'top';
+          ctx.textAlign = 'left';
+          
+          // Для вертикальной линейки поворачиваем текст
+          ctx.save();
+          ctx.translate(4, screenY + 4);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(this._formatNumber(highlightCoord), 0, 0);
+          ctx.restore();
+        }
       }
     }
     

@@ -39,5 +39,7 @@ export { GroupNode } from './nodes/GroupNode';
 export { GridPlugin } from './plugins/GridPlugin';
 
 export { RulerPlugin } from './plugins/RulerPlugin';
+
+export { RulerGuidesPlugin } from './plugins/RulerGuidesPlugin';
  
 export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
