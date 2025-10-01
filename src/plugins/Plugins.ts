@@ -44,4 +44,8 @@ export class Plugins {
   public list(): Plugin[] {
     return [...this._items];
   }
+
+  public get(name: string): Plugin | undefined {
+    return this._items.find((p) => p.constructor.name === name);
+  }
 }

@@ -47,3 +47,5 @@ export { RulerHighlightPlugin } from './plugins/RulerHighlightPlugin';
 export { RulerManagerPlugin } from './plugins/RulerManagerPlugin';
 
 export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
+
+export { NodeHotkeysPlugin } from './plugins/NodeHotkeysPlugin';

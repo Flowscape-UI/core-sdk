@@ -5,6 +5,7 @@ import {
   SelectionPlugin,
   CameraHotkeysPlugin,
   AreaSelectionPlugin,
+  NodeHotkeysPlugin,
   RulerPlugin,
   RulerGuidesPlugin,
   RulerHighlightPlugin,
@@ -21,6 +22,8 @@ const logoPlugin = new LogoPlugin({
 });
 
 const hotkeys = new CameraHotkeysPlugin({});
+
+const nodeHotkeys = new NodeHotkeysPlugin({});
 
 const selection = new SelectionPlugin({
   // selectablePredicate: (node) => {
@@ -65,6 +68,7 @@ const core = new CoreEngine({
     selection,
     gridPlugin,
     areaSelection,
+    nodeHotkeys,
     rulerPlugin,
     rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin

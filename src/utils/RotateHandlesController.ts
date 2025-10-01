@@ -9,12 +9,14 @@ export interface RotateHandlesControllerOpts {
   core: CoreEngine;
   getNode: () => Konva.Node | null;
   getTransformer: () => Konva.Transformer | null;
+  onUpdate?: () => void;
 }
 
 export class RotateHandlesController {
   private core: CoreEngine;
   private getNode: () => Konva.Node | null;
   private getTransformer: () => Konva.Transformer | null;
+  private onUpdate?: () => void;
 
   private group: Konva.Group | null = null;
   private handles: {
@@ -35,6 +37,9 @@ export class RotateHandlesController {
     this.core = opts.core;
     this.getNode = opts.getNode;
     this.getTransformer = opts.getTransformer;
+    if (opts.onUpdate) {
+      this.onUpdate = opts.onUpdate;
+    }
   }
 
   public attach(): void {
@@ -57,6 +62,14 @@ export class RotateHandlesController {
     this.handles = { tl, tr, br, bl };
 
     const bindRotate = (h: Konva.Circle) => {
+      // Cursor: pointer при наведении на хендлер ротации
+      h.on('mouseenter.rotate', () => {
+        this.core.stage.container().style.cursor = 'pointer';
+      });
+      h.on('mouseleave.rotate', () => {
+        // Базовый курсор для интерактивных элементов поверхности
+        this.core.stage.container().style.cursor = 'grab';
+      });
       h.on('dragstart.rotate', () => {
         const n = this.getNode();
         if (!n) return;
@@ -131,14 +144,18 @@ export class RotateHandlesController {
         // держим ниже Transformer во время движения
         this.placeBelowTransformer();
         this.core.nodes.layer.batchDraw();
+        // Уведомляем OverlayFrameManager для обновления label снизу
+        if (this.onUpdate) this.onUpdate();
       });
       h.on('dragend.rotate', () => {
         this.dragState = null;
         this.centerAbsStart = null;
-        this.core.stage.draggable(true);
+        // ВАЖНО: НЕ включаем stage.draggable(true), чтобы ЛКМ не панорамировала
+        this.core.stage.draggable(false);
         this.updatePosition();
         this.placeBelowTransformer();
         this.core.stage.container().style.cursor = 'grab';
+        if (this.onUpdate) this.onUpdate();
       });
     };
 
