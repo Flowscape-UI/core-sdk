@@ -385,23 +385,24 @@ export class NodeHotkeysPlugin extends Plugin {
           if (data.config['offsetY'] !== undefined)
             groupKonvaNode.offsetY(data.config['offsetY'] as number);
 
-          // Восстанавливаем дочерние элементы группы через NodeManager
+          // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: восстанавливаем ВСЕ дочерние элементы через NodeManager
+          // Это гарантирует, что к ним можно провалиться через двойной клик
           if (data.children && data.children.length > 0) {
             for (const childData of data.children) {
-              // Создаём BaseNode через NodeManager, затем перемещаем в группу
-              const childBaseNode = this._createChildBaseNode(childData);
+              // Создаём ЛЮБУЮ дочернюю ноду (группу или обычную) через _deserializeNode
+              // Это регистрирует её в NodeManager и делает доступной
+              const childBaseNode = this._deserializeNode(childData, {
+                x: childData.position.x,
+                y: childData.position.y,
+              });
               if (childBaseNode) {
                 const childKonvaNode = childBaseNode.getNode();
-                // Отключаем draggable для дочерних элементов (они будут двигаться вместе с группой)
+                // Отключаем draggable для дочерних элементов
                 if (typeof childKonvaNode.draggable === 'function') {
                   childKonvaNode.draggable(false);
                 }
-                // Перемещаем из world в группу
+                // Перемещаем из world в родительскую группу
                 childKonvaNode.moveTo(groupKonvaNode);
-                // Устанавливаем относительные координаты
-                childKonvaNode.position({ x: childData.position.x, y: childData.position.y });
-                // ВАЖНО: Снимаем регистрацию в NodeManager, не удаляя Konva-ноду
-                // this._core.nodes.unregister(childBaseNode);
               }
             }
           }
@@ -430,7 +431,95 @@ export class NodeHotkeysPlugin extends Plugin {
     }
   }
 
-  // Создание BaseNode для дочернего элемента группы
+  // Создание Konva.Node напрямую (БЕЗ регистрации в NodeManager)
+  // Используется для дочерних элементов групп
+  private _deserializeKonvaNode(data: ClipboardData['nodes'][0]): Konva.Node | null {
+    try {
+      const config = {
+        ...data.config,
+        x: data.position.x,
+        y: data.position.y,
+      } as any;
+
+      let konvaNode: Konva.Node | null = null;
+
+      switch (data.type) {
+        case 'shape':
+          konvaNode = new Konva.Rect(config);
+          break;
+        case 'text':
+          konvaNode = new Konva.Text(config);
+          break;
+        case 'circle':
+          konvaNode = new Konva.Circle(config);
+          break;
+        case 'ellipse':
+          konvaNode = new Konva.Ellipse(config);
+          break;
+        case 'arc':
+          konvaNode = new Konva.Arc(config);
+          break;
+        case 'star':
+          konvaNode = new Konva.Star(config);
+          break;
+        case 'arrow':
+          konvaNode = new Konva.Arrow(config);
+          break;
+        case 'ring':
+          konvaNode = new Konva.Ring(config);
+          break;
+        case 'regularpolygon':
+        case 'regularPolygon':
+          konvaNode = new Konva.RegularPolygon(config);
+          break;
+        case 'group': {
+          // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: создаём вложенную группу напрямую через Konva
+          konvaNode = new Konva.Group(config);
+
+          // Рекурсивно восстанавливаем дочерние элементы
+          if (data.children && data.children.length > 0) {
+            for (const childData of data.children) {
+              const childKonva = this._deserializeKonvaNode(childData);
+              if (childKonva) {
+                childKonva.moveTo(konvaNode as Konva.Group);
+                // Отключаем draggable для дочерних элементов
+                if (typeof childKonva.draggable === 'function') {
+                  childKonva.draggable(false);
+                }
+              }
+            }
+          }
+          break;
+        }
+        default:
+          globalThis.console.warn(`Unknown node type for Konva deserialization: ${data.type}`);
+          return null;
+      }
+
+      // Применяем трансформации
+      if (konvaNode && data.config['scaleX'] !== undefined)
+        konvaNode.scaleX(data.config['scaleX'] as number);
+      if (konvaNode && data.config['scaleY'] !== undefined)
+        konvaNode.scaleY(data.config['scaleY'] as number);
+      if (konvaNode && data.config['rotation'] !== undefined)
+        konvaNode.rotation(data.config['rotation'] as number);
+      if (konvaNode && data.config['skewX'] !== undefined)
+        konvaNode.skewX(data.config['skewX'] as number);
+      if (konvaNode && data.config['skewY'] !== undefined)
+        konvaNode.skewY(data.config['skewY'] as number);
+      if (konvaNode && data.config['offsetX'] !== undefined)
+        konvaNode.offsetX(data.config['offsetX'] as number);
+      if (konvaNode && data.config['offsetY'] !== undefined)
+        konvaNode.offsetY(data.config['offsetY'] as number);
+
+      return konvaNode;
+    } catch (error) {
+      globalThis.console.error(`Failed to deserialize Konva node:`, error);
+      return null;
+    }
+  }
+
+  // Создание BaseNode для дочернего элемента группы (УСТАРЕВШИЙ МЕТОД - используем _deserializeKonvaNode)
   private _createChildBaseNode(data: ClipboardData['nodes'][0]): BaseNode | null {
     if (!this._core) return null;
 
@@ -474,26 +563,15 @@ export class NodeHotkeysPlugin extends Plugin {
           childNode = this._core.nodes.addRegularPolygon(config);
           break;
         case 'group': {
-          // Рекурсивно создаём вложенную группу
-          childNode = this._core.nodes.addGroup(config);
-          if (data.children && data.children.length > 0) {
-            const groupKonvaNode = childNode.getNode() as unknown as Konva.Group;
-            for (const childData of data.children) {
-              const childBaseNode = this._createChildBaseNode(childData);
-              if (childBaseNode) {
-                const childKonvaNode = childBaseNode.getNode();
-                // Отключаем draggable для дочерних элементов вложенной группы
-                if (typeof childKonvaNode.draggable === 'function') {
-                  childKonvaNode.draggable(false);
-                }
-                childKonvaNode.moveTo(groupKonvaNode);
-                childKonvaNode.position({ x: childData.position.x, y: childData.position.y });
-                // ВАЖНО: Удаляем из NodeManager, чтобы не было конфликтов с событиями
-                this._core.nodes.remove(childBaseNode);
-              }
-            }
+          // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: используем _deserializeKonvaNode для вложенных групп
+          // Создаём Konva-группу напрямую, без регистрации в NodeManager
+          const groupKonva = this._deserializeKonvaNode(data);
+          if (groupKonva) {
+            // Возвращаем null, так как вложенная группа уже создана как Konva.Node
+            // Она будет добавлена в родительскую группу через moveTo
+            return null;
           }
-          break;
+          return null;
         }
         default:
           globalThis.console.warn(`Unknown child node type: ${data.type}`);
