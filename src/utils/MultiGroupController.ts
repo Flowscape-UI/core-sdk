@@ -1,6 +1,5 @@
 import Konva from 'konva';
 
-import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 
 export interface MultiGroupControllerDeps {
@@ -20,11 +19,9 @@ export interface MultiGroupControllerDeps {
  * благодаря чему мы не дублируем код рамки/оверлеев и поведения.
  */
 export class MultiGroupController {
-  private core: CoreEngine;
   private deps: MultiGroupControllerDeps;
 
-  constructor(core: CoreEngine, deps: MultiGroupControllerDeps) {
-    this.core = core;
+  constructor(deps: MultiGroupControllerDeps) {
     this.deps = deps;
   }
 

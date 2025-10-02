@@ -6,6 +6,8 @@ import { MultiGroupController } from '../utils/MultiGroupController';
 import { restyleSideAnchorsForTr as restyleSideAnchorsUtil } from '../utils/OverlayAnchors';
 import { makeRotateHandle } from '../utils/RotateHandleFactory';
 import { OverlayFrameManager } from '../utils/OverlayFrameManager';
+import { ThrottleHelper } from '../utils/ThrottleHelper';
+import { DebounceHelper } from '../utils/DebounceHelper';
 
 import { Plugin } from './Plugin';
 
@@ -126,7 +128,7 @@ export class SelectionPlugin extends Plugin {
 
   public getMultiGroupController(): MultiGroupController {
     if (!this._core) throw new Error('Core is not attached');
-    this._multiCtrl ??= new MultiGroupController(this._core, {
+    this._multiCtrl ??= new MultiGroupController({
       ensureTempMulti: (nodes) => {
         this._ensureTempMulti(nodes);
       },
@@ -230,11 +232,10 @@ export class SelectionPlugin extends Plugin {
   private _batchDrawScheduled = false;
 
   // ОПТИМИЗАЦИЯ: Throttling для mousemove
-  private _lastHoverMoveTime = 0;
-  private _hoverMoveThrottle = 16; // 60 FPS
+  private _hoverThrottle = new ThrottleHelper(16); // 60 FPS
 
   // ОПТИМИЗАЦИЯ: Debouncing для UI updates (size label, rotate handles, etc.)
-  private _uiUpdateScheduled = false;
+  private _uiUpdateDebounce = new DebounceHelper();
 
   constructor(options: SelectionPluginOptions = {}) {
     super();
@@ -275,7 +276,7 @@ export class SelectionPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
     // Инициализация контроллера временной мульти‑группы, проксирующего приватные методы
-    this._multiCtrl = new MultiGroupController(core, {
+    this._multiCtrl = new MultiGroupController({
       ensureTempMulti: (nodes) => {
         this._ensureTempMulti(nodes);
       },
@@ -1310,11 +1311,7 @@ export class SelectionPlugin extends Plugin {
 
   // ОПТИМИЗАЦИЯ: Throttled версия _onHoverMove
   private _onHoverMoveThrottled = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    const now = Date.now();
-    if (now - this._lastHoverMoveTime < this._hoverMoveThrottle) {
-      return; // Пропускаем обновление
-    }
-    this._lastHoverMoveTime = now;
+    if (!this._hoverThrottle.shouldExecute()) return;
     this._onHoverMove(e);
   };
 
@@ -2032,14 +2029,10 @@ export class SelectionPlugin extends Plugin {
   // ОПТИМИЗАЦИЯ: Debounced обновление UI элементов
   // Вместо обновления на каждый фрейм - обновляем один раз через requestAnimationFrame
   private _scheduleUIUpdate() {
-    if (this._uiUpdateScheduled) return;
-    this._uiUpdateScheduled = true;
-
-    globalThis.requestAnimationFrame(() => {
+    this._uiUpdateDebounce.schedule(() => {
       this._updateSizeLabel();
       this._updateRotateHandlesPosition();
       this._updateCornerRadiusHandlesPosition();
-      this._uiUpdateScheduled = false;
     });
   }
 

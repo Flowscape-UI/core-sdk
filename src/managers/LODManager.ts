@@ -1,6 +1,9 @@
+import Konva from 'konva';
+
 import type { BaseNode } from '../nodes/BaseNode';
 
-export interface LODLevel {
+// Типы для LOD
+interface LODLevel {
   minScale: number;
   maxScale: number;
   simplify: boolean;
@@ -12,6 +15,20 @@ export interface LODLevel {
 export interface LODOptions {
   enabled?: boolean;
   levels?: LODLevel[];
+}
+
+// Расширенный интерфейс для Konva нод с LOD методами
+interface KonvaNodeWithLOD extends Konva.Node {
+  stroke?: () => string | undefined;
+  strokeEnabled: (enabled?: boolean) => boolean | this;
+  shadowEnabled: (enabled?: boolean) => boolean | this;
+  perfectDrawEnabled?: (enabled?: boolean) => boolean | this;
+  _originalLOD?: {
+    stroke?: string | undefined;
+    strokeEnabled: boolean;
+    shadow: boolean;
+    perfectDraw?: boolean | undefined;
+  };
 }
 
 /**
@@ -70,7 +87,7 @@ export class LODManager {
   }
 
   /**
-   * Применяет LOD к ноде на основе текущего масштаба
+   * Применяет LOD к ноду на основе текущего масштаба
    */
   public applyLOD(node: BaseNode, scale: number): void {
     if (!this._enabled) return;
@@ -85,7 +102,7 @@ export class LODManager {
     }
 
     // Применяем упрощения
-    const konvaNode = node.getNode();
+    const konvaNode = node.getNode() as KonvaNodeWithLOD;
     const previousLevel = this._appliedNodes.get(node.id);
 
     // Применяем только если уровень изменился
@@ -93,14 +110,12 @@ export class LODManager {
 
     // Сохраняем оригинальные значения при первом применении
     if (!previousLevel) {
-      const original = {
-        stroke: konvaNode.stroke(),
-        strokeEnabled: konvaNode.strokeEnabled(),
-        shadow: konvaNode.shadowEnabled(),
-        perfectDraw: konvaNode.perfectDrawEnabled?.(),
+      konvaNode._originalLOD = {
+        stroke: konvaNode.stroke?.(),
+        strokeEnabled: konvaNode.strokeEnabled() as boolean,
+        shadow: konvaNode.shadowEnabled() as boolean,
+        perfectDraw: konvaNode.perfectDrawEnabled?.() as boolean | undefined,
       };
-
-      (konvaNode as any)._originalLOD = original;
     }
 
     // Применяем упрощения
@@ -123,26 +138,21 @@ export class LODManager {
    * Восстанавливает оригинальные настройки ноды
    */
   private _restoreNode(node: BaseNode): void {
-    const konvaNode = node.getNode();
-    const original = (konvaNode as any)._originalLOD;
+    const konvaNode = node.getNode() as KonvaNodeWithLOD;
+    const original = konvaNode._originalLOD;
 
     if (!original) return;
 
     // Восстанавливаем оригинальные значения
-    if (original.strokeEnabled !== undefined) {
-      konvaNode.strokeEnabled(original.strokeEnabled);
-    }
-
-    if (original.shadow !== undefined) {
-      konvaNode.shadowEnabled(original.shadow);
-    }
+    konvaNode.strokeEnabled(original.strokeEnabled);
+    konvaNode.shadowEnabled(original.shadow);
 
     if (original.perfectDraw !== undefined && konvaNode.perfectDrawEnabled) {
       konvaNode.perfectDrawEnabled(original.perfectDraw);
     }
 
     this._appliedNodes.delete(node.id);
-    delete (konvaNode as any)._originalLOD;
+    delete konvaNode._originalLOD;
   }
 
   /**

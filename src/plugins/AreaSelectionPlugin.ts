@@ -41,7 +41,6 @@ export class AreaSelectionPlugin extends Plugin {
   private _mouseMoveScheduled = false;
   private _selectionPluginCache: SelectionPlugin | null = null;
   private _lastPickedNodes = new Set<BaseNode>();
-  private _updateSelectionScheduled = false;
   private _debounceTimeoutId: number | null = null;
   private _pendingBbox: { x: number; y: number; w: number; h: number } | null = null;
 
@@ -92,17 +91,13 @@ export class AreaSelectionPlugin extends Plugin {
 
       // Игнорируем клики на линейках (RulerPlugin)
       // Оптимизация: кэшируем слои
-      if (!this._rulerLayerCache) {
-        this._rulerLayerCache = stage.findOne('.ruler-layer') as Konva.Layer | null;
-      }
+      this._rulerLayerCache ??= stage.findOne('.ruler-layer') as Konva.Layer | null;
       if (this._rulerLayerCache && e.target.getLayer() === this._rulerLayerCache) {
         return;
       }
 
       // Игнорируем клики на направляющих линиях (RulerGuidesPlugin)
-      if (!this._guidesLayerCache) {
-        this._guidesLayerCache = stage.findOne('.guides-layer') as Konva.Layer | null;
-      }
+      this._guidesLayerCache ??= stage.findOne('.guides-layer') as Konva.Layer | null;
       if (this._guidesLayerCache && e.target.getLayer() === this._guidesLayerCache) {
         return;
       }
@@ -133,12 +128,7 @@ export class AreaSelectionPlugin extends Plugin {
       if (this._mouseMoveScheduled) return;
 
       this._mouseMoveScheduled = true;
-      const raf =
-        globalThis.requestAnimationFrame ||
-        ((cb: FrameRequestCallback) =>
-          globalThis.setTimeout(() => {
-            cb(0);
-          }, 16));
+      const raf = globalThis.requestAnimationFrame;
       raf(() => {
         this._mouseMoveScheduled = false;
         this._handleMouseMove();
@@ -326,12 +316,9 @@ export class AreaSelectionPlugin extends Plugin {
     const allNodes: BaseNode[] = this._core.nodes.list();
     const pickedSet = new Set<BaseNode>();
 
-    // ОПТИМИЗАЦИЯ: используем обычный for и минимизируем вызовы
+    // ОПТИМИЗАЦИЯ: используем for-of и минимизируем вызовы
     const nodesLayer = this._core.nodes.layer;
-    for (let i = 0; i < allNodes.length; i++) {
-      const bn = allNodes[i];
-      if (!bn) continue;
-
+    for (const bn of allNodes) {
       const node = bn.getNode() as unknown as Konva.Node;
 
       // ОПТИМИЗАЦИЯ: проверяем слой без лишних вызовов
@@ -396,11 +383,9 @@ export class AreaSelectionPlugin extends Plugin {
   private _getSelectionPlugin(): SelectionPlugin | null {
     if (!this._core) return null;
 
-    if (!this._selectionPluginCache) {
-      this._selectionPluginCache = this._core.plugins
-        .list()
-        .find((p) => p instanceof SelectionPlugin) as SelectionPlugin | null;
-    }
+    this._selectionPluginCache ??= this._core.plugins
+      .list()
+      .find((p) => p instanceof SelectionPlugin) as SelectionPlugin | null;
 
     return this._selectionPluginCache ?? null;
   }

@@ -19,18 +19,18 @@ export class OverlayFrameManager {
   private tr: Konva.Transformer | null = null;
   private sizeLabel: Konva.Label | null = null;
   private rotateGroup: Konva.Group | null = null;
-  private rotateHandles: {
-    tl: Konva.Circle | null;
-    tr: Konva.Circle | null;
-    br: Konva.Circle | null;
-    bl: Konva.Circle | null;
-  } = { tl: null, tr: null, br: null, bl: null };
+  // private rotateHandles: {
+  //   tl: Konva.Circle | null;
+  //   tr: Konva.Circle | null;
+  //   br: Konva.Circle | null;
+  //   bl: Konva.Circle | null;
+  // } = { tl: null, tr: null, br: null, bl: null };
   private rotateCtrl: RotateHandlesController | null = null;
   private keepRatioPredicate: (() => boolean) | null = null;
   private boundNode: Konva.Node | null = null;
   private hitRect: Konva.Rect | null = null;
-  private rotateDragState: { base: number; start: number } | null = null;
-  private rotateCenterAbsStart: Konva.Vector2d | null = null;
+  // private rotateDragState: { base: number; start: number } | null = null;
+  // private rotateCenterAbsStart: Konva.Vector2d | null = null;
   // Сохранённая позиция противоположного угла при старте трансформации (для фиксации origin)
   private transformOppositeCorner: { x: number; y: number } | null = null;
   // Состояние видимости на время drag
@@ -111,7 +111,7 @@ export class OverlayFrameManager {
         activeAnchor === 'bottom-left' ||
         activeAnchor === 'bottom-right';
 
-      if (node && isCornerAnchor) {
+      if (isCornerAnchor) {
         // Для групп используем clientRect, для одиночных нод — width/height
         const isGroup = node instanceof Konva.Group;
         let width: number;
@@ -300,10 +300,10 @@ export class OverlayFrameManager {
       this.rotateCtrl.detach();
       this.rotateCtrl = null;
     }
-    this.rotateHandles = { tl: null, tr: null, br: null, bl: null };
-    this.rotateDragState = null;
-    this.rotateCenterAbsStart = null;
-    this.boundNode = null;
+    // this.rotateHandles = { tl: null, tr: null, br: null, bl: null };
+    // this.rotateDragState = null;
+    // this.rotateCenterAbsStart = null;
+    // this.boundNode = null;
   }
 
   public forceUpdate() {

@@ -117,7 +117,7 @@ export class BBoxCacheManager {
    */
   private _getCacheKey(nodeId: string, relativeTo?: Konva.Container): string {
     if (relativeTo) {
-      return `${nodeId}:${relativeTo._id}`;
+      return `${nodeId}:${String(relativeTo._id)}`;
     }
     return `${nodeId}:global`;
   }

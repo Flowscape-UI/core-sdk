@@ -53,12 +53,7 @@ export class CameraManager {
       if (this._wheelScheduled) return;
 
       this._wheelScheduled = true;
-      const raf =
-        globalThis.requestAnimationFrame ||
-        ((cb: FrameRequestCallback) =>
-          globalThis.setTimeout(() => {
-            cb(0);
-          }, 16));
+      const raf = globalThis.requestAnimationFrame;
       raf(() => {
         this._wheelScheduled = false;
         if (!this._pendingWheelEvent) return;

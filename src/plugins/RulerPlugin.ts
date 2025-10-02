@@ -214,7 +214,7 @@ export class RulerPlugin extends Plugin {
     // Получаем активную направляющую
     const guides = (guidesLayer as unknown as Konva.Layer).find('Line');
     for (const guide of guides) {
-      const line = guide as any;
+      const line = guide as Konva.Line & { worldCoord: number };
       if (line.strokeWidth() === 2) {
         // активная линия имеет strokeWidth = 2
         const worldCoord = line.worldCoord;
@@ -338,7 +338,7 @@ export class RulerPlugin extends Plugin {
       if (shouldShowLabel) {
         ctx.globalAlpha = isHighlighted ? 1 : 0.9;
         ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
-        ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+        ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
         ctx.fillText(this._formatNumber(worldPos), screenX + 4, 4);
@@ -364,7 +364,7 @@ export class RulerPlugin extends Plugin {
 
           // Рисуем подпись
           ctx.fillStyle = '#ff8c00';
-          ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+          ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
           ctx.textBaseline = 'top';
           ctx.textAlign = 'left';
           ctx.fillText(this._formatNumber(highlightCoord), screenX + 4, 4);
@@ -476,7 +476,7 @@ export class RulerPlugin extends Plugin {
       if (shouldShowLabel) {
         ctx.globalAlpha = isHighlighted ? 1 : 0.9;
         ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
-        ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+        ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
 
@@ -509,7 +509,7 @@ export class RulerPlugin extends Plugin {
 
           // Рисуем подпись
           ctx.fillStyle = '#ff8c00';
-          ctx.font = `${this._options.fontSizePx}px ${this._options.fontFamily}`;
+          ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
           ctx.textBaseline = 'top';
           ctx.textAlign = 'left';
 
@@ -583,7 +583,7 @@ export class RulerPlugin extends Plugin {
    * Показать линейку
    */
   public show() {
-    if (this._core && this._layer && !this._layer.getStage()) {
+    if (this._core && this._layer) {
       this._core.stage.add(this._layer);
       this._layer.moveToTop();
       this._redraw();
@@ -595,7 +595,7 @@ export class RulerPlugin extends Plugin {
    * Скрыть линейку
    */
   public hide() {
-    if (this._layer && this._layer.getStage()) {
+    if (this._layer?.getStage()) {
       this._layer.remove();
       this._core?.stage.batchDraw();
     }

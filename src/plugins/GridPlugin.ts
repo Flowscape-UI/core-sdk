@@ -405,12 +405,7 @@ export class GridPlugin extends Plugin {
     if (this._redrawScheduled) return;
 
     this._redrawScheduled = true;
-    const raf =
-      globalThis.requestAnimationFrame ||
-      ((cb: FrameRequestCallback) =>
-        globalThis.setTimeout(() => {
-          cb(0);
-        }, 16));
+    const raf = globalThis.requestAnimationFrame;
     raf(() => {
       this._redrawScheduled = false;
       this._layer?.batchDraw();

@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import type { BaseNode } from '../nodes/BaseNode';
+import { ThrottleHelper } from '../utils/ThrottleHelper';
 
 import type { NodeManager } from './NodeManager';
 import { LODManager, type LODOptions } from './LODManager';
@@ -34,7 +35,7 @@ export interface VirtualizationOptions {
 export class VirtualizationManager {
   private _enabled: boolean;
   private _bufferZone: number;
-  private _throttleMs: number;
+  private _throttle: ThrottleHelper;
 
   private _viewport: {
     x: number;
@@ -47,7 +48,6 @@ export class VirtualizationManager {
   private _hiddenNodes = new Set<string>();
 
   private _updateScheduled = false;
-  private _lastUpdateTime = 0;
 
   // Кэш bounding boxes для оптимизации
   private _bboxCache = new Map<
@@ -67,7 +67,7 @@ export class VirtualizationManager {
   ) {
     this._enabled = options.enabled ?? true;
     this._bufferZone = options.bufferZone ?? 200;
-    this._throttleMs = options.throttleMs ?? 16; // ~60 FPS
+    this._throttle = new ThrottleHelper(options.throttleMs ?? 16); // ~60 FPS
 
     // Инициализируем LOD если включён
     if (options.lod) {
@@ -158,14 +158,10 @@ export class VirtualizationManager {
   public updateVisibility(): void {
     if (!this._enabled) return;
 
-    const now = Date.now();
-
     // Throttling - не обновляем слишком часто
-    if (now - this._lastUpdateTime < this._throttleMs) {
+    if (!this._throttle.shouldExecute()) {
       return;
     }
-
-    this._lastUpdateTime = now;
 
     const nodes = this._nodeManager.list();
     const newVisibleNodes = new Set<string>();
@@ -335,7 +331,7 @@ export class VirtualizationManager {
    * Устанавливает throttle для обновлений
    */
   public setThrottle(ms: number): void {
-    this._throttleMs = ms;
+    this._throttle = new ThrottleHelper(ms);
   }
 
   /**
@@ -361,7 +357,7 @@ export class VirtualizationManager {
    * Принудительно обновляет видимость (игнорируя throttle)
    */
   public forceUpdate(): void {
-    this._lastUpdateTime = 0;
+    this._throttle.reset();
     this._updateViewport();
     this.updateVisibility();
   }
