@@ -3,6 +3,8 @@ import Konva from 'konva';
 import { NodeManager } from '../managers/NodeManager';
 import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
+import { VirtualizationManager } from '../managers/VirtualizationManager';
+import { BBoxCacheManager } from '../managers/BBoxCacheManager';
 import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
 import type { CoreEvents } from '../types/core.events.interface';
@@ -17,6 +19,11 @@ export interface CoreEngineOptions {
   plugins?: Plugin[];
   minScale?: number;
   maxScale?: number;
+  virtualization?: {
+    enabled?: boolean;
+    bufferZone?: number;
+    throttleMs?: number;
+  };
 }
 
 export class CoreEngine {
@@ -34,6 +41,8 @@ export class CoreEngine {
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
   public readonly camera: CameraManager;
+  public readonly virtualization: VirtualizationManager;
+  public readonly bboxCache: BBoxCacheManager;
   public readonly plugins: Plugins;
 
   constructor(options: CoreEngineOptions) {
@@ -70,6 +79,16 @@ export class CoreEngine {
       draggable: false,
       minScale: this._minScale,
       maxScale: this._maxScale,
+    });
+    this.virtualization = new VirtualizationManager(
+      this._stage,
+      this.nodes.world,
+      this.nodes,
+      options.virtualization,
+    );
+    this.bboxCache = new BBoxCacheManager({
+      ttl: 100,
+      maxSize: 10000,
     });
     this.plugins = new Plugins(this, options.plugins ?? []);
   }

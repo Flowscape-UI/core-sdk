@@ -214,12 +214,7 @@ export class SelectionPlugin extends Plugin {
     if (this._batchDrawScheduled) return;
 
     this._batchDrawScheduled = true;
-    const raf =
-      globalThis.requestAnimationFrame ||
-      ((cb: FrameRequestCallback) =>
-        globalThis.setTimeout(() => {
-          cb(0);
-        }, 16));
+    const raf = globalThis.requestAnimationFrame;
     raf(() => {
       this._batchDrawScheduled = false;
       this._core?.stage.batchDraw();
@@ -233,7 +228,13 @@ export class SelectionPlugin extends Plugin {
   // Кэш для оптимизации
   private _dragMoveScheduled = false;
   private _batchDrawScheduled = false;
-  private _worldSyncScheduled = false;
+
+  // ОПТИМИЗАЦИЯ: Throttling для mousemove
+  private _lastHoverMoveTime = 0;
+  private _hoverMoveThrottle = 16; // 60 FPS
+
+  // ОПТИМИЗАЦИЯ: Debouncing для UI updates (size label, rotate handles, etc.)
+  private _uiUpdateScheduled = false;
 
   constructor(options: SelectionPluginOptions = {}) {
     super();
@@ -478,7 +479,8 @@ export class SelectionPlugin extends Plugin {
     core.eventBus.on('node:removed', this._onNodeRemoved);
 
     // Hover-рамка: подсвечивает границы ноды/группы при наведении, даже если выделен другой объект
-    stage.on('mousemove.hover', this._onHoverMove);
+    // ОПТИМИЗАЦИЯ: добавлен throttling для производительности
+    stage.on('mousemove.hover', this._onHoverMoveThrottled);
     stage.on('mouseleave.hover', this._onHoverLeave);
     stage.on('mousedown.hover', this._onHoverDown);
     stage.on('mouseup.hover', this._onHoverUp);
@@ -832,12 +834,7 @@ export class SelectionPlugin extends Plugin {
       if (this._dragMoveScheduled) return;
 
       this._dragMoveScheduled = true;
-      const raf =
-        globalThis.requestAnimationFrame ||
-        ((cb: FrameRequestCallback) =>
-          globalThis.setTimeout(() => {
-            cb(0);
-          }, 16));
+      const raf = globalThis.requestAnimationFrame;
       raf(() => {
         this._dragMoveScheduled = false;
         this._scheduleBatchDraw();
@@ -932,7 +929,6 @@ export class SelectionPlugin extends Plugin {
   private _ensureTempMulti(nodes: BaseNode[]) {
     if (!this._core) return;
     const world = this._core.nodes.world;
-    const layer = this._core.nodes.layer;
     // Заполняем набор для корректной проверки size при коммите (важно для лассо)
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
@@ -1311,6 +1307,16 @@ export class SelectionPlugin extends Plugin {
       this._hoverTr = null;
     }
   }
+
+  // ОПТИМИЗАЦИЯ: Throttled версия _onHoverMove
+  private _onHoverMoveThrottled = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const now = Date.now();
+    if (now - this._lastHoverMoveTime < this._hoverMoveThrottle) {
+      return; // Пропускаем обновление
+    }
+    this._lastHoverMoveTime = now;
+    this._onHoverMove(e);
+  };
 
   private _onHoverMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!this._core) return;
@@ -1709,9 +1715,8 @@ export class SelectionPlugin extends Plugin {
         }
       }
       this._restyleSideAnchors();
-      this._updateCornerRadiusHandlesPosition();
-      this._updateRotateHandlesPosition();
-      this._updateSizeLabel();
+      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      this._scheduleUIUpdate();
       // Временная группа: обновить позиции ротационных хендлеров
       this._updateTempRotateHandlesPosition();
       this._core?.nodes.layer.batchDraw();
@@ -1721,9 +1726,8 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesSuppressed = false;
       this._transformOppositeCorner = null;
       this._restyleSideAnchors();
-      this._updateCornerRadiusHandlesPosition();
-      this._updateRotateHandlesPosition();
-      this._updateSizeLabel();
+      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      this._scheduleUIUpdate();
       this._core?.nodes.layer.batchDraw();
     });
     // Слушать изменения атрибутов выбранной ноды, если размеры/позиция меняются программно
@@ -1732,9 +1736,8 @@ export class SelectionPlugin extends Plugin {
     selNode.off('.overlay-sync');
     const syncOverlays = () => {
       this._restyleSideAnchors();
-      this._updateCornerRadiusHandlesPosition();
-      this._updateRotateHandlesPosition();
-      this._updateSizeLabel();
+      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      this._scheduleUIUpdate();
       this._scheduleBatchDraw();
     };
     selNode.on(
@@ -1855,10 +1858,8 @@ export class SelectionPlugin extends Plugin {
         // Пересчитать кастомные middle‑хендлеры под текущее вращение
         this._restyleSideAnchors();
         this._core.nodes.layer.batchDraw();
-        this._updateRotateHandlesPosition();
-        this._updateCornerRadiusHandlesPosition();
-        // Обновить позицию и текст размерного label под новое положение/вращение
-        this._updateSizeLabel();
+        // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+        this._scheduleUIUpdate();
       });
       h.on('dragend.rotate', () => {
         this._rotateDragState = null;
@@ -1877,8 +1878,8 @@ export class SelectionPlugin extends Plugin {
         }
         // Финально пересчитать кастомные middle‑хендлеры
         this._restyleSideAnchors();
-        this._updateRotateHandlesPosition();
-        this._updateSizeLabel();
+        // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+        this._scheduleUIUpdate();
         this._core?.nodes.layer.batchDraw();
         // Вернуть курсор в состояние 'grab' при окончании перетаскивания хендлера
         if (this._core) this._core.stage.container().style.cursor = 'grab';
@@ -2026,6 +2027,20 @@ export class SelectionPlugin extends Plugin {
     layer.add(label);
     this._sizeLabel = label;
     this._updateSizeLabel();
+  }
+
+  // ОПТИМИЗАЦИЯ: Debounced обновление UI элементов
+  // Вместо обновления на каждый фрейм - обновляем один раз через requestAnimationFrame
+  private _scheduleUIUpdate() {
+    if (this._uiUpdateScheduled) return;
+    this._uiUpdateScheduled = true;
+
+    globalThis.requestAnimationFrame(() => {
+      this._updateSizeLabel();
+      this._updateRotateHandlesPosition();
+      this._updateCornerRadiusHandlesPosition();
+      this._uiUpdateScheduled = false;
+    });
   }
 
   private _updateSizeLabel() {

@@ -212,7 +212,7 @@ export class RulerPlugin extends Plugin {
     }
 
     // Получаем активную направляющую
-    const guides = guidesLayer.find('Line');
+    const guides = (guidesLayer as unknown as Konva.Layer).find('Line');
     for (const guide of guides) {
       const line = guide as any;
       if (line.strokeWidth() === 2) {
@@ -566,13 +566,12 @@ export class RulerPlugin extends Plugin {
 
     this._redrawScheduled = true;
 
-    const raf =
-      globalThis.requestAnimationFrame ||
-      ((cb: FrameRequestCallback) => {
-        return globalThis.setTimeout(() => {
-          cb(0);
-        }, 16);
-      });
+    const raf = globalThis.requestAnimationFrame;
+    // ((cb: FrameRequestCallback) => {
+    //   return globalThis.setTimeout(() => {
+    //     cb(0);
+    //   }, 16);
+    // });
 
     raf(() => {
       this._redrawScheduled = false;

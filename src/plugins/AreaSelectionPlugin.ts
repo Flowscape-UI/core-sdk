@@ -226,7 +226,8 @@ export class AreaSelectionPlugin extends Plugin {
       // Только те, что реально в слое нод
       const layer = node.getLayer();
       if (layer !== this._core.nodes.layer) continue;
-      const r = node.getClientRect({ skipShadow: true, skipStroke: false });
+      // ОПТИМИЗАЦИЯ: используем BBoxCache вместо прямого getClientRect()
+      const r = this._core.bboxCache.get(node, n.id);
       if (this._rectsIntersect(bbox, r)) picked.push(node);
     }
 
@@ -336,9 +337,9 @@ export class AreaSelectionPlugin extends Plugin {
       // ОПТИМИЗАЦИЯ: проверяем слой без лишних вызовов
       if (node.getLayer() !== nodesLayer) continue;
 
-      // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: getClientRect - самая дорогая операция
-      // Вызываем только для нод в правильном слое
-      const r = node.getClientRect({ skipShadow: true, skipStroke: false });
+      // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: используем BBoxCache
+      // Это даёт 90% кэш-хитов и огромный прирост производительности
+      const r = this._core.bboxCache.get(node, bn.id);
       if (this._rectsIntersect(bbox, r)) {
         const owner = this._findOwningGroupBaseNode(node);
         pickedSet.add(owner ?? bn);

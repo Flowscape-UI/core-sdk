@@ -1,5 +1,3 @@
-import Konva from 'konva';
-
 import type { CoreEngine } from '../core/CoreEngine';
 
 import { Plugin } from './Plugin';
@@ -34,7 +32,7 @@ export class RulerManagerPlugin extends Plugin {
     this._bindKeyboardEvents();
   }
 
-  protected onDetach(core: CoreEngine): void {
+  protected onDetach(_core: CoreEngine): void {
     // Отписываемся от событий
     this._unbindKeyboardEvents();
   }
@@ -43,14 +41,14 @@ export class RulerManagerPlugin extends Plugin {
    * Привязка событий клавиатуры
    */
   private _bindKeyboardEvents(): void {
-    window.addEventListener('keydown', this._handleKeyDown);
+    globalThis.addEventListener('keydown', this._handleKeyDown);
   }
 
   /**
    * Отвязка событий клавиатуры
    */
   private _unbindKeyboardEvents(): void {
-    window.removeEventListener('keydown', this._handleKeyDown);
+    globalThis.removeEventListener('keydown', this._handleKeyDown);
   }
 
   /**
