@@ -13,7 +13,7 @@ export class GroupNode extends BaseNode<Konva.Group> {
     const group = new Konva.Group({} as Konva.GroupConfig);
     group.x(options.x ?? 0);
     group.y(options.y ?? 0);
-    if (options.draggable !== undefined) group.draggable(options.draggable);
+    group.draggable(options.draggable ?? true); // По умолчанию draggable
     if (options.listening !== undefined) group.listening(options.listening);
     if (options.clip) group.clip(options.clip);
 

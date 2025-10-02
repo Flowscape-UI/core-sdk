@@ -26,10 +26,23 @@ Run scripts:
 
 - Dev playground: `npm run dev` or `bun run dev`
 - Build library: `npm run build` or `bun run build`
+- **Run tests: `npm test` or `bun test`**
+- **Test with UI: `npm run test:ui`**
+- **Test coverage: `npm run test:coverage`**
 - Lint: `npm run lint` or `bun run lint`
 - Typecheck: `npm run typecheck` or `bun run typecheck`
 
 The playground imports from `src/` directly for rapid iteration.
+
+## Testing
+
+The project includes comprehensive unit tests for critical functionality:
+
+- **Copy/Paste/Cut operations** - ensures node sizes and transformations are preserved
+- **Grouping/Ungrouping** - validates size preservation during group operations
+- **Complex scenarios** - tests nested groups, transformations, and edge cases
+
+See [QUICK_START_TESTING.md](./QUICK_START_TESTING.md) for a quick guide or [TESTING_GUIDE.md](./TESTING_GUIDE.md) for detailed documentation.
 
 Dev server is pinned to `http://localhost:5173/` via `playground/vite.config.ts`.
 

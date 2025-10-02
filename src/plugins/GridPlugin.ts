@@ -40,6 +40,11 @@ export class GridPlugin extends Plugin {
   private _nodesAddHandler: ((e: Konva.KonvaEventObject<Event>) => void) | null = null;
   private _nodesRemoveHandler: ((e: Konva.KonvaEventObject<Event>) => void) | null = null;
 
+  // Кэш для оптимизации
+  private _redrawScheduled = false;
+  private _transformersCache: Konva.Node[] = [];
+  private _cacheInvalidated = true;
+
   constructor(options: GridPluginOptions = {}) {
     super();
     this._stepX = Math.max(1, options.stepX ?? 1);
@@ -102,20 +107,27 @@ export class GridPlugin extends Plugin {
     this._shape = shape;
 
     // Подписки на изменения трансформации/размера сцены и world — перерисовка сетки
+    // Оптимизация: используем throttling
     const stage = core.stage;
     const world = core.nodes.world;
-    stage.on('resize.grid', () => this._layer?.batchDraw());
+    stage.on('resize.grid', () => {
+      this._scheduleRedraw();
+    });
     world.on('xChange.grid yChange.grid scaleXChange.grid scaleYChange.grid', () => {
-      this._layer?.batchDraw();
+      this._scheduleRedraw();
     });
 
     // Функция: поднять все Transformers поверх grid-shape
     const bringTransformersToTop = () => {
-      const trNodes = layer.find('Transformer');
-      for (const n of trNodes) n.moveToTop();
+      // Оптимизация: кэшируем трансформеры
+      if (this._cacheInvalidated) {
+        this._transformersCache = layer.find('Transformer');
+        this._cacheInvalidated = false;
+      }
+      for (const n of this._transformersCache) n.moveToTop();
       // а затем вернуть сетку непосредственно под ними
       this._shape?.moveToTop();
-      for (const n of trNodes) n.moveToTop();
+      for (const n of this._transformersCache) n.moveToTop();
     };
     bringTransformersToTop();
 
@@ -190,9 +202,9 @@ export class GridPlugin extends Plugin {
       if (cls !== 'Transformer') return;
       const tr = n as Konva.Transformer;
       const snapFn = (
-        _oldBox: unknown,
-        newBox: { x: number; y: number; width: number; height: number },
-      ): { x: number; y: number; width: number; height: number } => {
+        _oldBox: { x: number; y: number; width: number; height: number; rotation: number },
+        newBox: { x: number; y: number; width: number; height: number; rotation: number },
+      ): { x: number; y: number; width: number; height: number; rotation: number } => {
         const base = newBox;
         if (!this._enableSnap || !this._core) return base;
         const nodes = typeof anyN.nodes === 'function' ? anyN.nodes() : [];
@@ -256,18 +268,19 @@ export class GridPlugin extends Plugin {
 
         // 1) Сборка итогового бокса напрямую из ABS-координат, полученных из заснапленных мировых рёбер
         const round3 = (v: number) => Math.round(v * 1000) / 1000;
-        const result = { ...base };
-        result.x = round3(leftAbs);
-        result.y = round3(topAbs);
-        result.width = round3(rightAbs - leftAbs);
-        result.height = round3(bottomAbs - topAbs);
+        const result = {
+          x: round3(leftAbs),
+          y: round3(topAbs),
+          width: round3(rightAbs - leftAbs),
+          height: round3(bottomAbs - topAbs),
+          rotation: base.rotation,
+        };
         return result;
       };
-      (
-        tr as unknown as {
-          boundBoxFunc?: (fn?: (oldBox: unknown, newBox: unknown) => unknown) => void;
-        }
-      ).boundBoxFunc?.(snapFn as (oldBox: unknown, newBox: unknown) => unknown);
+      // Устанавливаем boundBoxFunc ЧЕРЕЗ queueMicrotask, чтобы SelectionPlugin успел установить свой boundBoxFunc первым
+      globalThis.queueMicrotask(() => {
+        tr.boundBoxFunc(snapFn);
+      });
     };
 
     const walkAttach = (n: Konva.Node) => {
@@ -288,12 +301,15 @@ export class GridPlugin extends Plugin {
       const anyAdded = added as unknown as { getClassName?: () => string };
       const cls = typeof anyAdded.getClassName === 'function' ? anyAdded.getClassName() : '';
       if (cls === 'Transformer') {
+        this._cacheInvalidated = true; // инвалидируем кэш
         added.moveToTop();
         // восстановить сетку сразу под Transformers
         this._shape?.moveToTop();
         // и снова поднять все Transformers наверх
-        const trNodes = layer.find('Transformer');
-        for (const n of trNodes) n.moveToTop();
+        // Оптимизация: обновляем кэш и используем его
+        this._transformersCache = layer.find('Transformer');
+        this._cacheInvalidated = false;
+        for (const n of this._transformersCache) n.moveToTop();
       }
     };
     this._nodesRemoveHandler = (e: Konva.KonvaEventObject<Event>) => {
@@ -316,10 +332,20 @@ export class GridPlugin extends Plugin {
         for (const c of children) walkDetach(c);
       };
       walkDetach(removed);
+      // Проверяем, был ли удалён Transformer
+      const anyRemoved = removed as unknown as { getClassName?: () => string };
+      const cls = typeof anyRemoved.getClassName === 'function' ? anyRemoved.getClassName() : '';
+      if (cls === 'Transformer') {
+        this._cacheInvalidated = true; // инвалидируем кэш
+      }
       // Восстановить порядок: сетка сразу под Transformer, трансформеры поверх
       this._shape?.moveToTop();
-      const trNodes = layer.find('Transformer');
-      for (const n of trNodes) n.moveToTop();
+      // Оптимизация: обновляем кэш и используем его
+      if (this._cacheInvalidated) {
+        this._transformersCache = layer.find('Transformer');
+        this._cacheInvalidated = false;
+      }
+      for (const n of this._transformersCache) n.moveToTop();
     };
     core.nodes.layer.on('add.grid', this._nodesAddHandler);
     core.nodes.layer.on('remove.grid', this._nodesRemoveHandler);
@@ -370,6 +396,25 @@ export class GridPlugin extends Plugin {
     });
 
     // Первичная отрисовка
+  }
+
+  /**
+   * Отложенная перерисовка (throttling)
+   */
+  private _scheduleRedraw() {
+    if (this._redrawScheduled) return;
+
+    this._redrawScheduled = true;
+    const raf =
+      globalThis.requestAnimationFrame ||
+      ((cb: FrameRequestCallback) =>
+        globalThis.setTimeout(() => {
+          cb(0);
+        }, 16));
+    raf(() => {
+      this._redrawScheduled = false;
+      this._layer?.batchDraw();
+    });
   }
 
   protected onDetach(core: CoreEngine): void {

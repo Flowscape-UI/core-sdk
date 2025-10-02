@@ -23,6 +23,11 @@ export class RulerHighlightPlugin extends Plugin {
     private _vGroup: Konva.Group | null = null; // группа вертикальной линейки
     private _hHighlights: Konva.Rect[] = []; // горизонтальные подсветки
     private _vHighlights: Konva.Rect[] = []; // вертикальные подсветки
+    
+    // Кэш для оптимизации
+    private _updateScheduled = false;
+    private _transformersCache: Konva.Transformer[] = [];
+    private _cacheInvalidated = true;
 
     constructor(options: RulerHighlightPluginOptions = {}) {
         super();
@@ -67,41 +72,38 @@ export class RulerHighlightPlugin extends Plugin {
         }
 
         // Подписываемся на изменения world для обновления позиций подсветок
+        // Оптимизация: используем throttling для всех событий
         const world = core.nodes.world;
         world.on('xChange.ruler-highlight yChange.ruler-highlight scaleXChange.ruler-highlight scaleYChange.ruler-highlight', () => {
-            this._updateHighlights();
+            this._scheduleUpdate();
         });
 
         // Подписываемся на изменение размера stage
         core.stage.on('resize.ruler-highlight', () => {
-            this._updateHighlights();
+            this._scheduleUpdate();
         });
 
         // Подписываемся на изменения трансформера (selection)
         // Используем делегирование событий через stage
         core.stage.on('transform.ruler-highlight transformend.ruler-highlight', () => {
-            this._updateHighlights();
+            this._scheduleUpdate();
         });
 
         // Подписываемся на клики для отслеживания изменения selection
         core.stage.on('click.ruler-highlight', () => {
-            // Небольшая задержка, чтобы SelectionPlugin успел обработать клик
-            setTimeout(() => {
-                this._updateHighlights();
-            }, 10);
+            this._invalidateCache();
+            this._scheduleUpdate();
         });
 
         // Подписываемся на dragmove для обновления во время перетаскивания
         core.stage.on('dragmove.ruler-highlight', () => {
-            this._updateHighlights();
+            this._scheduleUpdate();
         });
 
         // Подписываемся на события AreaSelection для немедленного обновления при выделении области
         core.stage.on('mouseup.ruler-highlight', () => {
-            // Задержка чтобы AreaSelectionPlugin успел обработать выделение
-            setTimeout(() => {
-                this._updateHighlights();
-            }, 20);
+            this._invalidateCache();
+            this._scheduleUpdate();
         });
 
         // Начальная отрисовка
@@ -141,17 +143,47 @@ export class RulerHighlightPlugin extends Plugin {
     }
 
     /**
+     * Отложенное обновление (throttling)
+     */
+    private _scheduleUpdate() {
+        if (this._updateScheduled) return;
+        
+        this._updateScheduled = true;
+        const raf = globalThis.requestAnimationFrame || ((cb: FrameRequestCallback) => globalThis.setTimeout(() => { cb(0); }, 16));
+        raf(() => {
+            this._updateScheduled = false;
+            this._updateHighlights();
+        });
+    }
+    
+    /**
+     * Инвалидировать кэш трансформеров
+     */
+    private _invalidateCache() {
+        this._cacheInvalidated = true;
+    }
+    
+    /**
      * Обновление подсветок на основе выбранных объектов
      */
     private _updateHighlights() {
         if (!this._core) return;
         if (!this._highlightLayer) return; // слой не создан - ничего не делаем
 
-        // Очищаем старые подсветки
-        this._hHighlights.forEach(r => r.destroy());
-        this._vHighlights.forEach(r => r.destroy());
-        this._hHighlights = [];
-        this._vHighlights = [];
+        // Оптимизация: переиспользуем существующие подсветки вместо пересоздания
+        // Очищаем старые подсветки только если они есть
+        if (this._hHighlights.length > 0) {
+            for (let i = 0; i < this._hHighlights.length; i++) {
+                this._hHighlights[i]?.destroy();
+            }
+            this._hHighlights = [];
+        }
+        if (this._vHighlights.length > 0) {
+            for (let i = 0; i < this._vHighlights.length; i++) {
+                this._vHighlights[i]?.destroy();
+            }
+            this._vHighlights = [];
+        }
 
         // Получаем выбранные объекты напрямую из трансформеров (уже развернутые)
         const allNodes = this._getSelectedKonvaNodes();
@@ -327,6 +359,7 @@ export class RulerHighlightPlugin extends Plugin {
 
     /**
      * Получить список выбранных Konva узлов (с разворачиванием групп)
+     * Оптимизация: кэшируем трансформеры
      */
     private _getSelectedKonvaNodes(): Konva.Node[] {
         if (!this._core) return [];
@@ -334,15 +367,21 @@ export class RulerHighlightPlugin extends Plugin {
         const transformerNodes: Konva.Node[] = [];
         
         try {
-            // Ищем все трансформеры на stage
-            const transformers = this._core.stage.find('Transformer');
+            // Оптимизация: используем кэш трансформеров
+            if (this._cacheInvalidated) {
+                this._transformersCache = this._core.stage.find('Transformer') as Konva.Transformer[];
+                this._cacheInvalidated = false;
+            }
 
-            for (const transformer of transformers) {
-                const tr = transformer as Konva.Transformer;
+            for (let i = 0; i < this._transformersCache.length; i++) {
+                const tr = this._transformersCache[i];
+                if (!tr) continue;
+                
                 const nodes = tr.nodes();
                 
-                for (const konvaNode of nodes) {
-                    if (!transformerNodes.includes(konvaNode)) {
+                for (let j = 0; j < nodes.length; j++) {
+                    const konvaNode = nodes[j];
+                    if (konvaNode && !transformerNodes.includes(konvaNode)) {
                         transformerNodes.push(konvaNode);
                     }
                 }
@@ -353,8 +392,11 @@ export class RulerHighlightPlugin extends Plugin {
 
         // Теперь разворачиваем группы чтобы получить отдельные объекты
         const allNodes: Konva.Node[] = [];
-        for (const node of transformerNodes) {
-            this._collectNodes(node, allNodes);
+        for (let i = 0; i < transformerNodes.length; i++) {
+            const node = transformerNodes[i];
+            if (node) {
+                this._collectNodes(node, allNodes);
+            }
         }
 
         return allNodes;

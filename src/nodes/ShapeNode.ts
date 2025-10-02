@@ -20,6 +20,7 @@ export class ShapeNode extends BaseNode<Konva.Rect> {
       stroke: options.stroke ?? 'black',
       strokeWidth: options.strokeWidth ?? 1,
       cornerRadius: options.cornerRadius ?? 0,
+      draggable: true,
     });
     super(shape, options);
   }

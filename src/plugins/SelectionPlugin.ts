@@ -206,9 +206,34 @@ export class SelectionPlugin extends Plugin {
     }
   }
 
+  /**
+   * Отложенная перерисовка (throttling)
+   * Группирует множественные вызовы batchDraw в один
+   */
+  private _scheduleBatchDraw() {
+    if (this._batchDrawScheduled) return;
+
+    this._batchDrawScheduled = true;
+    const raf =
+      globalThis.requestAnimationFrame ||
+      ((cb: FrameRequestCallback) =>
+        globalThis.setTimeout(() => {
+          cb(0);
+        }, 16));
+    raf(() => {
+      this._batchDrawScheduled = false;
+      this._core?.stage.batchDraw();
+    });
+  }
+
   // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
   private _parentGroupPrevDraggable: boolean | null = null;
+
+  // Кэш для оптимизации
+  private _dragMoveScheduled = false;
+  private _batchDrawScheduled = false;
+  private _worldSyncScheduled = false;
 
   constructor(options: SelectionPluginOptions = {}) {
     super();
@@ -274,7 +299,7 @@ export class SelectionPlugin extends Plugin {
         this._updateTempMultiSizeLabel();
         this._updateTempMultiHitRect();
         this._updateTempRotateHandlesPosition();
-        this._core?.nodes.layer.batchDraw();
+        this._scheduleBatchDraw();
       },
       onWorldChanged: () => {
         // Коалесцируем как в основном обработчике мира
@@ -282,7 +307,7 @@ export class SelectionPlugin extends Plugin {
         this._updateTempMultiSizeLabel();
         this._updateTempMultiHitRect();
         this._updateTempRotateHandlesPosition();
-        this._core?.nodes.layer.batchDraw();
+        this._scheduleBatchDraw();
         this._destroyHoverTr();
       },
     });
@@ -312,10 +337,18 @@ export class SelectionPlugin extends Plugin {
       const target = e.target;
       if (!this._options.selectablePredicate(target)) return;
 
-      // Shift+Click: собрать временную группу
-      if (e.evt.shiftKey) {
+      // Shift+Click или Ctrl+Click: собрать временную группу (мультивыделение)
+      if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
         const base = this._findBaseNodeByTarget(target);
         if (!base) return;
+
+        // Если нода находится в группе, игнорируем (защита групп)
+        const nodeKonva = base.getNode();
+        const parent = nodeKonva.getParent();
+        if (parent && parent instanceof Konva.Group && parent !== this._core.nodes.world) {
+          // Нода в группе - не добавляем в мультивыделение
+          return;
+        }
 
         if (this._tempMultiSet.size === 0 && this._selected && this._selected !== base) {
           // перенести текущую выбранную ноду в набор и убрать её одиночные оверлеи
@@ -345,23 +378,12 @@ export class SelectionPlugin extends Plugin {
           if (!only) return;
           this._destroyTempMulti();
           this._select(only);
-          this._core.stage.batchDraw();
+          this._scheduleBatchDraw();
           return;
         }
         this._ensureTempMulti(Array.from(this._tempMultiSet));
-        this._core.stage.batchDraw();
+        this._scheduleBatchDraw();
         return;
-      }
-
-      // Ctrl-клик: выбрать точную зарегистрированную ноду под курсором (если есть)
-      if (e.evt.ctrlKey) {
-        const exact = this._core.nodes.list().find((n) => n.getNode() === target);
-        if (exact) {
-          this._select(exact);
-          this._core.stage.batchDraw();
-          return;
-        }
-        // если точной нет — ниже сработает стандартная логика (группа/ближайший зарегистрированный)
       }
 
       const baseNode = this._findBaseNodeByTarget(target);
@@ -370,10 +392,10 @@ export class SelectionPlugin extends Plugin {
       // Обычный клик — разрушить временную группу и выделить одну ноду
       this._destroyTempMulti();
       this._select(baseNode);
-      this._core.stage.batchDraw();
+      this._scheduleBatchDraw();
     });
 
-    // Двойной клик: если сейчас выделена группа и клик по её ребёнку — выделяем ровно ребёнка
+    // Двойной клик: "проваливание" на уровень ниже в иерархии групп
     stage.on('dblclick.selection', (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._core) return;
       const layer = this._core.nodes.layer;
@@ -389,23 +411,66 @@ export class SelectionPlugin extends Plugin {
         typeof selectedNode.isAncestorOf === 'function' &&
         selectedNode.isAncestorOf(e.target)
       ) {
-        const exact = this._core.nodes.list().find((n) => n.getNode() === e.target);
-        if (!exact) return;
-        e.cancelBubble = true; // не даём всплыть до логики выбора группы
-        this._select(exact);
-        const node = exact.getNode();
-        // Включаем перетаскивание для выбранной дочерней ноды
-        if (typeof node.draggable === 'function') node.draggable(true);
-        // Временно отключаем перетаскивание у родительской группы, чтобы тянулась не вся группа
-        let parent: Konva.Node | null = (e.target as Konva.Node).getParent();
-        while (parent && !(parent instanceof Konva.Group)) parent = parent.getParent();
-        if (parent && parent instanceof Konva.Group) {
-          this._parentGroupDuringChildEdit = parent;
-          this._parentGroupPrevDraggable =
-            typeof parent.draggable === 'function' ? parent.draggable() : null;
-          if (typeof parent.draggable === 'function') parent.draggable(false);
+        e.cancelBubble = true;
+
+        // Находим ближайшую зарегистрированную группу между selectedNode и target
+        // Если группы нет - выбираем саму ноду
+        let nextLevel: BaseNode | null = null;
+
+        // Ищем ближайшего зарегистрированного потомка selectedNode, который является предком target
+        for (const n of this._core.nodes.list()) {
+          const node = n.getNode() as unknown as Konva.Node;
+
+          // Проверяем, что node является потомком selectedNode
+          if (
+            typeof selectedNode.isAncestorOf === 'function' &&
+            selectedNode.isAncestorOf(node) &&
+            node !== selectedNode
+          ) {
+            // Проверяем, что node является предком target (но не равен target, если это не группа)
+            if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(e.target)) {
+              // Проверяем, что это ближайший предок (нет промежуточных зарегистрированных нод)
+              let isClosest = true;
+              for (const other of this._core.nodes.list()) {
+                if (other === n) continue;
+                const otherNode = other.getNode() as unknown as Konva.Node;
+                if (
+                  typeof selectedNode.isAncestorOf === 'function' &&
+                  selectedNode.isAncestorOf(otherNode) &&
+                  typeof node.isAncestorOf === 'function' &&
+                  node.isAncestorOf(otherNode) &&
+                  typeof otherNode.isAncestorOf === 'function' &&
+                  otherNode.isAncestorOf(e.target)
+                ) {
+                  isClosest = false;
+                  break;
+                }
+              }
+              if (isClosest) {
+                nextLevel = n;
+                break;
+              }
+            }
+          }
         }
-        this._core.stage.batchDraw();
+
+        // Если не нашли промежуточную группу, ищем саму ноду target
+        nextLevel ??= this._core.nodes.list().find((n) => n.getNode() === e.target) ?? null;
+
+        if (nextLevel) {
+          this._select(nextLevel);
+          const node = nextLevel.getNode();
+          // Включаем перетаскивание для выбранной ноды
+          if (typeof node.draggable === 'function') node.draggable(true);
+          // Временно отключаем перетаскивание у родительской группы
+          if (selectedNode instanceof Konva.Group) {
+            this._parentGroupDuringChildEdit = selectedNode;
+            this._parentGroupPrevDraggable =
+              typeof selectedNode.draggable === 'function' ? selectedNode.draggable() : null;
+            if (typeof selectedNode.draggable === 'function') selectedNode.draggable(false);
+          }
+          this._core.stage.batchDraw();
+        }
       }
     });
 
@@ -469,7 +534,8 @@ export class SelectionPlugin extends Plugin {
           this._updateCornerRadiusHandlesVisibility();
           // Временная группа: форс‑апдейт единого менеджера оверлеев
           this._tempOverlay?.forceUpdate();
-          this._core.nodes.layer.batchDraw();
+          // ОПТИМИЗАЦИЯ: используем scheduleBatchDraw вместо прямого вызова
+          this._scheduleBatchDraw();
         }
         // Hover-оверлей убираем до следующего mousemove, чтобы избежать мерцаний
         this._destroyHoverTr();
@@ -762,8 +828,20 @@ export class SelectionPlugin extends Plugin {
       this._startAutoPanLoop();
     });
     konvaNode.on('dragmove.selection', () => {
-      // Ничего дополнительно, просто перерисовка
-      this._core?.stage.batchDraw();
+      // Оптимизация: throttling для dragmove
+      if (this._dragMoveScheduled) return;
+
+      this._dragMoveScheduled = true;
+      const raf =
+        globalThis.requestAnimationFrame ||
+        ((cb: FrameRequestCallback) =>
+          globalThis.setTimeout(() => {
+            cb(0);
+          }, 16));
+      raf(() => {
+        this._dragMoveScheduled = false;
+        this._scheduleBatchDraw();
+      });
     });
     konvaNode.on('dragend.selection', () => {
       // Сбросить ссылку на активную ноду
@@ -904,7 +982,7 @@ export class SelectionPlugin extends Plugin {
       grp.draggable(true);
       const forceUpdate = () => {
         this._tempOverlay?.forceUpdate();
-        layer.batchDraw();
+        this._scheduleBatchDraw();
       };
       grp.on('dragstart.tempMulti', () => {
         stage.draggable(false);
@@ -1299,11 +1377,15 @@ export class SelectionPlugin extends Plugin {
 
     const findNearestRegisteredGroup = (start: Konva.Node): Konva.Node | null => {
       let cur: Konva.Node | null = start;
+      let lastGroup: Konva.Node | null = null;
+      // Ищем самую верхнюю (внешнюю) зарегистрированную группу
       while (cur) {
-        if (registered.has(cur) && cur instanceof Konva.Group) return cur;
+        if (registered.has(cur) && cur instanceof Konva.Group) {
+          lastGroup = cur;
+        }
         cur = cur.getParent();
       }
-      return null;
+      return lastGroup;
     };
 
     const targetOwnerGroup = findNearestRegisteredGroup(target);
@@ -1315,8 +1397,13 @@ export class SelectionPlugin extends Plugin {
       ? (targetOwnerNode ?? targetOwnerGroup)
       : (targetOwnerGroup ?? targetOwnerNode);
 
-    // Спец-правило (без Ctrl): если выделена нода внутри той же группы и ховер по ДРУГОЙ ноде группы — подсвечиваем leaf-ноду
-    if (!ctrlPressed && this._selected && targetOwnerNode) {
+    // Спец-правило (без Ctrl): если выделена НОДА (не группа) внутри группы и ховер по ДРУГОЙ ноде группы — подсвечиваем leaf-ноду
+    if (
+      !ctrlPressed &&
+      this._selected &&
+      targetOwnerNode &&
+      !(this._selected.getNode() instanceof Konva.Group)
+    ) {
       const selectedNode = this._selected.getNode() as unknown as Konva.Node;
       const inSameGroup = (nodeA: Konva.Node, nodeB: Konva.Node, group: Konva.Node | null) => {
         if (!group) return false;
@@ -1362,12 +1449,11 @@ export class SelectionPlugin extends Plugin {
         }
         return false;
       };
-      // При Ctrl скрываем только если owner === selectedNode (дубликат). Без Ctrl — прежняя логика по родству
+      // Скрываем hover только если это та же нода или если selectedNode является предком owner
+      // НЕ скрываем, если owner является предком selectedNode (это означает, что owner - более высокая группа)
       const shouldSuppress = ctrlPressed
         ? owner === selectedNode
-        : owner === selectedNode ||
-          isAncestor(owner, selectedNode) ||
-          isAncestor(selectedNode, owner);
+        : owner === selectedNode || isAncestor(selectedNode, owner);
       if (shouldSuppress) {
         this._destroyHoverTr();
         return;
@@ -1649,13 +1735,13 @@ export class SelectionPlugin extends Plugin {
       this._updateCornerRadiusHandlesPosition();
       this._updateRotateHandlesPosition();
       this._updateSizeLabel();
-      this._core?.nodes.layer.batchDraw();
+      this._scheduleBatchDraw();
     };
     selNode.on(
       'widthChange.overlay-sync heightChange.overlay-sync scaleXChange.overlay-sync scaleYChange.overlay-sync rotationChange.overlay-sync xChange.overlay-sync yChange.overlay-sync',
       syncOverlays,
     );
-    layer.batchDraw();
+    this._scheduleBatchDraw();
   }
 
   // Растянуть side-anchors (top/right/bottom/left) на всю сторону выбранной ноды
@@ -2845,13 +2931,29 @@ export class SelectionPlugin extends Plugin {
       }
     }
     // Ищем соответствующую BaseNode по ссылке на внутренний konvaNode
-    // 1) Сначала ищем родителя: если нода-обёртка (например, Group) является предком кликаемого target — выбираем её
+    // 1) Ищем САМОГО ВЕРХНЕГО предка (самую внешнюю группу)
+    let topMostAncestor: BaseNode | null = null;
     for (const n of this._core.nodes.list()) {
       const node = n.getNode() as unknown as Konva.Node;
       if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(target)) {
-        return n;
+        // Проверяем, является ли этот предок самым верхним
+        // (т.е. нет другого зарегистрированного предка выше него)
+        let isTopMost = true;
+        for (const other of this._core.nodes.list()) {
+          if (other === n) continue;
+          const otherNode = other.getNode() as unknown as Konva.Node;
+          if (typeof otherNode.isAncestorOf === 'function' && otherNode.isAncestorOf(node)) {
+            isTopMost = false;
+            break;
+          }
+        }
+        if (isTopMost) {
+          topMostAncestor = n;
+        }
       }
     }
+    if (topMostAncestor) return topMostAncestor;
+
     // 2) Если предок не найден — проверяем точное совпадение
     for (const n of this._core.nodes.list()) {
       if (n.getNode() === target) return n;

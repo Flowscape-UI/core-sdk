@@ -25,6 +25,10 @@ export class CameraManager {
   private _zoomStep: number;
   private _panStep: number;
 
+  // Кэш для оптимизации
+  private _wheelScheduled = false;
+  private _pendingWheelEvent: WheelEvent | null = null;
+
   constructor(options: CameraManagerOptions) {
     this._stage = options.stage;
     this._eventBus = options.eventBus;
@@ -42,27 +46,50 @@ export class CameraManager {
   private _initWheelZoom() {
     this._stage.on('wheel', (e) => {
       e.evt.preventDefault();
-      const oldScale = this._target.scaleX() || 1;
-      const pointer = this._stage.getPointerPosition();
-      if (!pointer) return;
-      const scaleBy = this._zoomStep;
-      const direction = e.evt.deltaY > 0 ? -1 : 1;
-      let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
-      newScale = Math.max(this._minScale, Math.min(this._maxScale, newScale));
-      const mousePointTo = {
-        x: (pointer.x - this._target.x()) / oldScale,
-        y: (pointer.y - this._target.y()) / oldScale,
-      };
-      this._target.scale({ x: newScale, y: newScale });
-      const newPos = {
-        x: pointer.x - mousePointTo.x * newScale,
-        y: pointer.y - mousePointTo.y * newScale,
-      };
-      this._target.position(newPos);
-      this._stage.batchDraw();
-      this._scale = newScale;
-      this._eventBus.emit('camera:zoom', { scale: this._scale, position: newPos });
+
+      // Оптимизация: throttling для wheel событий
+      this._pendingWheelEvent = e.evt;
+
+      if (this._wheelScheduled) return;
+
+      this._wheelScheduled = true;
+      const raf =
+        globalThis.requestAnimationFrame ||
+        ((cb: FrameRequestCallback) =>
+          globalThis.setTimeout(() => {
+            cb(0);
+          }, 16));
+      raf(() => {
+        this._wheelScheduled = false;
+        if (!this._pendingWheelEvent) return;
+
+        this._handleWheel(this._pendingWheelEvent);
+        this._pendingWheelEvent = null;
+      });
     });
+  }
+
+  private _handleWheel(evt: WheelEvent) {
+    const oldScale = this._target.scaleX() || 1;
+    const pointer = this._stage.getPointerPosition();
+    if (!pointer) return;
+    const scaleBy = this._zoomStep;
+    const direction = evt.deltaY > 0 ? -1 : 1;
+    let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+    newScale = Math.max(this._minScale, Math.min(this._maxScale, newScale));
+    const mousePointTo = {
+      x: (pointer.x - this._target.x()) / oldScale,
+      y: (pointer.y - this._target.y()) / oldScale,
+    };
+    this._target.scale({ x: newScale, y: newScale });
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    };
+    this._target.position(newPos);
+    this._stage.batchDraw();
+    this._scale = newScale;
+    this._eventBus.emit('camera:zoom', { scale: this._scale, position: newPos });
   }
 
   public get zoomStep(): number {

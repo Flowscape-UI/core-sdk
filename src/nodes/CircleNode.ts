@@ -18,6 +18,7 @@ export class CircleNode extends BaseNode<Konva.Circle> {
     circle.fill(options.fill ?? 'black');
     circle.stroke(options.stroke ?? 'black');
     circle.strokeWidth(options.strokeWidth ?? 0);
+    circle.draggable(true);
 
     super(circle, options);
   }

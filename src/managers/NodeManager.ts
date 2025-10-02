@@ -22,6 +22,11 @@ export class NodeManager {
   private _stage: Konva.Stage;
   private _eventBus: EventBus<CoreEvents>;
 
+  // Кэш для оптимизации
+  private _batchDrawScheduled = false;
+  private _listCache: BaseNode[] | null = null;
+  private _listCacheInvalidated = true;
+
   constructor(stage: Konva.Stage, eventBus: EventBus<CoreEvents>) {
     this._layer = new Konva.Layer();
     this._world = new Konva.Group();
@@ -51,7 +56,8 @@ export class NodeManager {
     const shape = new ShapeNode(options);
     this._world.add(shape.getNode());
     this._nodes.set(shape.id, shape);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return shape;
   }
 
@@ -59,7 +65,8 @@ export class NodeManager {
     const text = new TextNode(options);
     this._world.add(text.getNode());
     this._nodes.set(text.id, text);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return text;
   }
 
@@ -67,7 +74,8 @@ export class NodeManager {
     const image = new ImageNode(options);
     this._world.add(image.getNode());
     this._nodes.set(image.id, image);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return image;
   }
 
@@ -75,7 +83,8 @@ export class NodeManager {
     const circle = new CircleNode(options);
     this._world.add(circle.getNode());
     this._nodes.set(circle.id, circle);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return circle;
   }
 
@@ -83,7 +92,8 @@ export class NodeManager {
     const ellipse = new EllipseNode(options);
     this._world.add(ellipse.getNode());
     this._nodes.set(ellipse.id, ellipse);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return ellipse;
   }
 
@@ -91,7 +101,8 @@ export class NodeManager {
     const arc = new ArcNode(options);
     this._world.add(arc.getNode());
     this._nodes.set(arc.id, arc);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return arc;
   }
 
@@ -99,7 +110,8 @@ export class NodeManager {
     const star = new StarNode(options);
     this._world.add(star.getNode());
     this._nodes.set(star.id, star);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return star;
   }
 
@@ -107,7 +119,8 @@ export class NodeManager {
     const arrow = new ArrowNode(options);
     this._world.add(arrow.getNode());
     this._nodes.set(arrow.id, arrow);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return arrow;
   }
 
@@ -115,7 +128,8 @@ export class NodeManager {
     const ring = new RingNode(options);
     this._world.add(ring.getNode());
     this._nodes.set(ring.id, ring);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return ring;
   }
 
@@ -123,7 +137,8 @@ export class NodeManager {
     const poly = new RegularPolygonNode(options);
     this._world.add(poly.getNode());
     this._nodes.set(poly.id, poly);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return poly;
   }
 
@@ -131,7 +146,8 @@ export class NodeManager {
     const group = new GroupNode(options);
     this._world.add(group.getNode());
     this._nodes.set(group.id, group);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
     return group;
   }
 
@@ -139,7 +155,8 @@ export class NodeManager {
     this._eventBus.emit('node:removed', node);
     node.remove();
     this._nodes.delete(node.id);
-    this._layer.batchDraw();
+    this._listCacheInvalidated = true;
+    this._scheduleBatchDraw();
   }
 
   // Снять регистрацию BaseNode, НЕ удаляя его Konva-ноду из сцены.
@@ -154,6 +171,26 @@ export class NodeManager {
   }
 
   public list(): BaseNode[] {
-    return Array.from(this._nodes.values());
+    // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: кэшируем результат
+    if (this._listCacheInvalidated || !this._listCache) {
+      this._listCache = Array.from(this._nodes.values());
+      this._listCacheInvalidated = false;
+    }
+    return this._listCache;
+  }
+
+  /**
+   * Отложенная перерисовка (throttling)
+   * КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: группируем множественные добавления нод
+   */
+  private _scheduleBatchDraw() {
+    if (this._batchDrawScheduled) return;
+
+    this._batchDrawScheduled = true;
+    const raf = globalThis.requestAnimationFrame;
+    raf(() => {
+      this._batchDrawScheduled = false;
+      this._layer.batchDraw();
+    });
   }
 }

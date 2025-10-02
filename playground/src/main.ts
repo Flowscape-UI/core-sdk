@@ -43,20 +43,21 @@ const selection = new SelectionPlugin({
 const gridPlugin = new GridPlugin({
   color: '#3d3d3d',
   minScaleToShow: 15,
+  enableSnap: true,
 });
 
-// const rulerPlugin = new RulerPlugin();
-// const rulerGuidesPlugin = new RulerGuidesPlugin({
-//   snapToGrid: true,  // привязка к сетке
-//   gridStep: 1,       // шаг 1px для точного позиционирования
-// });
-// const rulerHighlightPlugin = new RulerHighlightPlugin({
-//   highlightColor: '#2b83ff',
-//   highlightOpacity: 0.3,
-// });
-// const rulerManagerPlugin = new RulerManagerPlugin({
-//   enabled: true, // включить управление по Shift+R
-// });
+const rulerPlugin = new RulerPlugin();
+const rulerGuidesPlugin = new RulerGuidesPlugin({
+  snapToGrid: true, // привязка к сетке
+  gridStep: 1, // шаг 1px для точного позиционирования
+});
+const rulerHighlightPlugin = new RulerHighlightPlugin({
+  highlightColor: '#2b83ff',
+  highlightOpacity: 0.3,
+});
+const rulerManagerPlugin = new RulerManagerPlugin({
+  enabled: true, // включить управление по Shift+R
+});
 
 const areaSelection = new AreaSelectionPlugin();
 
@@ -65,8 +66,8 @@ const core = new CoreEngine({
   plugins: [
     logoPlugin,
     hotkeys,
-    selection,
     gridPlugin,
+    selection,
     areaSelection,
     nodeHotkeys,
     // rulerPlugin,

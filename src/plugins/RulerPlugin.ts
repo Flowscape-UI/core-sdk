@@ -33,6 +33,10 @@ export class RulerPlugin extends Plugin {
 
   private _redrawScheduled = false;
 
+  // Кэш для оптимизации
+  private _cachedActiveGuide: { type: 'h' | 'v'; coord: number } | null = null;
+  private _cacheInvalidated = true;
+
   constructor(options: RulerPluginOptions = {}) {
     super();
     const {
@@ -134,7 +138,9 @@ export class RulerPlugin extends Plugin {
     this._hTicksShape = new Konva.Shape({
       listening: false,
       sceneFunc: (ctx) => {
-        this._drawHorizontalRuler(ctx);
+        // Получаем активную направляющую один раз для обеих линеек
+        const activeGuide = this._getActiveGuideInfo();
+        this._drawHorizontalRuler(ctx, activeGuide);
       },
     });
     this._hGroup.add(this._hTicksShape);
@@ -143,7 +149,9 @@ export class RulerPlugin extends Plugin {
     this._vTicksShape = new Konva.Shape({
       listening: false,
       sceneFunc: (ctx) => {
-        this._drawVerticalRuler(ctx);
+        // Получаем активную направляющую один раз для обеих линеек
+        const activeGuide = this._getActiveGuideInfo();
+        this._drawVerticalRuler(ctx, activeGuide);
       },
     });
     this._vGroup.add(this._vTicksShape);
@@ -157,6 +165,13 @@ export class RulerPlugin extends Plugin {
     });
 
     world.on('xChange.ruler yChange.ruler scaleXChange.ruler scaleYChange.ruler', () => {
+      this._invalidateGuideCache();
+      this._scheduleRedraw();
+    });
+
+    // Подписываемся на изменения направляющих для инвалидации кэша
+    stage.on('guidesChanged.ruler', () => {
+      this._invalidateGuideCache();
       this._scheduleRedraw();
     });
 
@@ -178,14 +193,23 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Получить активную направляющую из RulerGuidesPlugin
+   * Получить активную направляющую из RulerGuidesPlugin (с кэшированием)
    */
   private _getActiveGuideInfo(): { type: 'h' | 'v'; coord: number } | null {
     if (!this._core) return null;
 
+    // Используем кэш, если он не инвалидирован
+    if (!this._cacheInvalidated) {
+      return this._cachedActiveGuide;
+    }
+
     // Ищем RulerGuidesPlugin через stage
     const guidesLayer = this._core.stage.findOne('.guides-layer');
-    if (!guidesLayer) return null;
+    if (!guidesLayer) {
+      this._cachedActiveGuide = null;
+      this._cacheInvalidated = false;
+      return null;
+    }
 
     // Получаем активную направляющую
     const guides = guidesLayer.find('Line');
@@ -195,17 +219,32 @@ export class RulerPlugin extends Plugin {
         // активная линия имеет strokeWidth = 2
         const worldCoord = line.worldCoord;
         const type = line.name() === 'guide-h' ? 'h' : 'v';
-        return { type, coord: worldCoord };
+        this._cachedActiveGuide = { type, coord: worldCoord };
+        this._cacheInvalidated = false;
+        return this._cachedActiveGuide;
       }
     }
 
+    this._cachedActiveGuide = null;
+    this._cacheInvalidated = false;
     return null;
   }
 
   /**
-   * Отрисовка горизонтальной линейки
+   * Инвалидировать кэш активной направляющей
    */
-  private _drawHorizontalRuler(ctx: Konva.Context) {
+  private _invalidateGuideCache() {
+    this._cacheInvalidated = true;
+  }
+
+  /**
+   * Отрисовка горизонтальной линейки
+   * @param activeGuide - кэшированная информация об активной направляющей
+   */
+  private _drawHorizontalRuler(
+    ctx: Konva.Context,
+    activeGuide: { type: 'h' | 'v'; coord: number } | null,
+  ) {
     if (!this._core) return;
 
     const stage = this._core.stage;
@@ -215,9 +254,7 @@ export class RulerPlugin extends Plugin {
     const tPx = this._options.thicknessPx;
     const worldX = world.x();
 
-    // Получаем информацию об активной направляющей
     // Горизонтальная линейка подсвечивает координату ВЕРТИКАЛЬНОЙ направляющей (guide-v)
-    const activeGuide = this._getActiveGuideInfo();
     const highlightCoord = activeGuide?.type === 'v' ? activeGuide.coord : null;
 
     // Минимальный желаемый шаг между делениями в пикселях
@@ -340,8 +377,12 @@ export class RulerPlugin extends Plugin {
 
   /**
    * Отрисовка вертикальной линейки
+   * @param activeGuide - кэшированная информация об активной направляющей
    */
-  private _drawVerticalRuler(ctx: Konva.Context) {
+  private _drawVerticalRuler(
+    ctx: Konva.Context,
+    activeGuide: { type: 'h' | 'v'; coord: number } | null,
+  ) {
     if (!this._core) return;
 
     const stage = this._core.stage;
@@ -351,9 +392,7 @@ export class RulerPlugin extends Plugin {
     const tPx = this._options.thicknessPx;
     const worldY = world.y();
 
-    // Получаем информацию об активной направляющей
     // Вертикальная линейка подсвечивает координату ГОРИЗОНТАЛЬНОЙ направляющей (guide-h)
-    const activeGuide = this._getActiveGuideInfo();
     const highlightCoord = activeGuide?.type === 'h' ? activeGuide.coord : null;
 
     // Минимальный желаемый шаг между делениями в пикселях
@@ -442,11 +481,12 @@ export class RulerPlugin extends Plugin {
         ctx.textAlign = 'left';
 
         // Для вертикальной линейки поворачиваем текст
-        ctx.save();
-        ctx.translate(4, screenY + 4);
-        ctx.rotate(-Math.PI / 2);
+        // Оптимизация: используем transform вместо save/restore
+        const x = 4;
+        const y = screenY + 4;
+        ctx.setTransform(0, -1, 1, 0, x, y);
         ctx.fillText(this._formatNumber(worldPos), 0, 0);
-        ctx.restore();
+        ctx.setTransform(1, 0, 0, 1, 0, 0); // сброс трансформации
       }
     }
 
@@ -474,11 +514,12 @@ export class RulerPlugin extends Plugin {
           ctx.textAlign = 'left';
 
           // Для вертикальной линейки поворачиваем текст
-          ctx.save();
-          ctx.translate(4, screenY + 4);
-          ctx.rotate(-Math.PI / 2);
+          // Оптимизация: используем transform вместо save/restore
+          const x = 4;
+          const y = screenY + 4;
+          ctx.setTransform(0, -1, 1, 0, x, y);
           ctx.fillText(this._formatNumber(highlightCoord), 0, 0);
-          ctx.restore();
+          ctx.setTransform(1, 0, 0, 1, 0, 0); // сброс трансформации
         }
       }
     }
