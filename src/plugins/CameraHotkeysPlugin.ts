@@ -345,7 +345,11 @@ export class CameraHotkeysPlugin extends Plugin {
     if (!this._core) return;
     // Панорамируем мир, а не stage, чтобы сетка и контент были в одной системе координат
     const world = this._core.nodes.world;
-    world.position({ x: world.x() + dx, y: world.y() + dy });
+    const newX = world.x() + dx;
+    const newY = world.y() + dy;
+    world.position({ x: newX, y: newY });
+    // Эмитим событие панорамирования камеры
+    this._core.eventBus.emit('camera:pan', { dx, dy, position: { x: newX, y: newY } });
     this._core.stage.batchDraw();
   }
 }

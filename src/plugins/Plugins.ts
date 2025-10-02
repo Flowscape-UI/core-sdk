@@ -18,6 +18,8 @@ export class Plugins {
       this._items.push(plugin);
       plugin.attach(this._core);
       added.push(plugin);
+      // Emit plugin:added event
+      this._core.eventBus.emit('plugin:added', plugin.constructor.name);
     }
     return added;
   }
@@ -30,6 +32,8 @@ export class Plugins {
       plugin.detach(this._core);
       this._items.splice(idx, 1);
       removed.push(plugin);
+      // Emit plugin:removed event
+      this._core.eventBus.emit('plugin:removed', plugin.constructor.name);
     }
     return removed;
   }
@@ -38,6 +42,10 @@ export class Plugins {
     const removed = [...this._items];
     for (const plugin of removed) plugin.detach(this._core);
     this._items = [];
+    // Emit plugin:removed for each removed plugin
+    for (const plugin of removed) {
+      this._core.eventBus.emit('plugin:removed', plugin.constructor.name);
+    }
     return removed;
   }
 

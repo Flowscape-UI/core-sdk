@@ -71,6 +71,7 @@ export class NodeHotkeysPlugin extends Plugin {
     }
 
     const ctrl = e.ctrlKey || e.metaKey;
+    const shift = e.shiftKey;
 
     // Ctrl+C - Копировать
     if (ctrl && e.code === 'KeyC') {
@@ -99,6 +100,20 @@ export class NodeHotkeysPlugin extends Plugin {
       this._handleDelete();
       return;
     }
+
+    // Ctrl+] или Ctrl+Shift+= - Повысить z-index (moveUp)
+    if (ctrl && (e.code === 'BracketRight' || (shift && e.code === 'Equal'))) {
+      e.preventDefault();
+      this._handleMoveUp();
+      return;
+    }
+
+    // Ctrl+[ или Ctrl+Shift+- - Понизить z-index (moveDown)
+    if (ctrl && (e.code === 'BracketLeft' || (shift && e.code === 'Minus'))) {
+      e.preventDefault();
+      this._handleMoveDown();
+      return;
+    }
   };
 
   private _isEditableTarget(target: EventTarget | null): boolean {
@@ -118,6 +133,9 @@ export class NodeHotkeysPlugin extends Plugin {
     this._clipboard = { nodes, center };
 
     // Copied successfully
+    if (this._core) {
+      this._core.eventBus.emit('clipboard:copy', selected);
+    }
   }
 
   private _handleCut(): void {
@@ -132,6 +150,9 @@ export class NodeHotkeysPlugin extends Plugin {
     this._deleteNodes(selected);
 
     // Cut successfully
+    if (this._core) {
+      this._core.eventBus.emit('clipboard:cut', selected);
+    }
   }
 
   private _handlePaste(): void {
@@ -160,6 +181,9 @@ export class NodeHotkeysPlugin extends Plugin {
     }
 
     // Pasted successfully
+    if (newNodes.length > 0) {
+      this._core.eventBus.emit('clipboard:paste', newNodes);
+    }
     this._core.nodes.layer.batchDraw();
   }
 
@@ -327,8 +351,12 @@ export class NodeHotkeysPlugin extends Plugin {
   ): BaseNode | null {
     if (!this._core) return null;
 
+    // Удаляем zIndex из конфига, так как он будет установлен автоматически
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { zIndex, ...configWithoutZIndex } = data.config;
+
     const config = {
-      ...data.config,
+      ...configWithoutZIndex,
       x: position.x,
       y: position.y,
     };
@@ -524,5 +552,124 @@ export class NodeHotkeysPlugin extends Plugin {
     const invWorld = world.getAbsoluteTransform().copy().invert();
     const ptWorld = invWorld.point({ x: cxStage, y: cyStage });
     return { x: ptWorld.x, y: ptWorld.y };
+  }
+
+  // Повысить z-index выбранной ноды (инкрементировать на 1)
+  private _handleMoveUp(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    // Перемещаем каждую выбранную ноду на один уровень вперёд
+    for (const node of selected) {
+      const konvaNode = node.getNode() as unknown as Konva.Node;
+
+      // Запрещаем изменение z-index для одиночной ноды внутри настоящей группы
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveUp();
+      const newIndex = konvaNode.zIndex();
+
+      // Синхронизируем z-index внутри группы (если нода в группе или это группа)
+      this._syncGroupZIndex(konvaNode, newIndex);
+
+      // Эмитим событие изменения z-index
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      // Принудительная перерисовка всего слоя
+      this._core.nodes.layer.draw();
+
+      // Также перерисовываем stage для обновления transformer
+      this._core.stage.batchDraw();
+    }
+  }
+
+  // Понизить z-index выбранной ноды (декрементировать на 1)
+  private _handleMoveDown(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    // Перемещаем каждую выбранную ноду на один уровень назад (в обратном порядке, чтобы избежать конфликтов)
+    for (let i = selected.length - 1; i >= 0; i--) {
+      const node = selected[i];
+      if (!node) continue;
+      const konvaNode = node.getNode() as unknown as Konva.Node;
+
+      // Запрещаем изменение z-index для одиночной ноды внутри настоящей группы
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveDown();
+      const newIndex = konvaNode.zIndex();
+
+      // Синхронизируем z-index внутри группы (если нода в группе или это группа)
+      this._syncGroupZIndex(konvaNode, newIndex);
+
+      // Эмитим событие изменения z-index
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      // Принудительная перерисовка всего слоя
+      this._core.nodes.layer.draw();
+
+      // Также перерисовываем stage для обновления transformer
+      this._core.stage.batchDraw();
+    }
+  }
+
+  /**
+   * Проверяет, находится ли нода внутри настоящей группы (не является самой группой)
+   */
+  private _isNodeInsidePermanentGroup(konvaNode: Konva.Node): boolean {
+    // Если это сама группа — разрешаем изменение z-index
+    if (konvaNode instanceof Konva.Group) {
+      return false;
+    }
+
+    const parent = konvaNode.getParent();
+    if (!parent) return false;
+
+    // Если родитель — группа (не world) — это настоящая группа
+    return parent instanceof Konva.Group && parent.name() !== 'world';
+  }
+
+  /**
+   * Синхронизирует z-index всех нод внутри группы:
+   * - Если нода является группой — устанавливает всем дочерним нодам одинаковый z-index
+   * - Если нода внутри группы — устанавливает всем соседям тот же z-index
+   */
+  private _syncGroupZIndex(konvaNode: Konva.Node, targetZIndex: number): void {
+    const parent = konvaNode.getParent();
+    if (!parent) return;
+
+    // Если это группа — синхронизируем всех детей
+    if (konvaNode instanceof Konva.Group) {
+      const children = konvaNode.getChildren();
+      for (const child of children) {
+        child.zIndex(targetZIndex);
+      }
+      return;
+    }
+
+    // Если нода внутри группы — синхронизируем со всеми соседями
+    if (parent instanceof Konva.Group && parent.name() !== 'world') {
+      const siblings = parent.getChildren();
+      for (const sibling of siblings) {
+        if (sibling !== konvaNode) {
+          sibling.zIndex(targetZIndex);
+        }
+      }
+    }
   }
 }

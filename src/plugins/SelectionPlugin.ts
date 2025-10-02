@@ -790,6 +790,7 @@ export class SelectionPlugin extends Plugin {
 
   private _select(node: BaseNode) {
     if (!this._core) return;
+    const core = this._core;
 
     // Сбрасываем предыдущее выделение
     this._clearSelection();
@@ -804,6 +805,9 @@ export class SelectionPlugin extends Plugin {
     // Визуальный transformer (по желанию)
     this._selected = node;
     this._refreshTransformer();
+
+    // Эмитим событие выделения
+    core.eventBus.emit('node:selected', node);
 
     // Перетаскивание уже обрабатывается самим Konva Node при draggable(true)
     // Прячем/показываем рамку и хендлеры радиуса на время drag
@@ -840,6 +844,62 @@ export class SelectionPlugin extends Plugin {
         this._dragMoveScheduled = false;
         this._scheduleBatchDraw();
       });
+    });
+
+    // Эмит изменений после завершения drag
+    konvaNode.on('dragend.selection', () => {
+      const changes: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        rotation?: number;
+        scaleX?: number;
+        scaleY?: number;
+      } = {};
+      if (typeof (konvaNode as unknown as { x?: () => number }).x === 'function')
+        changes.x = (konvaNode as unknown as { x: () => number }).x();
+      if (typeof (konvaNode as unknown as { y?: () => number }).y === 'function')
+        changes.y = (konvaNode as unknown as { y: () => number }).y();
+      if (typeof (konvaNode as unknown as { width?: () => number }).width === 'function')
+        changes.width = (konvaNode as unknown as { width: () => number }).width();
+      if (typeof (konvaNode as unknown as { height?: () => number }).height === 'function')
+        changes.height = (konvaNode as unknown as { height: () => number }).height();
+      if (typeof (konvaNode as unknown as { rotation?: () => number }).rotation === 'function')
+        changes.rotation = (konvaNode as unknown as { rotation: () => number }).rotation();
+      if (typeof (konvaNode as unknown as { scaleX?: () => number }).scaleX === 'function')
+        changes.scaleX = (konvaNode as unknown as { scaleX: () => number }).scaleX();
+      if (typeof (konvaNode as unknown as { scaleY?: () => number }).scaleY === 'function')
+        changes.scaleY = (konvaNode as unknown as { scaleY: () => number }).scaleY();
+      core.eventBus.emit('node:transformed', node, changes);
+    });
+
+    // Эмит изменений после завершения трансформации (resize/rotate/scale)
+    konvaNode.on('transformend.selection', () => {
+      const changes: {
+        x?: number;
+        y?: number;
+        width?: number;
+        height?: number;
+        rotation?: number;
+        scaleX?: number;
+        scaleY?: number;
+      } = {};
+      if (typeof (konvaNode as unknown as { x?: () => number }).x === 'function')
+        changes.x = (konvaNode as unknown as { x: () => number }).x();
+      if (typeof (konvaNode as unknown as { y?: () => number }).y === 'function')
+        changes.y = (konvaNode as unknown as { y: () => number }).y();
+      if (typeof (konvaNode as unknown as { width?: () => number }).width === 'function')
+        changes.width = (konvaNode as unknown as { width: () => number }).width();
+      if (typeof (konvaNode as unknown as { height?: () => number }).height === 'function')
+        changes.height = (konvaNode as unknown as { height: () => number }).height();
+      if (typeof (konvaNode as unknown as { rotation?: () => number }).rotation === 'function')
+        changes.rotation = (konvaNode as unknown as { rotation: () => number }).rotation();
+      if (typeof (konvaNode as unknown as { scaleX?: () => number }).scaleX === 'function')
+        changes.scaleX = (konvaNode as unknown as { scaleX: () => number }).scaleX();
+      if (typeof (konvaNode as unknown as { scaleY?: () => number }).scaleY === 'function')
+        changes.scaleY = (konvaNode as unknown as { scaleY: () => number }).scaleY();
+      this._core?.eventBus.emit('node:transformed', node, changes);
     });
     konvaNode.on('dragend.selection', () => {
       // Сбросить ссылку на активную ноду
@@ -886,6 +946,8 @@ export class SelectionPlugin extends Plugin {
 
   private _clearSelection() {
     if (!this._selected) return;
+
+    const selectedNode = this._selected;
     const node = this._selected.getNode();
 
     // Вернуть предыдущее состояние draggable
@@ -923,6 +985,13 @@ export class SelectionPlugin extends Plugin {
     }
 
     this._selected = null;
+
+    // Эмитим события снятия выделения
+    if (this._core) {
+      this._core.eventBus.emit('node:deselected', selectedNode);
+      this._core.eventBus.emit('selection:cleared');
+    }
+
     this._core?.stage.batchDraw();
   }
 
@@ -933,6 +1002,7 @@ export class SelectionPlugin extends Plugin {
     // Заполняем набор для корректной проверки size при коммите (важно для лассо)
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
+
     if (!this._tempMultiGroup) {
       const grp = new Konva.Group({ name: 'temp-multi-group' });
       world.add(grp);
@@ -999,6 +1069,9 @@ export class SelectionPlugin extends Plugin {
         this._tempOverlay?.restoreOverlaysAfterDrag();
         forceUpdate();
       });
+
+      // Событие создания временного мультивыделения
+      this._core.eventBus.emit('selection:multi:created', nodes);
       return;
     }
     // обновить состав
@@ -1077,6 +1150,9 @@ export class SelectionPlugin extends Plugin {
     }
     this._tempPlacement.clear();
     this._tempMultiSet.clear();
+
+    // Событие уничтожения временного мультивыделения
+    this._core.eventBus.emit('selection:multi:destroyed');
   }
 
   private _updateTempRotateHandlesPosition() {
@@ -1191,16 +1267,35 @@ export class SelectionPlugin extends Plugin {
     const newGroup = nm.addGroup({ x: pos.x, y: pos.y, draggable: true });
     const g = newGroup.getNode();
     const children = [...this._tempMultiGroup.getChildren()];
+    const groupedBaseNodes: BaseNode[] = [];
+
+    // Находим максимальный z-index среди всех нод для синхронизации
+    let maxZIndex = 0;
+    for (const kn of children) {
+      const currentZ = kn.zIndex();
+      if (currentZ > maxZIndex) maxZIndex = currentZ;
+    }
+
     for (const kn of children) {
       // Снять перехваты временной группы с детей
       kn.off('.tempMultiChild');
       const abs = kn.getAbsolutePosition();
       g.add(kn as unknown as Konva.Group | Konva.Shape);
       kn.setAbsolutePosition(abs);
+
+      // Устанавливаем максимальный z-index для всех нод в группе
+      kn.zIndex(maxZIndex);
+
       if (
         typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
       )
         (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
+
+      // Собираем BaseNode соответствующие Konva-нодам
+      const base = this._core.nodes
+        .list()
+        .find((b) => b.getNode() === (kn as unknown as Konva.Node));
+      if (base) groupedBaseNodes.push(base);
     }
     if (this._tempMultiTr) {
       this._tempMultiTr.destroy();
@@ -1219,6 +1314,9 @@ export class SelectionPlugin extends Plugin {
     this._tempMultiSet.clear();
     // Явно включаем draggable для созданной группы (на случай, если downstream логика поменяет опции)
     if (typeof g.draggable === 'function') g.draggable(true);
+
+    // Событие создания постоянной группы
+    this._core.eventBus.emit('group:created', newGroup, groupedBaseNodes);
     this._select(newGroup);
     this._core.stage.batchDraw();
   }

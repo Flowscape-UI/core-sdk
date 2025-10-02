@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     port: 5174,
     open: true,
-    allowedHosts: ['corporation-collar-shots-techrepublic.trycloudflare.com'],
+    allowedHosts: ['latex-their-favor-celebrities.trycloudflare.com'],
   },
   resolve: {
     alias: {

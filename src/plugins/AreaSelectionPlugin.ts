@@ -35,15 +35,6 @@ export class AreaSelectionPlugin extends Plugin {
 
   private _options: Required<AreaSelectionPluginOptions>;
 
-  // Кэш для оптимизации
-  private _rulerLayerCache: Konva.Layer | null = null;
-  private _guidesLayerCache: Konva.Layer | null = null;
-  private _mouseMoveScheduled = false;
-  private _selectionPluginCache: SelectionPlugin | null = null;
-  private _lastPickedNodes = new Set<BaseNode>();
-  private _debounceTimeoutId: number | null = null;
-  private _pendingBbox: { x: number; y: number; w: number; h: number } | null = null;
-
   constructor(options: AreaSelectionPluginOptions = {}) {
     super();
     this._options = {
@@ -90,15 +81,14 @@ export class AreaSelectionPlugin extends Plugin {
       if (!p || !this._rect) return;
 
       // Игнорируем клики на линейках (RulerPlugin)
-      // Оптимизация: кэшируем слои
-      this._rulerLayerCache ??= stage.findOne('.ruler-layer') as Konva.Layer | null;
-      if (this._rulerLayerCache && e.target.getLayer() === this._rulerLayerCache) {
+      const rulerLayer = stage.findOne('.ruler-layer');
+      if (rulerLayer && e.target.getLayer() === rulerLayer) {
         return;
       }
 
       // Игнорируем клики на направляющих линиях (RulerGuidesPlugin)
-      this._guidesLayerCache ??= stage.findOne('.guides-layer') as Konva.Layer | null;
-      if (this._guidesLayerCache && e.target.getLayer() === this._guidesLayerCache) {
+      const guidesLayer = stage.findOne('.guides-layer');
+      if (guidesLayer && e.target.getLayer() === guidesLayer) {
         return;
       }
 
@@ -124,33 +114,60 @@ export class AreaSelectionPlugin extends Plugin {
     stage.on('mousemove.area', () => {
       if (!this._selecting || !this._rect || !this._start) return;
 
-      // Оптимизация: throttling для mousemove
-      if (this._mouseMoveScheduled) return;
+      // Проверяем, не находимся ли мы над линейкой или направляющими
+      const p = stage.getPointerPosition();
+      if (!p) return;
 
-      this._mouseMoveScheduled = true;
-      const raf = globalThis.requestAnimationFrame;
-      raf(() => {
-        this._mouseMoveScheduled = false;
-        this._handleMouseMove();
-      });
+      const rulerThickness = 30;
+      const overRuler = p.y <= rulerThickness || p.x <= rulerThickness;
+
+      // Если начали выделение и попали на линейку - отменяем выделение
+      if (overRuler) {
+        this._selecting = false;
+        this._rect.visible(false);
+        this._layer?.batchDraw();
+        return;
+      }
+
+      const x = Math.min(this._start.x, p.x);
+      const y = Math.min(this._start.y, p.y);
+      const w = Math.abs(p.x - this._start.x);
+      const h = Math.abs(p.y - this._start.y);
+      this._rect.position({ x, y });
+      this._rect.size({ width: w, height: h });
+      this._layer?.batchDraw();
+
+      // Текущее множество нод под рамкой — формируем временную группу (как Shift‑мультивыбор)
+      // Если нода принадлежит постоянной группе, выбираем всю группу
+      const bbox = { x, y, width: w, height: h };
+      const allNodes: BaseNode[] = this._core?.nodes.list() ?? [];
+      const pickedSet = new Set<BaseNode>();
+      for (const bn of allNodes) {
+        const node = bn.getNode() as unknown as Konva.Node;
+        const layer = node.getLayer();
+        if (layer !== this._core?.nodes.layer) continue;
+        const r = node.getClientRect({ skipShadow: true, skipStroke: false });
+        if (this._rectsIntersect(bbox, r)) {
+          const owner = this._findOwningGroupBaseNode(node);
+          pickedSet.add(owner ?? bn);
+        }
+      }
+      const pickedBase: BaseNode[] = Array.from(pickedSet);
+      const sel = this._getSelectionPlugin();
+      if (sel) {
+        const ctrl = sel.getMultiGroupController();
+        if (pickedBase.length > 0) {
+          ctrl.ensure(pickedBase);
+        } else {
+          // Если рамка ушла с единственной (или всех) нод — временная группа спадает
+          ctrl.destroy();
+        }
+        this._core?.stage.batchDraw();
+      }
     });
 
     stage.on('mouseup.area', () => {
       if (!this._selecting) return;
-
-      // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: при mouseup немедленно обновляем выделение
-      if (this._debounceTimeoutId !== null) {
-        globalThis.clearTimeout(this._debounceTimeoutId);
-        this._debounceTimeoutId = null;
-      }
-
-      // Немедленно обновляем выделение перед завершением
-      if (this._pendingBbox) {
-        const bbox = this._pendingBbox;
-        this._updateSelection(bbox.x, bbox.y, bbox.w, bbox.h);
-        this._pendingBbox = null;
-      }
-
       this._finalizeArea();
     });
 
@@ -216,8 +233,7 @@ export class AreaSelectionPlugin extends Plugin {
       // Только те, что реально в слое нод
       const layer = node.getLayer();
       if (layer !== this._core.nodes.layer) continue;
-      // ОПТИМИЗАЦИЯ: используем BBoxCache вместо прямого getClientRect()
-      const r = this._core.bboxCache.get(node, n.id);
+      const r = node.getClientRect({ skipShadow: true, skipStroke: false });
       if (this._rectsIntersect(bbox, r)) picked.push(node);
     }
 
@@ -245,126 +261,6 @@ export class AreaSelectionPlugin extends Plugin {
     // Сброс внутренних состояний рамки
   }
 
-  /**
-   * Обработка движения мыши при выделении области
-   * Оптимизация: вынесено в отдельный метод для throttling
-   */
-  private _handleMouseMove() {
-    if (!this._selecting || !this._rect || !this._start || !this._core) return;
-
-    const stage = this._core.stage;
-    const p = stage.getPointerPosition();
-    if (!p) return;
-
-    const rulerThickness = 30;
-    const overRuler = p.y <= rulerThickness || p.x <= rulerThickness;
-
-    // Если начали выделение и попали на линейку - отменяем выделение
-    if (overRuler) {
-      this._selecting = false;
-      this._rect.visible(false);
-      this._layer?.batchDraw();
-      return;
-    }
-
-    const x = Math.min(this._start.x, p.x);
-    const y = Math.min(this._start.y, p.y);
-    const w = Math.abs(p.x - this._start.x);
-    const h = Math.abs(p.y - this._start.y);
-    this._rect.position({ x, y });
-    this._rect.size({ width: w, height: h });
-    this._layer?.batchDraw();
-
-    // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: отложенное обновление выделения
-    // Обновляем визуальную рамку сразу, но выделение нод - с throttling
-    this._scheduleSelectionUpdate(x, y, w, h);
-  }
-
-  /**
-   * Отложенное обновление выделения нод (debouncing)
-   * КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: избегаем O(n²) операций при каждом движении мыши
-   * Обновляем только когда пользователь остановился
-   */
-  private _scheduleSelectionUpdate(x: number, y: number, w: number, h: number) {
-    // Сохраняем последние координаты
-    this._pendingBbox = { x, y, w, h };
-
-    // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: debouncing
-    // Обновляем выделение только когда пользователь остановился
-    if (this._debounceTimeoutId !== null) {
-      globalThis.clearTimeout(this._debounceTimeoutId);
-    }
-
-    this._debounceTimeoutId = globalThis.setTimeout(() => {
-      this._debounceTimeoutId = null;
-      if (this._pendingBbox) {
-        const bbox = this._pendingBbox;
-        this._updateSelection(bbox.x, bbox.y, bbox.w, bbox.h);
-        this._pendingBbox = null;
-      }
-    }, 100) as unknown as number; // 100ms debounce - обновляем только когда пользователь остановился
-  }
-
-  /**
-   * Обновление выделения нод
-   * ОПТИМИЗИРОВАНО: минимизированы дорогие операции
-   */
-  private _updateSelection(x: number, y: number, w: number, h: number) {
-    if (!this._core) return;
-
-    const bbox = { x, y, width: w, height: h };
-    const allNodes: BaseNode[] = this._core.nodes.list();
-    const pickedSet = new Set<BaseNode>();
-
-    // ОПТИМИЗАЦИЯ: используем for-of и минимизируем вызовы
-    const nodesLayer = this._core.nodes.layer;
-    for (const bn of allNodes) {
-      const node = bn.getNode() as unknown as Konva.Node;
-
-      // ОПТИМИЗАЦИЯ: проверяем слой без лишних вызовов
-      if (node.getLayer() !== nodesLayer) continue;
-
-      // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: используем BBoxCache
-      // Это даёт 90% кэш-хитов и огромный прирост производительности
-      const r = this._core.bboxCache.get(node, bn.id);
-      if (this._rectsIntersect(bbox, r)) {
-        const owner = this._findOwningGroupBaseNode(node);
-        pickedSet.add(owner ?? bn);
-      }
-    }
-
-    // ОПТИМИЗАЦИЯ: обновляем выделение только если изменилось
-    if (this._hasSelectionChanged(pickedSet)) {
-      this._lastPickedNodes = new Set(pickedSet);
-
-      const pickedBase: BaseNode[] = Array.from(pickedSet);
-      const sel = this._getSelectionPlugin();
-      if (sel) {
-        const ctrl = sel.getMultiGroupController();
-        if (pickedBase.length > 0) {
-          ctrl.ensure(pickedBase);
-        } else {
-          ctrl.destroy();
-        }
-        this._core.stage.batchDraw();
-      }
-    }
-  }
-
-  /**
-   * Проверка изменения выделения
-   * ОПТИМИЗАЦИЯ: избегаем лишних обновлений
-   */
-  private _hasSelectionChanged(newSet: Set<BaseNode>): boolean {
-    if (newSet.size !== this._lastPickedNodes.size) return true;
-
-    for (const node of newSet) {
-      if (!this._lastPickedNodes.has(node)) return true;
-    }
-
-    return false;
-  }
-
   private _clearSelection() {
     // если выбран постоянный GroupNode через наш Transformer — просто снять трансформер
     if (this._isPermanentGroupSelected()) {
@@ -379,15 +275,10 @@ export class AreaSelectionPlugin extends Plugin {
   }
 
   // Получить SelectionPlugin из CoreEngine
-  // ОПТИМИЗАЦИЯ: кэшируем результат
   private _getSelectionPlugin(): SelectionPlugin | null {
     if (!this._core) return null;
-
-    this._selectionPluginCache ??= this._core.plugins
-      .list()
-      .find((p) => p instanceof SelectionPlugin) as SelectionPlugin | null;
-
-    return this._selectionPluginCache ?? null;
+    const sel = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
+    return sel ?? null;
   }
 
   // ================ Utils ================

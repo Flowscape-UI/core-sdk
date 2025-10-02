@@ -137,6 +137,8 @@ export class CoreEngine {
     this._stage.size({ width, height });
     // Notify plugins that rely on stage resize events
     this._stage.fire('resize');
+    // Emit typed event for external subscribers
+    this._eventBus.emit('stage:resized', { width, height });
   }
 
   public setBackgroundColor(color: string) {

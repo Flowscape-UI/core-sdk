@@ -51,12 +51,12 @@ export class NodeManager {
   public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
   }
-
   public addShape(options: ShapeNodeOptions): ShapeNode {
     const shape = new ShapeNode(options);
     this._world.add(shape.getNode());
     this._nodes.set(shape.id, shape);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', shape);
     this._scheduleBatchDraw();
     return shape;
   }
@@ -66,6 +66,7 @@ export class NodeManager {
     this._world.add(text.getNode());
     this._nodes.set(text.id, text);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', text);
     this._scheduleBatchDraw();
     return text;
   }
@@ -75,6 +76,7 @@ export class NodeManager {
     this._world.add(image.getNode());
     this._nodes.set(image.id, image);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', image);
     this._scheduleBatchDraw();
     return image;
   }
@@ -84,6 +86,7 @@ export class NodeManager {
     this._world.add(circle.getNode());
     this._nodes.set(circle.id, circle);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', circle);
     this._scheduleBatchDraw();
     return circle;
   }
@@ -93,6 +96,7 @@ export class NodeManager {
     this._world.add(ellipse.getNode());
     this._nodes.set(ellipse.id, ellipse);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', ellipse);
     this._scheduleBatchDraw();
     return ellipse;
   }
@@ -102,6 +106,7 @@ export class NodeManager {
     this._world.add(arc.getNode());
     this._nodes.set(arc.id, arc);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', arc);
     this._scheduleBatchDraw();
     return arc;
   }
@@ -111,6 +116,7 @@ export class NodeManager {
     this._world.add(star.getNode());
     this._nodes.set(star.id, star);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', star);
     this._scheduleBatchDraw();
     return star;
   }
@@ -120,6 +126,7 @@ export class NodeManager {
     this._world.add(arrow.getNode());
     this._nodes.set(arrow.id, arrow);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', arrow);
     this._scheduleBatchDraw();
     return arrow;
   }
@@ -129,6 +136,7 @@ export class NodeManager {
     this._world.add(ring.getNode());
     this._nodes.set(ring.id, ring);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', ring);
     this._scheduleBatchDraw();
     return ring;
   }
@@ -138,6 +146,7 @@ export class NodeManager {
     this._world.add(poly.getNode());
     this._nodes.set(poly.id, poly);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', poly);
     this._scheduleBatchDraw();
     return poly;
   }
@@ -147,6 +156,7 @@ export class NodeManager {
     this._world.add(group.getNode());
     this._nodes.set(group.id, group);
     this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', group);
     this._scheduleBatchDraw();
     return group;
   }
