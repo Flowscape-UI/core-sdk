@@ -32,10 +32,32 @@ export class RulerPlugin extends Plugin {
   private _vBorder?: Konva.Line;
 
   private _redrawScheduled = false;
+  private _lastRedrawTime = 0;
+  private _redrawThrottleMs = 16; // ~60 FPS
+  private _panThrottleMs = 32; // ~30 FPS для панорамирования (более агрессивный throttling)
 
   // Кэш для оптимизации
   private _cachedActiveGuide: { type: 'h' | 'v'; coord: number } | null = null;
   private _cacheInvalidated = true;
+
+  // Кэш вычислений шагов делений (по scale)
+  private _stepsCache = new Map<
+    number,
+    {
+      step: number;
+      stepPx: number;
+      majorStep: number;
+      mediumStep: number;
+      labelStep: number;
+      drawStep: number;
+      // Предвычисленные константы для цикла
+      drawStepEpsilon: number;
+      majorTickLength: number;
+      mediumTickLength: number;
+      minorTickLength: number;
+      fontString: string;
+    }
+  >();
 
   constructor(options: RulerPluginOptions = {}) {
     super();
@@ -84,6 +106,72 @@ export class RulerPlugin extends Plugin {
    */
   private _formatNumber(value: number): string {
     return Math.round(value).toString();
+  }
+
+  /**
+   * Вычисляет и кэширует параметры делений для текущего масштаба
+   */
+  private _getStepsConfig(scale: number) {
+    // Проверяем кэш
+    const cached = this._stepsCache.get(scale);
+    if (cached) return cached;
+
+    const tPx = this._options.thicknessPx;
+    const minStepPx = 50;
+    const minWorldStep = minStepPx / scale;
+    let step = this._calculateNiceStep(minWorldStep);
+
+    // ВАЖНО: округляем до целого числа
+    if (step < 1) step = 1;
+
+    const stepPx = step * scale;
+
+    // Адаптивная система уровней делений и подписей
+    let majorStep: number;
+    let mediumStep: number;
+    let labelStep: number;
+    let drawStep: number;
+
+    if (stepPx >= 60) {
+      majorStep = step * 10;
+      mediumStep = step * 5;
+      labelStep = step;
+      drawStep = step;
+    } else if (stepPx >= 40) {
+      majorStep = step * 10;
+      mediumStep = step * 5;
+      labelStep = step * 5;
+      drawStep = step;
+    } else {
+      majorStep = step * 10;
+      mediumStep = step * 5;
+      labelStep = step * 10;
+      drawStep = step;
+    }
+
+    // Предвычисляем константы для цикла
+    const config = {
+      step,
+      stepPx,
+      majorStep,
+      mediumStep,
+      labelStep,
+      drawStep,
+      drawStepEpsilon: drawStep * 0.01,
+      majorTickLength: tPx * 0.6,
+      mediumTickLength: tPx * 0.4,
+      minorTickLength: tPx * 0.25,
+      fontString: `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`,
+    };
+
+    // Ограничиваем размер кэша (храним последние 10 масштабов)
+    if (this._stepsCache.size > 10) {
+      const firstKey = this._stepsCache.keys().next().value;
+      if (firstKey !== undefined) this._stepsCache.delete(firstKey);
+    }
+
+    this._stepsCache.set(scale, config);
+    return config;
   }
 
   protected onAttach(core: CoreEngine): void {
@@ -164,9 +252,15 @@ export class RulerPlugin extends Plugin {
       this._scheduleRedraw();
     });
 
-    world.on('xChange.ruler yChange.ruler scaleXChange.ruler scaleYChange.ruler', () => {
+    // Разделяем события панорамирования и зума для разного throttling
+    world.on('xChange.ruler yChange.ruler', () => {
       this._invalidateGuideCache();
-      this._scheduleRedraw();
+      this._scheduleRedraw(true); // true = панорамирование (более агрессивный throttling)
+    });
+
+    world.on('scaleXChange.ruler scaleYChange.ruler', () => {
+      this._invalidateGuideCache();
+      this._scheduleRedraw(false); // false = зум (обычный throttling)
     });
 
     // Подписываемся на изменения направляющих для инвалидации кэша
@@ -238,11 +332,14 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Отрисовка горизонтальной линейки
+   * Универсальная отрисовка линейки (горизонтальной или вертикальной)
+   * @param ctx - контекст canvas
+   * @param axis - ось линейки ('h' для горизонтальной, 'v' для вертикальной)
    * @param activeGuide - кэшированная информация об активной направляющей
    */
-  private _drawHorizontalRuler(
+  private _drawRuler(
     ctx: Konva.Context,
+    axis: 'h' | 'v',
     activeGuide: { type: 'h' | 'v'; coord: number } | null,
   ) {
     if (!this._core) return;
@@ -250,107 +347,179 @@ export class RulerPlugin extends Plugin {
     const stage = this._core.stage;
     const world = this._core.nodes.world;
     const scale = world.scaleX() || 1e-9;
-    const stageW = stage.width();
     const tPx = this._options.thicknessPx;
-    const worldX = world.x();
 
-    // Горизонтальная линейка подсвечивает координату ВЕРТИКАЛЬНОЙ направляющей (guide-v)
-    const highlightCoord = activeGuide?.type === 'v' ? activeGuide.coord : null;
+    const isHorizontal = axis === 'h';
+    const stageSize = isHorizontal ? stage.width() : stage.height();
+    const worldOffset = isHorizontal ? world.x() : world.y();
 
-    // Минимальный желаемый шаг между делениями в пикселях
-    const minStepPx = 50;
-    const minWorldStep = minStepPx / scale;
-    let step = this._calculateNiceStep(minWorldStep);
+    // Горизонтальная линейка подсвечивает вертикальную направляющую и наоборот
+    const highlightCoord =
+      activeGuide?.type === (isHorizontal ? 'v' : 'h') ? activeGuide.coord : null;
 
-    // ВАЖНО: округляем до целого числа, чтобы не было дробных координат
-    // Минимальный шаг = 1, все координаты должны быть целыми
-    if (step < 1) {
-      step = 1;
-    }
-
-    const stepPx = step * scale;
-
-    // Адаптивная система уровней делений и подписей
-    let majorStep: number;
-    let mediumStep: number;
-    let labelStep: number;
-    let drawStep: number; // шаг отрисовки делений
-
-    if (stepPx >= 60) {
-      // При максимальном приближении (видны отдельные пиксели) -
-      // рисуем ВСЕ деления, подписи на каждом
-      majorStep = step * 10; // крупные деления через 10
-      mediumStep = step * 5; // средние деления через 5
-      labelStep = step; // подписи на КАЖДОМ делении
-      drawStep = step; // рисуем все деления
-    } else if (stepPx >= 40) {
-      // При среднем зуме - деления через 5 и 10, подписи на каждом 5-м
-      majorStep = step * 10;
-      mediumStep = step * 5;
-      labelStep = step * 5;
-      drawStep = step; // рисуем все деления
-    } else {
-      // При дальнем зуме - деления через 5 и 10, подписи только на крупных
-      majorStep = step * 10;
-      mediumStep = step * 5;
-      labelStep = step * 10;
-      drawStep = step; // рисуем все деления
-    }
+    // Получаем кэшированную конфигурацию шагов
+    const config = this._getStepsConfig(scale);
+    const {
+      majorStep,
+      mediumStep,
+      labelStep,
+      drawStep,
+      drawStepEpsilon,
+      majorTickLength,
+      mediumTickLength,
+      minorTickLength,
+      fontString,
+    } = config;
 
     ctx.save();
 
     // Вычисляем первое видимое деление
-    const worldStart = -worldX / scale;
+    const worldStart = -worldOffset / scale;
     const firstTick = Math.floor(worldStart / drawStep) * drawStep;
 
-    for (let worldPos = firstTick; ; worldPos += drawStep) {
-      const screenX = worldX + worldPos * scale;
+    // Собираем деления по типам для батчинга
+    const majorTicks: number[] = [];
+    const mediumTicks: number[] = [];
+    const minorTicks: number[] = [];
+    const labels: { pos: number; text: string }[] = [];
+    let highlightedTick: number | null = null;
 
-      if (screenX > stageW) break;
-      if (screenX < 0) continue;
+    // Первый проход: классификация делений
+    for (let worldPos = firstTick; ; worldPos += drawStep) {
+      const screenPos = worldOffset + worldPos * scale;
+
+      if (screenPos > stageSize) break;
+      if (screenPos < 0) continue;
 
       // Проверяем, является ли эта координата активной направляющей
       const isHighlighted =
-        highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStep * 0.01;
+        highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStepEpsilon;
 
-      // Определяем тип деления на основе мировой координаты
-      // Используем drawStep для точности проверки
-      const isMajor = Math.abs(worldPos % majorStep) < drawStep * 0.01;
-      const isMedium = !isMajor && Math.abs(worldPos % mediumStep) < drawStep * 0.01;
+      if (isHighlighted) {
+        highlightedTick = screenPos;
+        labels.push({ pos: screenPos, text: this._formatNumber(worldPos) });
+        continue;
+      }
 
-      // Длина деления
-      const tickLength = isMajor ? tPx * 0.6 : isMedium ? tPx * 0.4 : tPx * 0.25;
+      // Определяем тип деления
+      const isMajor = Math.abs(worldPos % majorStep) < drawStepEpsilon;
+      const isMedium = !isMajor && Math.abs(worldPos % mediumStep) < drawStepEpsilon;
 
-      // Цвет деления (оранжевый для подсвеченной координаты)
-      const alpha = isMajor ? 0.9 : isMedium ? 0.6 : 0.4;
-      ctx.strokeStyle = isHighlighted ? '#ff8c00' : this._options.color;
-      ctx.globalAlpha = isHighlighted ? 1 : alpha;
-      ctx.lineWidth = isHighlighted ? 2 : 1;
+      if (isMajor) {
+        majorTicks.push(screenPos);
+      } else if (isMedium) {
+        mediumTicks.push(screenPos);
+      } else {
+        minorTicks.push(screenPos);
+      }
 
-      // Рисуем деление
-      ctx.beginPath();
-      ctx.moveTo(screenX, tPx);
-      ctx.lineTo(screenX, tPx - tickLength);
-      ctx.stroke();
-
-      // Подпись: проверяем, кратна ли мировая координата шагу подписей
-      const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStep * 0.01;
+      // Подпись
+      const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStepEpsilon;
       if (shouldShowLabel) {
+        labels.push({ pos: screenPos, text: this._formatNumber(worldPos) });
+      }
+    }
+
+    // Второй проход: батчинг отрисовки делений
+    // Рисуем минорные деления
+    if (minorTicks.length > 0) {
+      ctx.strokeStyle = this._options.color;
+      ctx.globalAlpha = 0.4;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const pos of minorTicks) {
+        if (isHorizontal) {
+          ctx.moveTo(pos, tPx);
+          ctx.lineTo(pos, tPx - minorTickLength);
+        } else {
+          ctx.moveTo(tPx, pos);
+          ctx.lineTo(tPx - minorTickLength, pos);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Рисуем средние деления
+    if (mediumTicks.length > 0) {
+      ctx.strokeStyle = this._options.color;
+      ctx.globalAlpha = 0.6;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const pos of mediumTicks) {
+        if (isHorizontal) {
+          ctx.moveTo(pos, tPx);
+          ctx.lineTo(pos, tPx - mediumTickLength);
+        } else {
+          ctx.moveTo(tPx, pos);
+          ctx.lineTo(tPx - mediumTickLength, pos);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Рисуем крупные деления
+    if (majorTicks.length > 0) {
+      ctx.strokeStyle = this._options.color;
+      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const pos of majorTicks) {
+        if (isHorizontal) {
+          ctx.moveTo(pos, tPx);
+          ctx.lineTo(pos, tPx - majorTickLength);
+        } else {
+          ctx.moveTo(tPx, pos);
+          ctx.lineTo(tPx - majorTickLength, pos);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // Рисуем подсвеченное деление
+    if (highlightedTick !== null) {
+      ctx.strokeStyle = '#ff8c00';
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (isHorizontal) {
+        ctx.moveTo(highlightedTick, tPx);
+        ctx.lineTo(highlightedTick, tPx - majorTickLength);
+      } else {
+        ctx.moveTo(tPx, highlightedTick);
+        ctx.lineTo(tPx - majorTickLength, highlightedTick);
+      }
+      ctx.stroke();
+    }
+
+    // Рисуем подписи
+    if (labels.length > 0) {
+      ctx.font = fontString;
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';
+
+      for (const label of labels) {
+        const isHighlighted = label.pos === highlightedTick;
         ctx.globalAlpha = isHighlighted ? 1 : 0.9;
         ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
-        ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
-        ctx.textBaseline = 'top';
-        ctx.textAlign = 'left';
-        ctx.fillText(this._formatNumber(worldPos), screenX + 4, 4);
+
+        if (isHorizontal) {
+          ctx.fillText(label.text, label.pos + 4, 4);
+        } else {
+          // Для вертикальной линейки поворачиваем текст
+          const x = 4;
+          const y = label.pos + 4;
+          ctx.setTransform(0, -1, 1, 0, x, y);
+          ctx.fillText(label.text, 0, 0);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        }
       }
     }
 
     // Дополнительно рисуем подсвеченную координату, даже если она не попадает в обычную сетку
     if (highlightCoord !== null) {
-      const screenX = worldX + highlightCoord * scale;
-      if (screenX >= 0 && screenX <= stageW) {
-        // Проверяем, не была ли эта координата уже нарисована в основном цикле
-        const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStep * 0.01;
+      const screenPos = worldOffset + highlightCoord * scale;
+      if (screenPos >= 0 && screenPos <= stageSize) {
+        const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStepEpsilon;
 
         if (!alreadyDrawn) {
           // Рисуем деление
@@ -358,21 +527,46 @@ export class RulerPlugin extends Plugin {
           ctx.globalAlpha = 1;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(screenX, tPx);
-          ctx.lineTo(screenX, tPx - tPx * 0.6);
+          if (isHorizontal) {
+            ctx.moveTo(screenPos, tPx);
+            ctx.lineTo(screenPos, tPx - majorTickLength);
+          } else {
+            ctx.moveTo(tPx, screenPos);
+            ctx.lineTo(tPx - majorTickLength, screenPos);
+          }
           ctx.stroke();
 
           // Рисуем подпись
           ctx.fillStyle = '#ff8c00';
-          ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
+          ctx.font = fontString;
           ctx.textBaseline = 'top';
           ctx.textAlign = 'left';
-          ctx.fillText(this._formatNumber(highlightCoord), screenX + 4, 4);
+
+          if (isHorizontal) {
+            ctx.fillText(this._formatNumber(highlightCoord), screenPos + 4, 4);
+          } else {
+            const x = 4;
+            const y = screenPos + 4;
+            ctx.setTransform(0, -1, 1, 0, x, y);
+            ctx.fillText(this._formatNumber(highlightCoord), 0, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+          }
         }
       }
     }
 
     ctx.restore();
+  }
+
+  /**
+   * Отрисовка горизонтальной линейки
+   * @param activeGuide - кэшированная информация об активной направляющей
+   */
+  private _drawHorizontalRuler(
+    ctx: Konva.Context,
+    activeGuide: { type: 'h' | 'v'; coord: number } | null,
+  ) {
+    this._drawRuler(ctx, 'h', activeGuide);
   }
 
   /**
@@ -383,148 +577,7 @@ export class RulerPlugin extends Plugin {
     ctx: Konva.Context,
     activeGuide: { type: 'h' | 'v'; coord: number } | null,
   ) {
-    if (!this._core) return;
-
-    const stage = this._core.stage;
-    const world = this._core.nodes.world;
-    const scale = world.scaleX() || 1e-9;
-    const stageH = stage.height();
-    const tPx = this._options.thicknessPx;
-    const worldY = world.y();
-
-    // Вертикальная линейка подсвечивает координату ГОРИЗОНТАЛЬНОЙ направляющей (guide-h)
-    const highlightCoord = activeGuide?.type === 'h' ? activeGuide.coord : null;
-
-    // Минимальный желаемый шаг между делениями в пикселях
-    const minStepPx = 50;
-    const minWorldStep = minStepPx / scale;
-    let step = this._calculateNiceStep(minWorldStep);
-
-    // ВАЖНО: округляем до целого числа, чтобы не было дробных координат
-    // Минимальный шаг = 1, все координаты должны быть целыми
-    if (step < 1) {
-      step = 1;
-    }
-
-    const stepPx = step * scale;
-
-    // Адаптивная система уровней делений и подписей
-    let majorStep: number;
-    let mediumStep: number;
-    let labelStep: number;
-    let drawStep: number; // шаг отрисовки делений
-
-    if (stepPx >= 60) {
-      // При максимальном приближении (видны отдельные пиксели) -
-      // рисуем ВСЕ деления, подписи на каждом
-      majorStep = step * 10; // крупные деления через 10
-      mediumStep = step * 5; // средние деления через 5
-      labelStep = step; // подписи на КАЖДОМ делении
-      drawStep = step; // рисуем все деления
-    } else if (stepPx >= 40) {
-      // При среднем зуме - деления через 5 и 10, подписи на каждом 5-м
-      majorStep = step * 10;
-      mediumStep = step * 5;
-      labelStep = step * 5;
-      drawStep = step; // рисуем все деления
-    } else {
-      // При дальнем зуме - деления через 5 и 10, подписи только на крупных
-      majorStep = step * 10;
-      mediumStep = step * 5;
-      labelStep = step * 10;
-      drawStep = step; // рисуем все деления
-    }
-
-    ctx.save();
-
-    // Вычисляем первое видимое деление
-    const worldStart = -worldY / scale;
-    const firstTick = Math.floor(worldStart / drawStep) * drawStep;
-
-    for (let worldPos = firstTick; ; worldPos += drawStep) {
-      const screenY = worldY + worldPos * scale;
-
-      if (screenY > stageH) break;
-      if (screenY < 0) continue;
-
-      // Проверяем, является ли эта координата активной направляющей
-      const isHighlighted =
-        highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStep * 0.01;
-
-      // Определяем тип деления на основе мировой координаты
-      // Используем drawStep для точности проверки
-      const isMajor = Math.abs(worldPos % majorStep) < drawStep * 0.01;
-      const isMedium = !isMajor && Math.abs(worldPos % mediumStep) < drawStep * 0.01;
-
-      // Длина деления
-      const tickLength = isMajor ? tPx * 0.6 : isMedium ? tPx * 0.4 : tPx * 0.25;
-
-      // Цвет деления (оранжевый для подсвеченной координаты)
-      const alpha = isMajor ? 0.9 : isMedium ? 0.6 : 0.4;
-      ctx.strokeStyle = isHighlighted ? '#ff8c00' : this._options.color;
-      ctx.globalAlpha = isHighlighted ? 1 : alpha;
-      ctx.lineWidth = isHighlighted ? 2 : 1;
-
-      // Рисуем деление
-      ctx.beginPath();
-      ctx.moveTo(tPx, screenY);
-      ctx.lineTo(tPx - tickLength, screenY);
-      ctx.stroke();
-
-      // Подпись: проверяем, кратна ли мировая координата шагу подписей
-      const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStep * 0.01;
-      if (shouldShowLabel) {
-        ctx.globalAlpha = isHighlighted ? 1 : 0.9;
-        ctx.fillStyle = isHighlighted ? '#ff8c00' : this._options.color;
-        ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
-        ctx.textBaseline = 'top';
-        ctx.textAlign = 'left';
-
-        // Для вертикальной линейки поворачиваем текст
-        // Оптимизация: используем transform вместо save/restore
-        const x = 4;
-        const y = screenY + 4;
-        ctx.setTransform(0, -1, 1, 0, x, y);
-        ctx.fillText(this._formatNumber(worldPos), 0, 0);
-        ctx.setTransform(1, 0, 0, 1, 0, 0); // сброс трансформации
-      }
-    }
-
-    // Дополнительно рисуем подсвеченную координату, даже если она не попадает в обычную сетку
-    if (highlightCoord !== null) {
-      const screenY = worldY + highlightCoord * scale;
-      if (screenY >= 0 && screenY <= stageH) {
-        // Проверяем, не была ли эта координата уже нарисована в основном цикле
-        const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStep * 0.01;
-
-        if (!alreadyDrawn) {
-          // Рисуем деление
-          ctx.strokeStyle = '#ff8c00';
-          ctx.globalAlpha = 1;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(tPx, screenY);
-          ctx.lineTo(tPx - tPx * 0.6, screenY);
-          ctx.stroke();
-
-          // Рисуем подпись
-          ctx.fillStyle = '#ff8c00';
-          ctx.font = `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`;
-          ctx.textBaseline = 'top';
-          ctx.textAlign = 'left';
-
-          // Для вертикальной линейки поворачиваем текст
-          // Оптимизация: используем transform вместо save/restore
-          const x = 4;
-          const y = screenY + 4;
-          ctx.setTransform(0, -1, 1, 0, x, y);
-          ctx.fillText(this._formatNumber(highlightCoord), 0, 0);
-          ctx.setTransform(1, 0, 0, 1, 0, 0); // сброс трансформации
-        }
-      }
-    }
-
-    ctx.restore();
+    this._drawRuler(ctx, 'v', activeGuide);
   }
 
   /**
@@ -559,24 +612,42 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Отложенная перерисовка (throttling)
+   * Отложенная перерисовка с улучшенным throttling
+   * Группирует быстрые события зума/панорамирования для оптимизации
+   * @param isPanning - true для панорамирования (более агрессивный throttling)
    */
-  private _scheduleRedraw() {
-    if (!this._core || !this._layer || this._redrawScheduled) return;
+  private _scheduleRedraw(isPanning = false) {
+    if (!this._core || !this._layer) return;
+
+    const now = globalThis.performance.now();
+    const timeSinceLastRedraw = now - this._lastRedrawTime;
+
+    // Если уже запланирована перерисовка, пропускаем
+    if (this._redrawScheduled) return;
 
     this._redrawScheduled = true;
 
-    const raf = globalThis.requestAnimationFrame;
-    // ((cb: FrameRequestCallback) => {
-    //   return globalThis.setTimeout(() => {
-    //     cb(0);
-    //   }, 16);
-    // });
+    // Выбираем throttle период в зависимости от типа события
+    const throttleMs = isPanning ? this._panThrottleMs : this._redrawThrottleMs;
 
-    raf(() => {
-      this._redrawScheduled = false;
-      this._redraw();
-    });
+    // Если прошло достаточно времени с последней перерисовки, рисуем сразу
+    if (timeSinceLastRedraw >= throttleMs) {
+      globalThis.requestAnimationFrame(() => {
+        this._redrawScheduled = false;
+        this._lastRedrawTime = globalThis.performance.now();
+        this._redraw();
+      });
+    } else {
+      // Иначе откладываем до истечения throttle периода
+      const delay = throttleMs - timeSinceLastRedraw;
+      globalThis.setTimeout(() => {
+        globalThis.requestAnimationFrame(() => {
+          this._redrawScheduled = false;
+          this._lastRedrawTime = globalThis.performance.now();
+          this._redraw();
+        });
+      }, delay);
+    }
   }
 
   /**

@@ -60,6 +60,16 @@ export class RulerManagerPlugin extends Plugin {
     if (e.shiftKey && (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К')) {
       e.preventDefault();
       this.toggle();
+      return;
+    }
+
+    // Проверяем Delete или Backspace для удаления активной направляющей
+    // Используем e.code для независимости от раскладки клавиатуры
+    if (e.code === 'Delete' || e.code === 'Backspace') {
+      const deleted = this.deleteActiveGuide();
+      if (deleted) {
+        e.preventDefault();
+      }
     }
   };
 
@@ -125,5 +135,34 @@ export class RulerManagerPlugin extends Plugin {
    */
   public isVisible(): boolean {
     return this._visible;
+  }
+
+  /**
+   * Удалить активную направляющую линию
+   * @returns true если направляющая была удалена, false если нет активной направляющей
+   */
+  public deleteActiveGuide(): boolean {
+    if (!this._core) return false;
+
+    // Находим RulerGuidesPlugin через метод get
+    const guidesPlugin = this._core.plugins.get('RulerGuidesPlugin');
+    if (!guidesPlugin) return false;
+
+    // Проверяем наличие методов через утиную типизацию
+    if ('getActiveGuide' in guidesPlugin && 'removeActiveGuide' in guidesPlugin) {
+      // Проверяем, есть ли активная направляющая
+      const getActiveGuide = guidesPlugin.getActiveGuide as () => unknown;
+      const activeGuide = getActiveGuide.call(guidesPlugin);
+
+      if (!activeGuide) return false;
+
+      // Удаляем активную направляющую
+      const removeActiveGuide = guidesPlugin.removeActiveGuide as () => void;
+      removeActiveGuide.call(guidesPlugin);
+
+      return true;
+    }
+
+    return false;
   }
 }

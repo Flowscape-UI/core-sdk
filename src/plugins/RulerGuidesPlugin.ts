@@ -28,6 +28,8 @@ export class RulerGuidesPlugin extends Plugin {
   // Кэш для оптимизации
   private _rulerLayerCache: Konva.Layer | null = null;
   private _updateScheduled = false;
+  private _dragMoveScheduled = false;
+  private _batchDrawScheduled = false;
 
   constructor(options: RulerGuidesPluginOptions = {}) {
     super();
@@ -100,11 +102,20 @@ export class RulerGuidesPlugin extends Plugin {
       const pos = stage.getPointerPosition();
       if (!pos) return;
 
-      // Проверяем, не находимся ли над направляющей линией
+      // Проверяем, не находимся ли над направляющей линией или другим интерактивным элементом
       const target = stage.getIntersection(pos);
-      if (target && (target.name() === 'guide-h' || target.name() === 'guide-v')) {
-        // Над направляющей линией - курсор устанавливается обработчиком линии
-        return;
+      if (target) {
+        const targetName = target.name();
+        // Если над направляющей или интерактивным элементом (anchor, rotater и т.д.) - не меняем курсор
+        if (
+          targetName === 'guide-h' ||
+          targetName === 'guide-v' ||
+          targetName.includes('_anchor') ||
+          targetName.includes('rotater') ||
+          target.draggable()
+        ) {
+          return;
+        }
       }
 
       // Определяем, находимся ли мы над линейкой
@@ -126,7 +137,6 @@ export class RulerGuidesPlugin extends Plugin {
     this._rulerLayerCache = core.stage.findOne('.ruler-layer') as Konva.Layer | null;
 
     // Подписываемся на изменения world для обновления позиций линий
-    // Оптимизация: используем throttling
     const world = core.nodes.world;
     world.on(
       'xChange.ruler-guides yChange.ruler-guides scaleXChange.ruler-guides scaleYChange.ruler-guides',
@@ -160,14 +170,13 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Отложенное обновление позиций (throttling)
+   * Отложенное обновление позиций (без throttling для плавности)
    */
   private _scheduleUpdate() {
     if (this._updateScheduled) return;
 
     this._updateScheduled = true;
-    const raf = globalThis.requestAnimationFrame;
-    raf(() => {
+    globalThis.requestAnimationFrame(() => {
       this._updateScheduled = false;
       this._updateGuidesPositions();
     });
@@ -177,30 +186,33 @@ export class RulerGuidesPlugin extends Plugin {
    * Обновление позиций всех направляющих при изменении world transform
    */
   private _updateGuidesPositions() {
-    if (!this._core) return;
+    if (!this._core || this._guides.length === 0) return;
 
+    // Кэшируем все вычисления один раз
     const world = this._core.nodes.world;
     const scale = world.scaleX();
-    const stage = this._core.stage;
-    const stageW = stage.width();
-    const stageH = stage.height();
     const worldX = world.x();
     const worldY = world.y();
+    const stageW = this._core.stage.width();
+    const stageH = this._core.stage.height();
 
-    // Оптимизация: используем for-of вместо forEach
+    // Предвычисляем массивы точек для переиспользования
+    const hPoints = [0, 0, stageW, 0];
+    const vPoints = [0, 0, 0, stageH];
+
+    // Оптимизация: используем for-of и минимизируем вызовы методов
     for (const guide of this._guides) {
       const worldCoord = guide.worldCoord;
-
       const isHorizontal = guide.name() === 'guide-h';
 
       if (isHorizontal) {
         const screenY = worldY + worldCoord * scale;
         guide.position({ x: 0, y: screenY });
-        guide.points([0, 0, stageW, 0]);
+        guide.points(hPoints);
       } else {
         const screenX = worldX + worldCoord * scale;
         guide.position({ x: screenX, y: 0 });
-        guide.points([0, 0, 0, stageH]);
+        guide.points(vPoints);
       }
     }
 
@@ -214,6 +226,19 @@ export class RulerGuidesPlugin extends Plugin {
     if (!this._options.snapToGrid) return Math.round(coord);
     const step = this._options.gridStep;
     return Math.round(coord / step) * step;
+  }
+
+  /**
+   * Отложенный batchDraw для группировки обновлений
+   */
+  private _scheduleBatchDraw() {
+    if (this._batchDrawScheduled) return;
+    this._batchDrawScheduled = true;
+
+    globalThis.requestAnimationFrame(() => {
+      this._batchDrawScheduled = false;
+      this._core?.stage.batchDraw();
+    });
   }
 
   /**
@@ -266,14 +291,14 @@ export class RulerGuidesPlugin extends Plugin {
       if (this._core) {
         this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
       }
-      this._core?.stage.batchDraw();
+      this._scheduleBatchDraw();
     });
 
     line.on('mouseleave', () => {
       if (this._core && !this._draggingGuide) {
         this._core.stage.container().style.cursor = 'default';
       }
-      this._core?.stage.batchDraw();
+      this._scheduleBatchDraw();
     });
 
     line.on('click', () => {
@@ -291,25 +316,31 @@ export class RulerGuidesPlugin extends Plugin {
     });
 
     line.on('dragmove', () => {
-      if (!this._core) return;
-      const world = this._core.nodes.world;
-      const scale = world.scaleX();
-      const pos = line.getAbsolutePosition();
+      if (!this._core || this._dragMoveScheduled) return;
 
-      // Обновляем мировую координату с привязкой к сетке
-      const rawCoord = type === 'h' ? (pos.y - world.y()) / scale : (pos.x - world.x()) / scale;
-      const worldCoord = this._snapToGrid(rawCoord);
+      this._dragMoveScheduled = true;
+      globalThis.requestAnimationFrame(() => {
+        this._dragMoveScheduled = false;
+        if (!this._core) return;
 
-      (line as GuideLineWithCoord).worldCoord = worldCoord;
+        const world = this._core.nodes.world;
+        const scale = world.scaleX();
+        const pos = line.getAbsolutePosition();
 
-      // Устанавливаем курсор во время драга
-      this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
+        // Обновляем мировую координату с привязкой к сетке
+        const rawCoord = type === 'h' ? (pos.y - world.y()) / scale : (pos.x - world.x()) / scale;
+        const worldCoord = this._snapToGrid(rawCoord);
 
-      // Обновляем линейку для динамической подсветки координаты
-      // Оптимизация: используем кэшированный слой
-      if (this._rulerLayerCache) {
-        this._rulerLayerCache.batchDraw();
-      }
+        (line as GuideLineWithCoord).worldCoord = worldCoord;
+
+        // Устанавливаем курсор во время драга
+        this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
+
+        // Обновляем линейку для динамической подсветки координаты
+        if (this._rulerLayerCache) {
+          this._rulerLayerCache.batchDraw();
+        }
+      });
     });
 
     line.on('dragend', () => {
@@ -358,7 +389,7 @@ export class RulerGuidesPlugin extends Plugin {
         line.points([0, 0, 0, this._core.stage.height()]);
       }
 
-      this._core.stage.batchDraw();
+      this._scheduleBatchDraw();
     };
 
     const upHandler = () => {
@@ -372,7 +403,7 @@ export class RulerGuidesPlugin extends Plugin {
     stage.on('mousemove.guide-create', moveHandler);
     stage.on('mouseup.guide-create', upHandler);
 
-    stage.batchDraw();
+    this._scheduleBatchDraw();
   }
 
   private _setActiveGuide(guide: GuideLineWithCoord | null) {
@@ -397,7 +428,7 @@ export class RulerGuidesPlugin extends Plugin {
     // Уведомляем RulerPlugin об изменении направляющих
     this._core?.stage.fire('guidesChanged.ruler');
 
-    this._core?.stage.batchDraw();
+    this._scheduleBatchDraw();
   }
 
   /**
@@ -426,7 +457,7 @@ export class RulerGuidesPlugin extends Plugin {
       this._activeGuide.destroy();
       this._guides = this._guides.filter((g) => g !== this._activeGuide);
       this._activeGuide = null;
-      this._core?.stage.batchDraw();
+      this._scheduleBatchDraw();
     }
   }
 
@@ -444,6 +475,6 @@ export class RulerGuidesPlugin extends Plugin {
     this._guides.forEach((g) => g.destroy());
     this._guides = [];
     this._activeGuide = null;
-    this._core?.stage.batchDraw();
+    this._scheduleBatchDraw();
   }
 }

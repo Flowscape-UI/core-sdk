@@ -70,10 +70,10 @@ const core = new CoreEngine({
     selection,
     areaSelection,
     nodeHotkeys,
-    // rulerPlugin,
-    // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    // rulerManagerPlugin, // Управление видимостью по Shift+R
+    rulerPlugin,
+    rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    rulerManagerPlugin, // Управление видимостью по Shift+R
   ],
 });
 
