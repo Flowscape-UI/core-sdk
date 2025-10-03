@@ -1,69 +1,300 @@
+<div align="center">
+
+# 🎨 @flowscape-ui/core-sdk
+
+**Powerful 2D canvas engine built on Konva**
+
+[![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Buy Me a Coffee](https://img.shields.io/badge/Donate-Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/flowscape)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 
-# @flowscape-ui/core-sdk
+[Documentation](https://github.com/Flowscape-UI/core-sdk#readme) • [Examples](https://github.com/Flowscape-UI/core-sdk/tree/main/playground) • [Changelog](./CHANGELOG.md)
 
-Universal canvas core built on Konva. Framework-agnostic and designed to be wrapped by provider adapters (Svelte / Angular / Vue / React).
+</div>
 
-## Features
+---
 
-- Canvas abstraction powered by Konva
-- Framework-agnostic core with clean API
-- TypeScript-first with typed public API
-- ESM + CJS builds with type declarations
-- Dev playground powered by Vite
-- Strict ESLint 9 setup and tsconfig
-- CI on dev/main/release; manual publish workflow
+## ✨ Features
 
-## Getting Started (Development)
+- 🎯 **Framework-agnostic** — works with React, Vue, Svelte, Angular or vanilla JS
+- 🧩 **Plugin system** — extensible architecture with ready-to-use plugins
+- 📐 **Complete toolset** — grid, rulers, guides, area selection
+- ⌨️ **Hotkeys** — Ctrl+C/V/X, Delete, Ctrl+G for grouping
+- 🎨 **Rich shapes** — rectangles, circles, text, images, arrows, stars
+- 🔄 **Transformations** — rotation, scaling, movement with aspect ratio lock
+- 📦 **TypeScript-first** — full typing out of the box
+- 🚀 **Optimized** — tree-shaking, ESM + CJS, source maps
 
-Install deps (choose one):
+## 📦 Installation
 
-- npm (recommended, deterministic): `npm ci`
-- Bun (supported): `bun install`
+```bash
+npm install @flowscape-ui/core-sdk
+# or
+yarn add @flowscape-ui/core-sdk
+# or
+bun add @flowscape-ui/core-sdk
+```
 
-Run scripts:
+## 🚀 Quick Start
 
-- Dev playground: `npm run dev` or `bun run dev`
-- Build library: `npm run build` or `bun run build`
-- **Run tests: `npm test` or `bun test`**
-- **Test with UI: `npm run test:ui`**
-- **Test coverage: `npm run test:coverage`**
-- Lint: `npm run lint` or `bun run lint`
-- Typecheck: `npm run typecheck` or `bun run typecheck`
+```typescript
+import { CoreEngine, GridPlugin, SelectionPlugin, NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
 
-The playground imports from `src/` directly for rapid iteration.
+// Create engine with plugins
+const core = new CoreEngine({
+  container: document.getElementById('canvas-container')!,
+  width: 1200,
+  height: 800,
+  plugins: [
+    new GridPlugin({ enabled: true }),
+    new SelectionPlugin({ dragEnabled: true }),
+    new NodeHotkeysPlugin(), // Ctrl+C/V/X, Delete
+  ],
+});
 
-## Testing
+// Add shapes
+const rect = core.nodes.addShape({
+  x: 100,
+  y: 100,
+  width: 200,
+  height: 150,
+  fill: '#3b82f6',
+  cornerRadius: 8,
+});
 
-The project includes comprehensive unit tests for critical functionality:
+const text = core.nodes.addText({
+  x: 120,
+  y: 140,
+  text: 'Hello Flowscape!',
+  fontSize: 24,
+  fill: 'white',
+});
 
-- **Copy/Paste/Cut operations** - ensures node sizes and transformations are preserved
-- **Grouping/Ungrouping** - validates size preservation during group operations
-- **Complex scenarios** - tests nested groups, transformations, and edge cases
+// Grouping
+const group = core.nodes.addGroup({
+  x: 400,
+  y: 200,
+});
+rect.getNode().moveTo(group.getNode());
+text.getNode().moveTo(group.getNode());
+```
 
-See [QUICK_START_TESTING.md](./QUICK_START_TESTING.md) for a quick guide or [TESTING_GUIDE.md](./TESTING_GUIDE.md) for detailed documentation.
+## 🏗️ Architecture
 
-Dev server is pinned to `http://localhost:5173/` via `playground/vite.config.ts`.
+### Core Components
 
-## Branching strategy
+```
+┌─────────────────────────────────────┐
+│         CoreEngine                  │
+│  ┌──────────────────────────────┐   │
+│  │     Plugin System            │   │
+│  │  - GridPlugin                │   │
+│  │  - SelectionPlugin           │   │
+│  │  - RulerPlugin               │   │
+│  │  - NodeHotkeysPlugin         │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │     Node Manager             │   │
+│  │  - ShapeNode                 │   │
+│  │  - TextNode                  │   │
+│  │  - ImageNode                 │   │
+│  │  - GroupNode                 │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │     Camera Manager           │   │
+│  │  - Zoom (Ctrl+Wheel)         │   │
+│  │  - Pan (Space+Drag)          │   │
+│  └──────────────────────────────┘   │
+└─────────────────────────────────────┘
+```
 
-- `dev`: active development branch
-- `main`: protected, merges from `dev`, no auto-publish
-- `release`: dedicated branch for releases
+### Plugin System
 
-Publishing to npm is only possible via the GitHub Actions manual workflow `Publish to npm` with a valid `NPM_TOKEN`. Local `npm publish` is blocked.
+Plugins extend engine functionality without modifying the core:
 
-## Publishing
+```typescript
+import { Plugin } from '@flowscape-ui/core-sdk';
 
-Run the GitHub Action: Actions -> Publish to npm -> Run workflow.
-Optionally select a version bump (patch/minor/major). The workflow will build and publish to npm.
+class CustomPlugin extends Plugin {
+  protected onAttach(core: CoreEngine): void {
+    // Initialize on attach
+    core.eventBus.on('node:created', (node) => {
+      console.log('Node created:', node);
+    });
+  }
 
-Ensure:
+  protected onDetach(core: CoreEngine): void {
+    // Cleanup on detach
+    core.eventBus.off('node:created');
+  }
+}
 
-- You are on `release` branch or using a release tag.
-- `NPM_TOKEN` secret is configured in the repository.
+// Usage
+const core = new CoreEngine({
+  container: element,
+  plugins: [new CustomPlugin()],
+});
+```
 
-## License
+### Built-in Plugins
 
-Apache-2.0 © Flowscape UI Team
+| Plugin                | Description                              |
+| --------------------- | ---------------------------------------- |
+| `GridPlugin`          | Adaptive grid with automatic scaling     |
+| `SelectionPlugin`     | Selection, transformation, drag & drop   |
+| `NodeHotkeysPlugin`   | Ctrl+C/V/X, Delete, Ctrl+[/] for z-index |
+| `CameraHotkeysPlugin` | Ctrl+wheel for zoom, arrows for pan      |
+| `RulerPlugin`         | Rulers with measurement units            |
+| `RulerGuidesPlugin`   | Guide lines (drag from rulers)           |
+| `AreaSelectionPlugin` | Area selection with frame (Shift+Drag)   |
+| `LogoPlugin`          | Watermark/logo on canvas                 |
+
+## 📚 Usage Examples
+
+### Creating Shapes
+
+```typescript
+// Rectangle with rounded corners
+const rect = core.nodes.addShape({
+  x: 50,
+  y: 50,
+  width: 200,
+  height: 100,
+  fill: '#10b981',
+  cornerRadius: 12,
+});
+
+// Circle
+const circle = core.nodes.addCircle({
+  x: 300,
+  y: 100,
+  radius: 50,
+  fill: '#f59e0b',
+  stroke: '#d97706',
+  strokeWidth: 3,
+});
+
+// Text
+const text = core.nodes.addText({
+  x: 400,
+  y: 50,
+  text: 'Flowscape UI',
+  fontSize: 32,
+  fontFamily: 'Inter',
+  fill: '#1f2937',
+});
+
+// Image
+const image = core.nodes.addImage({
+  x: 100,
+  y: 200,
+  width: 200,
+  height: 150,
+  src: '/path/to/image.jpg',
+});
+```
+
+### Working with Events
+
+```typescript
+// Subscribe to events
+core.eventBus.on('node:created', (node) => {
+  console.log('Node created:', node);
+});
+
+core.eventBus.on('node:selected', (node) => {
+  console.log('Node selected:', node);
+});
+
+core.eventBus.on('camera:zoom', ({ scale }) => {
+  console.log('Zoom changed:', scale);
+});
+
+// Unsubscribe
+const handler = (node) => console.log(node);
+core.eventBus.on('node:created', handler);
+core.eventBus.off('node:created', handler);
+```
+
+### Grouping and Management
+
+```typescript
+// Create group
+const group = core.nodes.addGroup({ x: 0, y: 0 });
+
+// Add nodes to group
+const rect1 = core.nodes.addShape({ x: 10, y: 10, width: 50, height: 50 });
+const rect2 = core.nodes.addShape({ x: 70, y: 10, width: 50, height: 50 });
+
+rect1.getNode().moveTo(group.getNode());
+rect2.getNode().moveTo(group.getNode());
+
+// Manage z-index
+rect1.getNode().moveUp(); // Move up one level
+rect2.getNode().moveDown(); // Move down one level
+rect1.getNode().moveToTop(); // Move to top
+```
+
+### Camera and Navigation
+
+```typescript
+// Programmatic zoom
+core.camera.zoomIn(); // Zoom in
+core.camera.zoomOut(); // Zoom out
+core.camera.setZoom(1.5); // Set specific scale
+
+// Panning
+core.camera.pan(100, 50); // Pan by dx, dy
+
+// Center on node
+const node = core.nodes.addShape({ x: 500, y: 500, width: 100, height: 100 });
+core.camera.centerOn(node);
+
+// Reset camera
+core.camera.reset();
+```
+
+## 🔧 Development
+
+```bash
+# Install dependencies
+bun install
+
+# Run playground
+bun run dev
+
+# Build library
+bun run build
+
+# Tests
+bun run test          # Watch mode
+bun run test:run      # Single run
+bun run test:coverage # With coverage
+
+# Linting
+bun run lint          # ESLint
+bun run lint:ts       # TypeScript check
+bun run lint:fix      # Auto-fix
+```
+
+## 📖 Documentation
+
+Coming soon
+
+### Branching Strategy
+
+- `dev` — active development
+- `main` — stable version, auto-publish to npm
+
+## 📄 License
+
+MIT © [Flowscape UI Team](https://github.com/Flowscape-UI)
+
+---
+
+<div align="center">
+
+**[⭐ Star on GitHub](https://github.com/Flowscape-UI/core-sdk)** • **[🐛 Report Bug](https://github.com/Flowscape-UI/core-sdk/issues)** • **[💡 Request Feature](https://github.com/Flowscape-UI/core-sdk/issues/new)**
+
+</div>

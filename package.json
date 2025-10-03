@@ -14,7 +14,7 @@
     "typescript",
     "framework-agnostic"
   ],
-  "license": "MIT License",
+  "license": "MIT",
   "author": {
     "name": "Flowscape UI Team"
   },
@@ -28,8 +28,9 @@
   "homepage": "https://github.com/Flowscape-UI/core-sdk#readme",
   "type": "module",
   "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -38,7 +39,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -46,6 +49,7 @@
   "scripts": {
     "dev": "vite --config playground/vite.config.ts",
     "build": "tsup",
+    "prepublishOnly": "npm run build && npm run lint:ts && npm run test:run",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",

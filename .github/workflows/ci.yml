@@ -1,33 +1,54 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - dev
+      - main
   pull_request:
-    branches: [main, release]
+    branches:
+      - dev
+      - main
 
 jobs:
-  build:
+  lint-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 20
-          cache: npm
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install --frozen-lockfile
 
-      - name: Lint (ESLint)
-        run: npm run lint
+      - name: Run ESLint
+        run: bun run lint
 
-      - name: Typecheck (TS)
-        run: npm run lint:ts
+      - name: Run TypeScript check
+        run: bun run lint:ts
 
-      - name: Format (Prettier)
-        run: npm run format
+      - name: Run tests
+        run: bun run test:run
 
-      - name: Build
-        run: npm run build
+      - name: Run test coverage
+        run: bun run test:coverage
+
+      - name: Build library
+        run: bun run build
+
+      - name: Check build output
+        run: |
+          ls -lh dist/
+          echo "✅ Build artifacts created successfully"
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
