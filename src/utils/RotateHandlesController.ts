@@ -224,8 +224,17 @@ export class RotateHandlesController {
     const tr = this.getTransformer();
     const layer = this.core.nodes.layer;
     if (tr && tr.getLayer() === layer) {
-      const idx = tr.zIndex();
-      this.group.zIndex(Math.max(0, idx - 1));
+      // ИСПРАВЛЕНИЕ: используем moveDown() вместо zIndex(value)
+      const trIndex = tr.zIndex();
+      const groupIndex = this.group.zIndex();
+      
+      // Перемещаем группу так, чтобы она была ниже transformer
+      if (groupIndex >= trIndex) {
+        const diff = groupIndex - trIndex + 1;
+        for (let i = 0; i < diff && this.group.zIndex() > 0; i++) {
+          this.group.moveDown();
+        }
+      }
     } else {
       this.group.moveToBottom();
     }

@@ -120,7 +120,7 @@ export class SelectionPlugin extends Plugin {
     Konva.Node,
     {
       parent: Konva.Container;
-      zIndex: number;
+      indexInParent: number; // ИСПРАВЛЕНИЕ: сохраняем позицию в массиве детей
       abs: { x: number; y: number };
       prevDraggable: boolean | null;
     }
@@ -1012,14 +1012,15 @@ export class SelectionPlugin extends Plugin {
         const kn = b.getNode() as unknown as Konva.Node;
         const parent = kn.getParent();
         if (!parent) continue;
-        const z = kn.zIndex();
+        // ИСПРАВЛЕНИЕ: сохраняем позицию в массиве детей родителя
+        const indexInParent = kn.zIndex();
         const abs = kn.getAbsolutePosition();
         const prevDraggable =
           typeof (kn as unknown as { draggable?: (v?: boolean) => boolean }).draggable ===
           'function'
             ? (kn as unknown as { draggable: (v?: boolean) => boolean }).draggable()
             : null;
-        this._tempPlacement.set(kn, { parent, zIndex: z, abs, prevDraggable });
+        this._tempPlacement.set(kn, { parent, indexInParent, abs, prevDraggable });
         grp.add(kn as unknown as Konva.Group | Konva.Shape);
         kn.setAbsolutePosition(abs);
         if (
@@ -1131,11 +1132,25 @@ export class SelectionPlugin extends Plugin {
         }
         // Восстановить порядок и draggable
         if (info) {
-          try {
-            kn.zIndex(info.zIndex);
-          } catch {
-            /* ignore */
+          // ИСПРАВЛЕНИЕ: восстанавливаем позицию через moveUp/moveDown
+          const currentIndex = kn.zIndex();
+          const targetIndex = info.indexInParent;
+
+          if (currentIndex !== targetIndex) {
+            const diff = targetIndex - currentIndex;
+            if (diff > 0) {
+              // Нужно переместить вверх
+              for (let i = 0; i < diff && kn.zIndex() < info.parent.children.length - 1; i++) {
+                kn.moveUp();
+              }
+            } else if (diff < 0) {
+              // Нужно переместить вниз
+              for (let i = 0; i < Math.abs(diff) && kn.zIndex() > 0; i++) {
+                kn.moveDown();
+              }
+            }
           }
+
           if (
             typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
               'function' &&
@@ -1269,22 +1284,25 @@ export class SelectionPlugin extends Plugin {
     const children = [...this._tempMultiGroup.getChildren()];
     const groupedBaseNodes: BaseNode[] = [];
 
-    // Находим максимальный z-index среди всех нод для синхронизации
-    let maxZIndex = 0;
-    for (const kn of children) {
-      const currentZ = kn.zIndex();
-      if (currentZ > maxZIndex) maxZIndex = currentZ;
-    }
+    // ИСПРАВЛЕНИЕ: Сортируем ноды по их текущему z-index в world ПЕРЕД добавлением в группу
+    // Это сохраняет их относительный порядок отрисовки
+    const sortedChildren = children.sort((a, b) => {
+      return a.zIndex() - b.zIndex();
+    });
 
-    for (const kn of children) {
+    // Находим максимальный z-index для позиционирования самой группы в world
+    const maxZIndex = Math.max(...sortedChildren.map((kn) => kn.zIndex()));
+
+    for (const kn of sortedChildren) {
       // Снять перехваты временной группы с детей
       kn.off('.tempMultiChild');
       const abs = kn.getAbsolutePosition();
       g.add(kn as unknown as Konva.Group | Konva.Shape);
       kn.setAbsolutePosition(abs);
 
-      // Устанавливаем максимальный z-index для всех нод в группе
-      kn.zIndex(maxZIndex);
+      // ИСПРАВЛЕНИЕ: НЕ устанавливаем z-index детям!
+      // Konva автоматически установит порядок при добавлении в группу
+      // Порядок добавления (sortedChildren) = порядок отрисовки
 
       if (
         typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
@@ -1297,6 +1315,21 @@ export class SelectionPlugin extends Plugin {
         .find((b) => b.getNode() === (kn as unknown as Konva.Node));
       if (base) groupedBaseNodes.push(base);
     }
+
+    // ИСПРАВЛЕНИЕ: Позиционируем саму группу в world с правильным z-index
+    // Используем moveUp/moveDown вместо прямой установки zIndex(value)
+    const world = this._core.nodes.world;
+    const currentGroupIndex = g.zIndex();
+    const targetIndex = maxZIndex;
+
+    // Перемещаем группу на позицию максимального z-index из детей
+    if (currentGroupIndex < targetIndex) {
+      const diff = targetIndex - currentGroupIndex;
+      for (let i = 0; i < diff && g.zIndex() < world.children.length - 1; i++) {
+        g.moveUp();
+      }
+    }
+
     if (this._tempMultiTr) {
       this._tempMultiTr.destroy();
       this._tempMultiTr = null;

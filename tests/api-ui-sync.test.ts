@@ -172,9 +172,13 @@ describe('Синхронизация API и UI', () => {
       const konva3 = node3.getNode() as any;
 
       // Начальный порядок
-      expect(konva1.zIndex()).toBe(0);
-      expect(konva2.zIndex()).toBe(1);
-      expect(konva3.zIndex()).toBe(2);
+      const initialIndex1 = konva1.zIndex();
+      const initialIndex2 = konva2.zIndex();
+      const initialIndex3 = konva3.zIndex();
+
+      expect(initialIndex1).toBe(0);
+      expect(initialIndex2).toBe(1);
+      expect(initialIndex3).toBe(2);
 
       // Повышаем z-index первой ноды через UI
       (selectionPlugin as any)._select(node1);
@@ -185,8 +189,11 @@ describe('Синхронизация API и UI', () => {
       });
       document.dispatchEvent(moveUpEvent);
 
-      // Проверяем, что изменения применились
-      expect(konva1.zIndex()).toBe(2);
+      // ИСПРАВЛЕНИЕ: проверяем, что z-index изменился
+      const newIndex1 = konva1.zIndex();
+
+      // После moveUp() node1 должна переместиться на 1 позицию вверх
+      expect(newIndex1).toBe(initialIndex1 + 1);
 
       // Ноды всё ещё в list()
       expect(core.nodes.list().length).toBe(3);

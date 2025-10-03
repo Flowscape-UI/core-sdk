@@ -572,8 +572,8 @@ export class NodeHotkeysPlugin extends Plugin {
       konvaNode.moveUp();
       const newIndex = konvaNode.zIndex();
 
-      // Синхронизируем z-index внутри группы (если нода в группе или это группа)
-      this._syncGroupZIndex(konvaNode, newIndex);
+      // Проверяем возможность изменения z-index (для нод внутри группы)
+      this._syncGroupZIndex(konvaNode);
 
       // Эмитим событие изменения z-index
       if (this._core && oldIndex !== newIndex) {
@@ -610,8 +610,8 @@ export class NodeHotkeysPlugin extends Plugin {
       konvaNode.moveDown();
       const newIndex = konvaNode.zIndex();
 
-      // Синхронизируем z-index внутри группы (если нода в группе или это группа)
-      this._syncGroupZIndex(konvaNode, newIndex);
+      // Проверяем возможность изменения z-index (для нод внутри группы)
+      this._syncGroupZIndex(konvaNode);
 
       // Эмитим событие изменения z-index
       if (this._core && oldIndex !== newIndex) {
@@ -645,31 +645,26 @@ export class NodeHotkeysPlugin extends Plugin {
   }
 
   /**
-   * Синхронизирует z-index всех нод внутри группы:
-   * - Если нода является группой — устанавливает всем дочерним нодам одинаковый z-index
-   * - Если нода внутри группы — устанавливает всем соседям тот же z-index
+   * ИСПРАВЛЕНИЕ: Проверяет возможность изменения z-index
+   * - Для группы — ничего не делаем (moveUp/moveDown уже применен к самой группе)
+   * - Для ноды внутри группы — ЗАПРЕЩАЕМ изменение z-index
    */
-  private _syncGroupZIndex(konvaNode: Konva.Node, targetZIndex: number): void {
+  private _syncGroupZIndex(konvaNode: Konva.Node): void {
     const parent = konvaNode.getParent();
     if (!parent) return;
 
-    // Если это группа — синхронизируем всех детей
+    // Если это группа — НЕ трогаем детей!
+    // moveUp/moveDown уже применен к самой группе
+    // Дети сохраняют свой относительный порядок внутри группы
     if (konvaNode instanceof Konva.Group) {
-      const children = konvaNode.getChildren();
-      for (const child of children) {
-        child.zIndex(targetZIndex);
-      }
       return;
     }
 
-    // Если нода внутри группы — синхронизируем со всеми соседями
+    // Если нода внутри группы — ЗАПРЕЩАЕМ изменение z-index
+    // Нужно менять z-index самой группы, а не отдельных нод
     if (parent instanceof Konva.Group && parent.name() !== 'world') {
-      const siblings = parent.getChildren();
-      for (const sibling of siblings) {
-        if (sibling !== konvaNode) {
-          sibling.zIndex(targetZIndex);
-        }
-      }
+      // Изменение z-index запрещено для нод внутри группы
+      return;
     }
   }
 }
