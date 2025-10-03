@@ -1,24 +1,20 @@
 {
   "name": "@flowscape-ui/core-sdk",
-  "version": "0.1.0",
-  "description": "Universal canvas core built on Konva, framework-agnostic with provider adapters (Svelte/Angular/Vue/React).",
+  "version": "1.0.0",
+  "description": "Framework-agnostic 2D canvas engine built on Konva",
   "keywords": [
     "core",
     "canvas",
+    "canvas engine",
     "konva",
     "sdk",
     "core-sdk",
     "graphics",
-    "2d",
+    "2D",
     "typescript",
-    "framework-agnostic",
-    "adapter",
-    "svelte",
-    "angular",
-    "vue",
-    "react"
+    "framework-agnostic"
   ],
-  "license": "Apache-2.0",
+  "license": "MIT License",
   "author": {
     "name": "Flowscape UI Team"
   },
@@ -34,9 +30,19 @@
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite --config playground/vite.config.ts",
     "build": "tsup",
@@ -68,10 +74,10 @@
     "tsup": "^8.2.4",
     "typescript": "^5.6.2",
     "vite": "^5.4.6",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "canvas": "^3.2.0"
   },
   "dependencies": {
-    "canvas": "^3.2.0",
     "konva": "^9.3.16"
   }
 }

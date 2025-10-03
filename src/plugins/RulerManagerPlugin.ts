@@ -1,6 +1,7 @@
 import type { CoreEngine } from '../core/CoreEngine';
 
 import { Plugin } from './Plugin';
+import { RulerGuidesPlugin } from './RulerGuidesPlugin';
 
 export interface RulerManagerPluginOptions {
   enabled?: boolean; // is manager enabled on start
@@ -145,18 +146,20 @@ export class RulerManagerPlugin extends Plugin {
     if (!this._core) return false;
 
     // Find RulerGuidesPlugin using get method
-    const guidesPlugin = this._core.plugins.get('RulerGuidesPlugin');
+    const guidesPlugin = this._core.plugins.list().find((p) => p instanceof RulerGuidesPlugin);
     if (!guidesPlugin) return false;
 
     // Check for method existence using duck typing
     if ('getActiveGuide' in guidesPlugin && 'removeActiveGuide' in guidesPlugin) {
       // Check if there is an active guide
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const getActiveGuide = guidesPlugin.getActiveGuide as () => unknown;
       const activeGuide = getActiveGuide.call(guidesPlugin);
 
       if (!activeGuide) return false;
 
       // Remove active guide
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const removeActiveGuide = guidesPlugin.removeActiveGuide as () => void;
       removeActiveGuide.call(guidesPlugin);
 

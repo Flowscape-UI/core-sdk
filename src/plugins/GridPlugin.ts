@@ -52,7 +52,7 @@ export class GridPlugin extends Plugin {
     this._color = options.color ?? '#2b313a';
     this._lineWidth = options.lineWidth ?? 1;
     this._visible = options.visible ?? true;
-    this._minScaleToShow = options.minScaleToShow ?? null;
+    this._minScaleToShow = options.minScaleToShow ?? 8;
     this._enableSnap = options.enableSnap ?? true;
   }
 

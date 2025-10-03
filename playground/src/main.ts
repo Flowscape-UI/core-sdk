@@ -21,16 +21,18 @@ const logoPlugin = new LogoPlugin({
   opacity: 0.5,
 });
 
-const hotkeys = new CameraHotkeysPlugin({});
+const hotkeys = new CameraHotkeysPlugin();
 
-const nodeHotkeys = new NodeHotkeysPlugin({});
-
+const nodeHotkeys = new NodeHotkeysPlugin();
+console.log('2223232333');
 const selection = new SelectionPlugin({
   // selectablePredicate: (node) => {
   //   const cls = node.getClassName();
   //   return cls === 'Text';
   // },
 });
+
+console.log('work????');
 
 // selection.setOptions({
 //   selectablePredicate: (node) => {
@@ -42,7 +44,6 @@ const selection = new SelectionPlugin({
 // playground/src/main.ts
 const gridPlugin = new GridPlugin({
   color: '#3d3d3d',
-  minScaleToShow: 15,
   enableSnap: true,
 });
 

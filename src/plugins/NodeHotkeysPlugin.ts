@@ -4,7 +4,7 @@ import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 
 import { Plugin } from './Plugin';
-import type { SelectionPlugin } from './SelectionPlugin';
+import { SelectionPlugin } from './SelectionPlugin';
 
 export interface NodeHotkeysOptions {
   target?: Window | Document | HTMLElement | EventTarget;
@@ -55,11 +55,11 @@ export class NodeHotkeysPlugin extends Plugin {
   private _onKeyDown = (e: KeyboardEvent) => {
     if (!this._core) return;
 
-    // Lazy get SelectionPlugin on first use
+    // Lazy get SelectionPlugin on first use (robust against minification via instanceof)
     if (!this._selectionPlugin) {
-      const plugin = this._core.plugins.get('SelectionPlugin');
+      const plugin = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
       if (plugin) {
-        this._selectionPlugin = plugin as SelectionPlugin;
+        this._selectionPlugin = plugin;
       }
     }
 
@@ -157,7 +157,6 @@ export class NodeHotkeysPlugin extends Plugin {
 
   private _handlePaste(): void {
     if (!this._core || !this._clipboard || this._clipboard.nodes.length === 0) return;
-
     // Determine paste position
     const pastePosition = this._getPastePosition();
 
@@ -256,7 +255,8 @@ export class NodeHotkeysPlugin extends Plugin {
   private _serializeNode(node: BaseNode): ClipboardData['nodes'][0] {
     const konvaNode = node.getNode();
     const attrs = konvaNode.getAttrs();
-    const nodeType = this._getNodeType(node);
+    // Use Konva className (robust against minification), not constructor.name
+    const nodeType = this._getNodeTypeFromKonva(konvaNode as unknown as Konva.Node);
 
     let pos = { x: 0, y: 0 };
     if (this._core) {
@@ -339,10 +339,25 @@ export class NodeHotkeysPlugin extends Plugin {
     return serialized;
   }
 
-  private _getNodeType(node: BaseNode): string {
-    const className = node.constructor.name;
-    // ShapeNode -> shape, TextNode -> text, etc.
-    return className.replace('Node', '').toLowerCase();
+  // Get node type from Konva className (robust against minification)
+  private _getNodeTypeFromKonva(kn: Konva.Node): string {
+    const className = kn.getClassName();
+    // Map Konva class names to our internal types
+    const typeMap: Record<string, string> = {
+      Rect: 'shape',
+      Circle: 'circle',
+      Ellipse: 'ellipse',
+      Text: 'text',
+      Image: 'image',
+      Group: 'group',
+      Arc: 'arc',
+      Star: 'star',
+      Arrow: 'arrow',
+      Ring: 'ring',
+      RegularPolygon: 'regularPolygon',
+      Label: 'label',
+    };
+    return typeMap[className] ?? className.toLowerCase();
   }
 
   private _deserializeNode(
