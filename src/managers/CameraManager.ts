@@ -1,0 +1,143 @@
+import Konva from 'konva';
+
+import { EventBus } from '../utils/EventBus';
+import type { CoreEvents } from '../types/core.events.interface';
+
+export interface CameraManagerOptions {
+  stage: Konva.Stage;
+  eventBus: EventBus<CoreEvents>;
+  target?: Konva.Node;
+  initialScale?: number;
+  minScale?: number;
+  maxScale?: number;
+  draggable?: boolean;
+  zoomStep?: number;
+  panStep?: number;
+}
+
+export class CameraManager {
+  private _stage: Konva.Stage;
+  private _eventBus: EventBus<CoreEvents>;
+  private _target: Konva.Node;
+  private _scale: number;
+  private _minScale: number;
+  private _maxScale: number;
+  private _zoomStep: number;
+  private _panStep: number;
+
+  // Cache for optimization
+  private _wheelScheduled = false;
+  private _pendingWheelEvent: WheelEvent | null = null;
+
+  constructor(options: CameraManagerOptions) {
+    this._stage = options.stage;
+    this._eventBus = options.eventBus;
+    this._target = options.target ?? options.stage;
+    this._scale = options.initialScale ?? 1;
+    this._minScale = options.minScale ?? 0.1;
+    this._maxScale = options.maxScale ?? 5;
+    this._zoomStep = options.zoomStep ?? 1.05;
+    this._panStep = options.panStep ?? 40;
+    this._initWheelZoom();
+  }
+
+  private _initWheelZoom() {
+    this._stage.on('wheel', (e) => {
+      e.evt.preventDefault();
+
+      // Optimization: throttling for wheel events
+      this._pendingWheelEvent = e.evt;
+
+      if (this._wheelScheduled) return;
+
+      this._wheelScheduled = true;
+      const raf = globalThis.requestAnimationFrame;
+      raf(() => {
+        this._wheelScheduled = false;
+        if (!this._pendingWheelEvent) return;
+
+        this._handleWheel(this._pendingWheelEvent);
+        this._pendingWheelEvent = null;
+      });
+    });
+  }
+
+  private _handleWheel(evt: WheelEvent) {
+    const oldScale = this._target.scaleX() || 1;
+    const pointer = this._stage.getPointerPosition();
+    if (!pointer) return;
+    const scaleBy = this._zoomStep;
+    const direction = evt.deltaY > 0 ? -1 : 1;
+    let newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
+    newScale = Math.max(this._minScale, Math.min(this._maxScale, newScale));
+    const mousePointTo = {
+      x: (pointer.x - this._target.x()) / oldScale,
+      y: (pointer.y - this._target.y()) / oldScale,
+    };
+    this._target.scale({ x: newScale, y: newScale });
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    };
+    this._target.position(newPos);
+    this._stage.batchDraw();
+    this._scale = newScale;
+    this._eventBus.emit('camera:zoom', { scale: this._scale, position: newPos });
+  }
+
+  public get zoomStep(): number {
+    return this._zoomStep;
+  }
+
+  public get panStep(): number {
+    return this._panStep;
+  }
+
+  public setZoom(zoom: number) {
+    this._scale = Math.max(this._minScale, Math.min(this._maxScale, zoom));
+    this._target.scale({ x: this._scale, y: this._scale });
+    this._stage.batchDraw();
+    this._eventBus.emit('camera:setZoom', { scale: this._scale });
+  }
+
+  public zoomIn(step?: number) {
+    if (step === undefined) {
+      this.setZoom(this._scale * this._zoomStep);
+    } else {
+      this.setZoom(this._scale + step);
+    }
+  }
+
+  public zoomOut(step?: number) {
+    if (step === undefined) {
+      this.setZoom(this._scale / this._zoomStep);
+    } else {
+      this.setZoom(this._scale - step);
+    }
+  }
+
+  public reset() {
+    this.setZoom(1);
+    this._target.position({ x: 0, y: 0 });
+    this._stage.batchDraw();
+    this._eventBus.emit('camera:reset');
+  }
+
+  public setDraggable(enabled: boolean) {
+    this._stage.draggable(enabled);
+  }
+
+  public setZoomStep(step: number) {
+    if (step && step > 0) {
+      this._zoomStep = step;
+      this._eventBus.emit('camera:zoomStep', { zoomStep: step });
+    }
+  }
+
+  public setPanStep(step: number) {
+    if (typeof step === 'number' && isFinite(step)) {
+      this._panStep = step;
+      this._eventBus.emit('camera:panStep', { panStep: step });
+    }
+  }
+}

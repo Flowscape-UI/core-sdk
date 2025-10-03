@@ -1,0 +1,57 @@
+import Konva from 'konva';
+
+import type { BaseNode } from '../nodes/BaseNode';
+
+export interface MultiGroupControllerDeps {
+  ensureTempMulti: (nodes: BaseNode[]) => void;
+  destroyTempMulti: () => void;
+  commitTempMultiToGroup: () => void;
+  isActive: () => boolean;
+  forceUpdate: () => void;
+  onWorldChanged?: () => void;
+  // true, если target принадлежит временной группе в текущем состоянии
+  isInsideTempByTarget?: (target: Konva.Node) => boolean;
+}
+
+/**
+ * MultiGroupController — thin controller encapsulating work with temporary multi-group.
+ * Actual logic lives in passed dependencies (SelectionPlugin),
+ * thanks to which we don't duplicate code for frames/overlays and behavior.
+ */
+export class MultiGroupController {
+  private deps: MultiGroupControllerDeps;
+
+  constructor(deps: MultiGroupControllerDeps) {
+    this.deps = deps;
+  }
+
+  public ensure(nodes: BaseNode[]) {
+    this.deps.ensureTempMulti(nodes);
+  }
+
+  public destroy() {
+    this.deps.destroyTempMulti();
+  }
+
+  public commitToPermanentGroup() {
+    this.deps.commitTempMultiToGroup();
+  }
+
+  public isActive(): boolean {
+    return this.deps.isActive();
+  }
+
+  public forceUpdateOverlays() {
+    this.deps.forceUpdate();
+  }
+
+  public onWorldChanged() {
+    if (this.deps.onWorldChanged) this.deps.onWorldChanged();
+    else this.deps.forceUpdate();
+  }
+
+  public isInsideTempByTarget(target: Konva.Node): boolean {
+    if (this.deps.isInsideTempByTarget) return this.deps.isInsideTempByTarget(target);
+    return false;
+  }
+}

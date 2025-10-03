@@ -1,43 +1,59 @@
 {
-  "name": "@flowscape-ui/engine",
-  "version": "0.1.0",
-  "description": "Universal canvas engine core built on Konva, framework-agnostic with provider adapters (Svelte/Angular/Vue/React).",
+  "name": "@flowscape-ui/core-sdk",
+  "version": "1.0.0",
+  "description": "Framework-agnostic 2D canvas engine built on Konva",
   "keywords": [
-    "engine",
+    "core",
     "canvas",
+    "canvas engine",
     "konva",
+    "sdk",
+    "core-sdk",
     "graphics",
-    "2d",
+    "2D",
     "typescript",
-    "framework-agnostic",
-    "adapter",
-    "svelte",
-    "angular",
-    "vue",
-    "react"
+    "framework-agnostic"
   ],
-  "license": "Apache-2.0",
+  "license": "MIT",
   "author": {
     "name": "Flowscape UI Team"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Flowscape-UI/engine.git"
+    "url": "git+https://github.com/Flowscape-UI/core-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/Flowscape-UI/engine/issues"
+    "url": "https://github.com/Flowscape-UI/core-sdk/issues"
   },
-  "homepage": "https://github.com/Flowscape-UI/engine#readme",
+  "homepage": "https://github.com/Flowscape-UI/core-sdk#readme",
   "type": "module",
   "main": "dist/index.cjs",
-  "module": "dist/index.mjs",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite --config playground/vite.config.ts",
     "build": "tsup",
+    "prepublishOnly": "npm run build && npm run lint:ts && npm run test:run",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:ts": "tsc -p tsconfig.json --noEmit",
@@ -50,14 +66,20 @@
     "@types/node": "^22.5.4",
     "@typescript-eslint/eslint-plugin": "^8.7.0",
     "@typescript-eslint/parser": "^8.7.0",
+    "@vitest/ui": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
     "eslint": "^9.10.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.29.1",
+    "happy-dom": "^15.11.7",
     "jiti": "^2.5.1",
+    "jsdom": "^25.0.1",
     "prettier": "^3.6.2",
     "tsup": "^8.2.4",
     "typescript": "^5.6.2",
-    "vite": "^5.4.6"
+    "vite": "^5.4.6",
+    "vitest": "^2.1.8",
+    "canvas": "^3.2.0"
   },
   "dependencies": {
     "konva": "^9.3.16"
