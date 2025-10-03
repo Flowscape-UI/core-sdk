@@ -2,7 +2,6 @@ import Konva from 'konva';
 
 import type { BaseNode } from '../nodes/BaseNode';
 
-// Типы для LOD
 interface LODLevel {
   minScale: number;
   maxScale: number;
@@ -17,7 +16,6 @@ export interface LODOptions {
   levels?: LODLevel[];
 }
 
-// Расширенный интерфейс для Konva нод с LOD методами
 interface KonvaNodeWithLOD extends Konva.Node {
   stroke?: () => string | undefined;
   strokeEnabled: (enabled?: boolean) => boolean | this;
@@ -32,20 +30,20 @@ interface KonvaNodeWithLOD extends Konva.Node {
 }
 
 /**
- * LODManager - управляет уровнем детализации (Level of Detail) для оптимизации
+ * LODManager - manager for level of detail
  *
- * ВАЖНО: Это ДОПОЛНИТЕЛЬНАЯ оптимизация поверх Konva framework.
- * Konva НЕ предоставляет автоматический LOD, поэтому эта реализация необходима.
+ * This is an ADDITIONAL optimization on top of Konva framework.
+ * Konva does not provide automatic LOD, so this implementation is necessary.
  *
- * При сильном отдалении (малый масштаб) упрощает отрисовку нод:
- * - Отключает обводку (stroke) через strokeEnabled(false)
- * - Отключает тени (shadow) через shadowEnabled(false)
- * - Отключает perfect draw через perfectDrawEnabled(false)
+ * When far away (small scale), it simplifies node rendering:
+ * - Disables stroke via strokeEnabled(false)
+ * - Disables shadow via shadowEnabled(false)
+ * - Disables perfect draw via perfectDrawEnabled(false)
  *
- * Все методы используют встроенные API Konva, рекомендованные в официальной документации:
+ * All methods use built-in Konva API, recommended in the official documentation:
  * https://konvajs.org/docs/performance/All_Performance_Tips.html
  *
- * Прирост производительности: 20-30% при большом количестве нод на малых масштабах.
+ * Performance boost: 20-30% when many nodes are rendered at small scales.
  */
 export class LODManager {
   private _enabled: boolean;
@@ -56,7 +54,6 @@ export class LODManager {
   constructor(options: LODOptions = {}) {
     this._enabled = options.enabled ?? true;
 
-    // Уровни детализации по умолчанию
     this._levels = options.levels ?? [
       {
         minScale: 0,
@@ -82,7 +79,7 @@ export class LODManager {
   }
 
   /**
-   * Определяет уровень детализации для текущего масштаба
+   * Level of detail for current scale
    */
   private _getLODLevel(scale: number): LODLevel | null {
     if (!this._enabled) return null;
@@ -93,7 +90,7 @@ export class LODManager {
   }
 
   /**
-   * Применяет LOD к ноду на основе текущего масштаба
+   * Apply LOD to node based on current scale
    */
   public applyLOD(node: BaseNode, scale: number): void {
     if (!this._enabled) return;
@@ -102,19 +99,19 @@ export class LODManager {
     const level = this._getLODLevel(scale);
 
     if (!level?.simplify) {
-      // Полная детализация - восстанавливаем оригинальные настройки
+      // Full detail - restore original settings
       this._restoreNode(node);
       return;
     }
 
-    // Применяем упрощения
+    // Apply simplifications
     const konvaNode = node.getNode() as KonvaNodeWithLOD;
     const previousLevel = this._appliedNodes.get(node.id);
 
-    // Применяем только если уровень изменился
+    // Apply only if level changed
     if (previousLevel === level) return;
 
-    // Сохраняем оригинальные значения при первом применении
+    // Save original values on first application
     if (!previousLevel) {
       konvaNode._originalLOD = {
         stroke: konvaNode.stroke?.(),
@@ -124,7 +121,6 @@ export class LODManager {
       };
     }
 
-    // Применяем упрощения
     if (level.disableStroke) {
       konvaNode.strokeEnabled(false);
     }
@@ -141,15 +137,15 @@ export class LODManager {
   }
 
   /**
-   * Восстанавливает оригинальные настройки ноды
+   * Restore original settings for node
    */
+
   private _restoreNode(node: BaseNode): void {
     const konvaNode = node.getNode() as KonvaNodeWithLOD;
     const original = konvaNode._originalLOD;
 
     if (!original) return;
 
-    // Восстанавливаем оригинальные значения
     konvaNode.strokeEnabled(original.strokeEnabled);
     konvaNode.shadowEnabled(original.shadow);
 
@@ -162,7 +158,7 @@ export class LODManager {
   }
 
   /**
-   * Применяет LOD ко всем нодам
+   * Apply LOD to all nodes
    */
   public applyToAll(nodes: BaseNode[], scale: number): void {
     if (!this._enabled) return;
@@ -173,7 +169,7 @@ export class LODManager {
   }
 
   /**
-   * Восстанавливает все ноды к полной детализации
+   * Restore all nodes to full detail
    */
   public restoreAll(nodes: BaseNode[]): void {
     for (const node of nodes) {
@@ -183,14 +179,14 @@ export class LODManager {
   }
 
   /**
-   * Включает LOD
+   * Enable LOD
    */
   public enable(): void {
     this._enabled = true;
   }
 
   /**
-   * Отключает LOD и восстанавливает все ноды
+   * Disable LOD and restore all nodes
    */
   public disable(nodes: BaseNode[]): void {
     this._enabled = false;
@@ -198,21 +194,21 @@ export class LODManager {
   }
 
   /**
-   * Проверяет, включён ли LOD
+   * Check if LOD is enabled
    */
   public get enabled(): boolean {
     return this._enabled;
   }
 
   /**
-   * Возвращает текущий масштаб
+   * Get current scale
    */
   public get currentScale(): number {
     return this._currentScale;
   }
 
   /**
-   * Возвращает статистику LOD
+   * Get LOD stats
    */
   public getStats(): {
     enabled: boolean;
@@ -229,7 +225,7 @@ export class LODManager {
   }
 
   /**
-   * Устанавливает пользовательские уровни LOD
+   * Set custom LOD levels
    */
   public setLevels(levels: LODLevel[]): void {
     this._levels = levels;

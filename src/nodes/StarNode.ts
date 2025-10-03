@@ -26,7 +26,6 @@ export class StarNode extends BaseNode<Konva.Star> {
     super(star, options);
   }
 
-  // ===== Getters =====
   public getNumPoints(): number {
     return this.konvaNode.numPoints();
   }
@@ -51,7 +50,6 @@ export class StarNode extends BaseNode<Konva.Star> {
     return this.konvaNode.strokeWidth();
   }
 
-  // ===== Chainable setters =====
   public setNumPoints(v: number): this {
     this.konvaNode.numPoints(v);
     return this;

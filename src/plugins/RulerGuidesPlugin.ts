@@ -4,17 +4,17 @@ import type { CoreEngine } from '../core/CoreEngine';
 
 import { Plugin } from './Plugin';
 
-// Расширенный тип для Line с worldCoord
+// Extended type for Line with worldCoord
 interface GuideLineWithCoord extends Konva.Line {
   worldCoord: number;
 }
 
 export interface RulerGuidesPluginOptions {
-  guideColor?: string; // цвет направляющих
-  activeColor?: string; // цвет активной направляющей
-  rulerThicknessPx?: number; // толщина линейки (должна совпадать с RulerPlugin)
-  snapToGrid?: boolean; // привязка к сетке
-  gridStep?: number; // шаг сетки для привязки
+  guideColor?: string; // color of guides
+  activeColor?: string; // color of active guide
+  rulerThicknessPx?: number; // thickness of ruler (should match RulerPlugin)
+  snapToGrid?: boolean; // snap to grid
+  gridStep?: number; // grid step for snapping
 }
 
 export class RulerGuidesPlugin extends Plugin {
@@ -25,7 +25,7 @@ export class RulerGuidesPlugin extends Plugin {
   private _activeGuide: GuideLineWithCoord | null = null;
   private _draggingGuide: { type: 'h' | 'v'; line: GuideLineWithCoord } | null = null;
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _rulerLayerCache: Konva.Layer | null = null;
   private _updateScheduled = false;
   private _dragMoveScheduled = false;
@@ -34,11 +34,11 @@ export class RulerGuidesPlugin extends Plugin {
   constructor(options: RulerGuidesPluginOptions = {}) {
     super();
     const {
-      guideColor = '#8e3e2c', // оранжевый для обычных линий
-      activeColor = '#2b83ff', // синий для активной линии
+      guideColor = '#8e3e2c', // orange for regular lines
+      activeColor = '#2b83ff', // blue for active line
       rulerThicknessPx = 30,
       snapToGrid = true,
-      gridStep = 1, // шаг 1px для точного позиционирования
+      gridStep = 1, // step 1px for precise positioning
     } = options;
     this._options = {
       guideColor,
@@ -52,7 +52,7 @@ export class RulerGuidesPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Проверяем наличие ruler-layer (создаётся RulerPlugin)
+    // Check for ruler-layer (created by RulerPlugin)
     const rulerLayer = core.stage.findOne('.ruler-layer');
     if (!rulerLayer) {
       throw new Error(
@@ -61,15 +61,15 @@ export class RulerGuidesPlugin extends Plugin {
       );
     }
 
-    // Создаём слой для направляющих
+    // Create layer for guides
     this._guidesLayer = new Konva.Layer({ name: 'guides-layer' });
     core.stage.add(this._guidesLayer);
 
-    // Перемещаем guides-layer ПОВЕРХ всех слоёв (включая ruler-layer)
-    // Направляющие должны быть видны поверх всего
+    // Move guides-layer ABOVE all layers (including ruler-layer)
+    // Guides must be visible above everything
     this._guidesLayer.moveToTop();
 
-    // Подписываемся на события stage для отслеживания перетаскивания из линейки
+    // Subscribe to stage events for tracking dragging from ruler
     const stage = core.stage;
     const thicknessPx = this._options.rulerThicknessPx;
 
@@ -77,36 +77,36 @@ export class RulerGuidesPlugin extends Plugin {
       const pos = stage.getPointerPosition();
       if (!pos) return;
 
-      // Проверяем, кликнули ли мы по направляющей линии
+      // Check if we clicked on a guide line
       const target = stage.getIntersection(pos);
       if (target && (target.name() === 'guide-h' || target.name() === 'guide-v')) {
-        // Клик по направляющей - обработается её собственным обработчиком
+        // Click on a guide line - handled by its own handler
         return;
       }
 
-      // Проверяем позицию клика относительно линейки
+      // Check click position relative to ruler
       if (pos.y <= thicknessPx && pos.x >= thicknessPx) {
-        // Клик на горизонтальной линейке
+        // Click on horizontal ruler
         this._startCreateGuide('h');
       } else if (pos.x <= thicknessPx && pos.y >= thicknessPx) {
-        // Клик на вертикальной линейке
+        // Click on vertical ruler
         this._startCreateGuide('v');
       } else {
-        // Клик за пределами линейки и направляющих - сбрасываем активную линию
+        // Click outside ruler and guides - reset active guide
         this._setActiveGuide(null);
       }
     });
 
-    // Курсоры при наведении на линейки
+    // Cursors on hover over rulers
     stage.on('mousemove.ruler-guides', () => {
       const pos = stage.getPointerPosition();
       if (!pos) return;
 
-      // Проверяем, не находимся ли над направляющей линией или другим интерактивным элементом
+      // Check if we are over a guide line or another interactive element
       const target = stage.getIntersection(pos);
       if (target) {
         const targetName = target.name();
-        // Если над направляющей или интерактивным элементом (anchor, rotater и т.д.) - не меняем курсор
+        // If over a guide line or interactive element (anchor, rotater and so on) - do not change cursor
         if (
           targetName === 'guide-h' ||
           targetName === 'guide-v' ||
@@ -118,25 +118,25 @@ export class RulerGuidesPlugin extends Plugin {
         }
       }
 
-      // Определяем, находимся ли мы над линейкой
+      // Check if we are over horizontal ruler
       if (pos.y <= thicknessPx && pos.x >= thicknessPx) {
-        // Над горизонтальной линейкой
+        // Over horizontal ruler
         stage.container().style.cursor = 'ns-resize';
       } else if (pos.x <= thicknessPx && pos.y >= thicknessPx) {
-        // Над вертикальной линейкой
+        // Over vertical ruler
         stage.container().style.cursor = 'ew-resize';
       } else {
-        // Не над линейкой и не над направляющей
+        // Not over ruler and not over guide
         if (!this._draggingGuide) {
           stage.container().style.cursor = 'default';
         }
       }
     });
 
-    // Кэшируем ruler-layer
+    // Cache ruler-layer
     this._rulerLayerCache = core.stage.findOne('.ruler-layer') as Konva.Layer | null;
 
-    // Подписываемся на изменения world для обновления позиций линий
+    // Subscribe to world changes for updating line positions
     const world = core.nodes.world;
     world.on(
       'xChange.ruler-guides yChange.ruler-guides scaleXChange.ruler-guides scaleYChange.ruler-guides',
@@ -145,7 +145,7 @@ export class RulerGuidesPlugin extends Plugin {
       },
     );
 
-    // Подписываемся на изменение размера stage для обновления длины линий
+    // Subscribe to stage resize for updating line length
     stage.on('resize.ruler-guides', () => {
       this._scheduleUpdate();
     });
@@ -154,11 +154,11 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   protected onDetach(core: CoreEngine): void {
-    // Отписываемся от всех событий
+    // Unsubscribe from all events
     core.stage.off('.ruler-guides');
     core.nodes.world.off('.ruler-guides');
 
-    // Удаляем слой
+    // Remove layer
     if (this._guidesLayer) {
       this._guidesLayer.destroy();
       this._guidesLayer = null;
@@ -170,7 +170,7 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Отложенное обновление позиций (без throttling для плавности)
+   * Schedules update of guide positions (without throttling for smoothness)
    */
   private _scheduleUpdate() {
     if (this._updateScheduled) return;
@@ -183,12 +183,12 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Обновление позиций всех направляющих при изменении world transform
+   * Updates positions of all guides when world transform changes
    */
   private _updateGuidesPositions() {
     if (!this._core || this._guides.length === 0) return;
 
-    // Кэшируем все вычисления один раз
+    // Cache all calculations once
     const world = this._core.nodes.world;
     const scale = world.scaleX();
     const worldX = world.x();
@@ -196,11 +196,11 @@ export class RulerGuidesPlugin extends Plugin {
     const stageW = this._core.stage.width();
     const stageH = this._core.stage.height();
 
-    // Предвычисляем массивы точек для переиспользования
+    // Pre-calculate point arrays for reuse
     const hPoints = [0, 0, stageW, 0];
     const vPoints = [0, 0, 0, stageH];
 
-    // Оптимизация: используем for-of и минимизируем вызовы методов
+    // Optimization: use for-of and minimize method calls
     for (const guide of this._guides) {
       const worldCoord = guide.worldCoord;
       const isHorizontal = guide.name() === 'guide-h';
@@ -220,7 +220,7 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Привязка координаты к сетке
+   * Snaps coordinate to grid
    */
   private _snapToGrid(coord: number): number {
     if (!this._options.snapToGrid) return Math.round(coord);
@@ -229,7 +229,7 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Отложенный batchDraw для группировки обновлений
+   * Schedules batchDraw for grouping updates
    */
   private _scheduleBatchDraw() {
     if (this._batchDrawScheduled) return;
@@ -242,7 +242,7 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Создание направляющей линии из линейки
+   * Starts creating a guide line from ruler
    */
   private _startCreateGuide(type: 'h' | 'v') {
     if (!this._core || !this._guidesLayer) return;
@@ -253,16 +253,16 @@ export class RulerGuidesPlugin extends Plugin {
     const pos = stage.getPointerPosition();
     if (!pos) return;
 
-    // Вычисляем мировую координату с привязкой к сетке
+    // Calculate world coordinate with grid snapping
     const rawCoord = type === 'h' ? (pos.y - world.y()) / scale : (pos.x - world.x()) / scale;
     const worldCoord = this._snapToGrid(rawCoord);
 
-    // Создаём направляющую линию
+    // Create guide line
     const line = new Konva.Line({
       name: type === 'h' ? 'guide-h' : 'guide-v',
       stroke: this._options.guideColor,
       strokeWidth: 1,
-      opacity: 1, // полная непрозрачность
+      opacity: 1,
       draggable: true,
       hitStrokeWidth: 8,
       dragBoundFunc: (p) => {
@@ -270,7 +270,7 @@ export class RulerGuidesPlugin extends Plugin {
         const world = this._core.nodes.world;
         const scale = world.scaleX();
 
-        // Ограничиваем движение только по одной оси с привязкой к сетке
+        // Limit movement to one axis with grid snapping
         if (type === 'h') {
           const rawWorldY = (p.y - world.y()) / scale;
           const worldY = this._snapToGrid(rawWorldY);
@@ -283,10 +283,10 @@ export class RulerGuidesPlugin extends Plugin {
       },
     });
 
-    // Сохраняем мировую координату
+    // Save world coordinate
     (line as GuideLineWithCoord).worldCoord = worldCoord;
 
-    // Добавляем обработчики
+    // Add event handlers
     line.on('mouseenter', () => {
       if (this._core) {
         this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
@@ -309,7 +309,6 @@ export class RulerGuidesPlugin extends Plugin {
       const guideLine = line as GuideLineWithCoord;
       this._draggingGuide = { type, line: guideLine };
       this._setActiveGuide(guideLine);
-      // Устанавливаем курсор для драга
       if (this._core) {
         this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
       }
@@ -327,16 +326,16 @@ export class RulerGuidesPlugin extends Plugin {
         const scale = world.scaleX();
         const pos = line.getAbsolutePosition();
 
-        // Обновляем мировую координату с привязкой к сетке
+        // Update world coordinate with grid snapping
         const rawCoord = type === 'h' ? (pos.y - world.y()) / scale : (pos.x - world.x()) / scale;
         const worldCoord = this._snapToGrid(rawCoord);
 
         (line as GuideLineWithCoord).worldCoord = worldCoord;
 
-        // Устанавливаем курсор во время драга
+        // Set cursor while dragging
         this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
 
-        // Обновляем линейку для динамической подсветки координаты
+        // Update ruler for dynamic highlighting
         if (this._rulerLayerCache) {
           this._rulerLayerCache.batchDraw();
         }
@@ -345,7 +344,7 @@ export class RulerGuidesPlugin extends Plugin {
 
     line.on('dragend', () => {
       this._draggingGuide = null;
-      // Курсор остается resize, так как мышь все еще над линией
+      // Cursor stays resize, since mouse is still over the line
       if (this._core) {
         this._core.stage.container().style.cursor = type === 'h' ? 'ns-resize' : 'ew-resize';
       }
@@ -356,7 +355,7 @@ export class RulerGuidesPlugin extends Plugin {
     this._guides.push(guideLine);
     this._setActiveGuide(guideLine);
 
-    // Начальная позиция и размер
+    // Initial position and size
     if (type === 'h') {
       line.position({ x: 0, y: world.y() + worldCoord * scale });
       line.points([0, 0, stage.width(), 0]);
@@ -414,32 +413,32 @@ export class RulerGuidesPlugin extends Plugin {
     }
     this._activeGuide = guide;
     if (guide) {
-      // Выделяем новую активную направляющую
+      // Highlight new active guide
       guide.stroke(this._options.activeColor);
       guide.strokeWidth(2);
     }
 
-    // Уведомляем линейку о необходимости перерисовки для подсветки координаты
-    // Оптимизация: используем кэшированный слой
+    // Notify ruler about the need to redraw for coordinate highlighting
+    // Optimization: use cached layer
     if (this._rulerLayerCache) {
       this._rulerLayerCache.batchDraw();
     }
 
-    // Уведомляем RulerPlugin об изменении направляющих
+    // Notify RulerPlugin about changes to guides
     this._core?.stage.fire('guidesChanged.ruler');
 
     this._scheduleBatchDraw();
   }
 
   /**
-   * Получить активную направляющую
+   * Get active guide
    */
   public getActiveGuide(): Konva.Line | null {
     return this._activeGuide;
   }
 
   /**
-   * Получить координату активной направляющей
+   * Get active guide info
    * @returns { type: 'h' | 'v', coord: number } | null
    */
   public getActiveGuideInfo(): { type: 'h' | 'v'; coord: number } | null {
@@ -450,7 +449,7 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Удалить активную направляющую
+   * Remove active guide
    */
   public removeActiveGuide() {
     if (this._activeGuide) {
@@ -462,14 +461,14 @@ export class RulerGuidesPlugin extends Plugin {
   }
 
   /**
-   * Получить все направляющие
+   * Get all guides
    */
   public getGuides(): Konva.Line[] {
     return [...this._guides];
   }
 
   /**
-   * Удалить все направляющие
+   * Remove all guides
    */
   public clearGuides() {
     this._guides.forEach((g) => g.destroy());

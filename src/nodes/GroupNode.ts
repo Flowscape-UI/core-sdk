@@ -13,14 +13,13 @@ export class GroupNode extends BaseNode<Konva.Group> {
     const group = new Konva.Group({} as Konva.GroupConfig);
     group.x(options.x ?? 0);
     group.y(options.y ?? 0);
-    group.draggable(options.draggable ?? true); // По умолчанию draggable
+    group.draggable(options.draggable ?? true);
     if (options.listening !== undefined) group.listening(options.listening);
     if (options.clip) group.clip(options.clip);
 
     super(group, options);
   }
 
-  // ===== Children management =====
   public addChild(child: Konva.Node | BaseNode): this {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     const raw: Konva.Node = (child as BaseNode).getNode
@@ -56,7 +55,6 @@ export class GroupNode extends BaseNode<Konva.Group> {
     return this.konvaNode.find(`.${name}`) as unknown as Konva.Node[];
   }
 
-  // ===== Setters/Getters for common props =====
   public setDraggable(v: boolean): this {
     this.konvaNode.draggable(v);
     return this;

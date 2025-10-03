@@ -24,7 +24,6 @@ export class RingNode extends BaseNode<Konva.Ring> {
     super(ring, options);
   }
 
-  // ===== Getters =====
   public getInnerRadius(): number {
     return this.konvaNode.innerRadius();
   }
@@ -45,7 +44,6 @@ export class RingNode extends BaseNode<Konva.Ring> {
     return this.konvaNode.strokeWidth();
   }
 
-  // ===== Chainable setters =====
   public setInnerRadius(v: number): this {
     this.konvaNode.innerRadius(v);
     return this;

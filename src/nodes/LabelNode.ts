@@ -59,7 +59,6 @@ export class LabelNode extends BaseNode<Konva.Label> {
     this._text = text;
   }
 
-  // ===== Getters =====
   public getText(): string {
     return this._text.text();
   }
@@ -100,7 +99,6 @@ export class LabelNode extends BaseNode<Konva.Label> {
     return this._tag.cornerRadius() as number | [number, number, number, number];
   }
 
-  // ===== Chainable setters =====
   public setText(value: string): this {
     this._text.text(value);
     return this;

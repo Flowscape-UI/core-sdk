@@ -10,33 +10,33 @@ export interface VirtualizationStats {
   total: number;
   visible: number;
   hidden: number;
-  cullingRate: number; // процент скрытых нод
+  cullingRate: number; // percentage of hidden nodes
 }
 
 export interface VirtualizationOptions {
   enabled?: boolean;
-  bufferZone?: number; // пикселей за пределами viewport для плавности
-  throttleMs?: number; // задержка между обновлениями (мс)
-  lod?: LODOptions; // настройки Level of Detail
+  bufferZone?: number; // pixels outside viewport for smoothness
+  throttleMs?: number; // delay between updates (ms)
+  lod?: LODOptions; // Level of Detail settings
 }
 
 /**
- * VirtualizationManager - управляет видимостью нод для оптимизации производительности
+ * VirtualizationManager - manages node visibility for performance optimization
  *
- * ВАЖНО: Это ДОПОЛНИТЕЛЬНАЯ оптимизация поверх Konva framework.
- * Konva НЕ предоставляет автоматическую виртуализацию viewport, поэтому эта реализация необходима.
+ * IMPORTANT: This is an ADDITIONAL optimization on top of Konva framework.
+ * Konva does not provide automatic viewport virtualization, so this implementation is necessary.
  *
- * Основная идея: отрисовывать только те ноды, которые находятся в viewport (видимой области).
- * Это даёт огромный прирост производительности при большом количестве нод.
+ * Main idea: render only nodes that are within the viewport (visible area).
+ * This provides a significant performance boost when dealing with many nodes.
  *
- * Оптимизации (используют встроенные API Konva):
- * 1. visible: false - нода не отрисовывается (рекомендация Konva)
- * 2. listening: false - нода не обрабатывает события (рекомендация Konva)
- * 3. Буферная зона - рендерим немного больше viewport для плавности
- * 4. Throttling - ограничиваем частоту обновлений
- * 5. getClientRect() - Konva автоматически кэширует результаты внутренне
+ * Optimizations (uses built-in Konva APIs):
+ * 1. visible: false - node is not rendered (Konva recommendation)
+ * 2. listening: false - node does not handle events (Konva recommendation)
+ * 3. Buffer zone - render slightly more than viewport for smoothness
+ * 4. Throttling - limits update frequency
+ * 5. getClientRect() - Konva automatically caches results internally
  *
- * Документация Konva: https://konvajs.org/docs/performance/All_Performance_Tips.html
+ * Konva documentation: https://konvajs.org/docs/performance/All_Performance_Tips.html
  */
 export class VirtualizationManager {
   private _enabled: boolean;
@@ -55,7 +55,7 @@ export class VirtualizationManager {
 
   private _updateScheduled = false;
 
-  // LOD Manager для дополнительной оптимизации
+  // LOD Manager for additional optimization
   private _lod: LODManager | null = null;
 
   constructor(
@@ -68,7 +68,7 @@ export class VirtualizationManager {
     this._bufferZone = options.bufferZone ?? 200;
     this._throttle = new ThrottleHelper(options.throttleMs ?? 16); // ~60 FPS
 
-    // Инициализируем LOD если включён
+    // Initialize LOD if enabled
     if (options.lod) {
       this._lod = new LODManager(options.lod);
     }
@@ -76,21 +76,21 @@ export class VirtualizationManager {
     this._updateViewport();
     this._setupListeners();
 
-    // Первоначальное обновление
+    // Initial update
     if (this._enabled) {
       this.updateVisibility();
     }
   }
 
   /**
-   * Обновляет viewport на основе текущей позиции и масштаба world
+   * Updates viewport based on current position and scale of world
    */
   private _updateViewport(): void {
     const scale = this._world.scaleX();
     const position = this._world.position();
 
-    // Вычисляем viewport в мировых координатах
-    // Учитываем, что world может быть трансформирован (позиция + масштаб)
+    // Calculate viewport in world coordinates
+    // Consider that world may be transformed (position + scale)
     this._viewport = {
       x: -position.x / scale - this._bufferZone,
       y: -position.y / scale - this._bufferZone,
@@ -100,11 +100,11 @@ export class VirtualizationManager {
   }
 
   /**
-   * Получает bounding box ноды в мировых координатах (относительно world)
+   * Gets node bounding box in world coordinates (relative to world)
    *
-   * ОПТИМИЗАЦИЯ: Konva автоматически кэширует результаты getClientRect() внутренне,
-   * поэтому дополнительный TTL-кэш не нужен. Konva инвалидирует свой кэш при изменении
-   * трансформаций, что более надежно чем наш TTL-подход.
+   * OPTIMIZATION: Konva automatically caches getClientRect() results internally,
+   * so additional TTL-cache is not needed. Konva invalidates its cache on transformations,
+   * which is more reliable than our TTL-approach.
    */
   private _getNodeBBox(node: BaseNode): {
     x: number;
@@ -114,7 +114,7 @@ export class VirtualizationManager {
   } {
     const konvaNode = node.getNode();
 
-    // Konva автоматически кэширует getClientRect() и инвалидирует при изменениях
+    // Konva automatically caches getClientRect() and invalidates on transformations
     const clientRect = konvaNode.getClientRect({ relativeTo: this._world });
 
     return {
@@ -126,12 +126,12 @@ export class VirtualizationManager {
   }
 
   /**
-   * Проверяет, находится ли нода в viewport
+   * Checks if node is within viewport
    */
   private _isNodeVisible(node: BaseNode): boolean {
     const box = this._getNodeBBox(node);
 
-    // Проверка пересечения с viewport
+    // Check intersection with viewport
     return !(
       box.x + box.width < this._viewport.x ||
       box.x > this._viewport.x + this._viewport.width ||
@@ -141,12 +141,12 @@ export class VirtualizationManager {
   }
 
   /**
-   * Обновляет видимость всех нод
+   * Updates visibility of all nodes
    */
   public updateVisibility(): void {
     if (!this._enabled) return;
 
-    // Throttling - не обновляем слишком часто
+    // Throttling - do not update too often
     if (!this._throttle.shouldExecute()) {
       return;
     }
@@ -162,7 +162,7 @@ export class VirtualizationManager {
       if (isVisible) {
         newVisibleNodes.add(node.id);
 
-        // Показываем ноду, если она была скрыта
+        // Show node if it was hidden
         if (this._hiddenNodes.has(node.id)) {
           konvaNode.visible(true);
           konvaNode.listening(true);
@@ -170,7 +170,7 @@ export class VirtualizationManager {
           changesCount++;
         }
       } else {
-        // Скрываем ноду, если она была видима
+        // Hide node if it was visible
         if (!this._hiddenNodes.has(node.id)) {
           konvaNode.visible(false);
           konvaNode.listening(false);
@@ -182,11 +182,11 @@ export class VirtualizationManager {
 
     this._visibleNodes = newVisibleNodes;
 
-    // ОПТ ИМИЗАЦИЯ: Применяем LOD только к ИЗМЕНИВШИМСЯ нодам
+    // OPTIMIZATION: Apply LOD only to CHANGED nodes
     if (this._lod?.enabled && changesCount > 0) {
       const scale = this._world.scaleX();
 
-      // Применяем LOD только к ново видимым нодам
+      // Apply LOD only to newly visible nodes
       for (const node of nodes) {
         if (newVisibleNodes.has(node.id)) {
           this._lod.applyLOD(node, scale);
@@ -194,25 +194,25 @@ export class VirtualizationManager {
       }
     }
 
-    // Перерисовываем только если были изменения
+    // Redraw only if changes occurred
     if (changesCount > 0) {
       this._nodeManager.layer.batchDraw();
     }
   }
 
   /**
-   * Настраивает слушатели событий
+   * Sets up event listeners
    */
   private _setupListeners(): void {
     this._world.on('xChange yChange scaleXChange scaleYChange', () => {
-      // ОПТИМИЗАЦИЯ: НЕ очищаем кэш при панорамировании/зуме!
-      // BBox в мировых координатах не меняется при трансформации world
-      // Кэш остаётся валидным!
+      // OPTIMIZATION: DO NOT clear cache on panning/zooming!
+      // BBox in world coordinates does not change during world transformation
+      // Cache remains valid!
       this._scheduleUpdate();
     });
 
-    // Обновляем при ресайзе stage
-    // В Konva нет стандартного события resize, поэтому используем window.resize
+    // Update on stage resize
+    // Konva does not provide a standard resize event, so we use window.resize
     if (typeof globalThis.window !== 'undefined') {
       globalThis.window.addEventListener('resize', () => {
         this._updateViewport();
@@ -226,31 +226,22 @@ export class VirtualizationManager {
   }
 
   /**
-   * Планирует обновление на следующий фрейм
+   * Schedules update for the next frame
    */
   private _scheduleUpdate(): void {
     if (this._updateScheduled) return;
 
     this._updateScheduled = true;
 
-    // if (globalThis.requestAnimationFrame) {
     globalThis.requestAnimationFrame(() => {
       this._updateViewport();
       this.updateVisibility();
       this._updateScheduled = false;
     });
-    // } else {
-    //   // Fallback для окружений без requestAnimationFrame
-    //   globalThis.setTimeout(() => {
-    //     this._updateViewport();
-    //     this.updateVisibility();
-    //     this._updateScheduled = false;
-    //   }, 16);
-    // }
   }
 
   /**
-   * Включает виртуализацию
+   * Enables virtualization
    */
   public enable(): void {
     if (this._enabled) return;
@@ -260,14 +251,14 @@ export class VirtualizationManager {
   }
 
   /**
-   * Отключает виртуализацию (показывает все ноды)
+   * Disables virtualization (shows all nodes)
    */
   public disable(): void {
     if (!this._enabled) return;
 
     this._enabled = false;
 
-    // Показываем все скрытые ноды
+    // Show all hidden nodes
     for (const nodeId of this._hiddenNodes) {
       const node = this._nodeManager.findById(nodeId);
       if (node) {
@@ -283,7 +274,7 @@ export class VirtualizationManager {
   }
 
   /**
-   * Возвращает статистику виртуализации
+   * Returns virtualization statistics
    */
   public getStats(): VirtualizationStats {
     const total = this._nodeManager.list().length;
@@ -299,7 +290,7 @@ export class VirtualizationManager {
   }
 
   /**
-   * Устанавливает размер буферной зоны
+   * Sets buffer zone size
    */
   public setBufferZone(pixels: number): void {
     this._bufferZone = pixels;
@@ -308,21 +299,21 @@ export class VirtualizationManager {
   }
 
   /**
-   * Устанавливает throttle для обновлений
+   * Sets throttle for updates
    */
   public setThrottle(ms: number): void {
     this._throttle = new ThrottleHelper(ms);
   }
 
   /**
-   * Проверяет, включена ли виртуализация
+   * Checks if virtualization is enabled
    */
   public get enabled(): boolean {
     return this._enabled;
   }
 
   /**
-   * Возвращает текущий viewport
+   * Returns current viewport
    */
   public get viewport(): {
     x: number;
@@ -334,7 +325,7 @@ export class VirtualizationManager {
   }
 
   /**
-   * Принудительно обновляет видимость (игнорируя throttle)
+   * Forcefully updates visibility (ignores throttle)
    */
   public forceUpdate(): void {
     this._throttle.reset();
@@ -343,21 +334,21 @@ export class VirtualizationManager {
   }
 
   /**
-   * Возвращает LOD Manager (если включён)
+   * Returns LOD Manager (if enabled)
    */
   public get lod(): LODManager | null {
     return this._lod;
   }
 
   /**
-   * Уничтожает менеджер и очищает ресурсы
+   * Destroys manager and releases resources
    */
   public destroy(): void {
     this.disable();
     this._visibleNodes.clear();
     this._hiddenNodes.clear();
 
-    // Очищаем LOD
+    // Clear LOD
     if (this._lod) {
       const nodes = this._nodeManager.list();
       this._lod.restoreAll(nodes);

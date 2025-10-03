@@ -30,7 +30,6 @@ export class ArcNode extends BaseNode<Konva.Arc> {
     super(arc, options);
   }
 
-  // Getters
   public getInnerRadius(): number {
     return this.konvaNode.innerRadius();
   }
@@ -44,7 +43,6 @@ export class ArcNode extends BaseNode<Konva.Arc> {
     return this.konvaNode.clockwise();
   }
 
-  // Setters (chainable)
   public setInnerRadius(v: number): this {
     this.konvaNode.innerRadius(v);
     return this;

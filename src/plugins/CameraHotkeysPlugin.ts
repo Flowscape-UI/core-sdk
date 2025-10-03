@@ -6,8 +6,8 @@ import { Plugin } from './Plugin';
 
 export interface CameraHotkeysOptions {
   target?: Window | Document | HTMLElement | EventTarget;
-  zoomStep?: number; // мультипликатор масштаба (например, 1.1
-  panStep?: number; // пиксели для стрелок
+  zoomStep?: number; // multiplier for zoom (e.g., 1.1)
+  panStep?: number; // pixels for arrows
   ignoreEditableTargets?: boolean;
   enableArrows?: boolean;
   enablePanning?: boolean;
@@ -58,7 +58,7 @@ export class CameraHotkeysPlugin extends Plugin {
     this._options = { ...this._options, ...patch } as typeof this._options;
 
     if (this._attached && this._core) {
-      // Синхронизация шагов зума/панорамирования
+      // Synchronization of zoom/pan steps
       if (typeof patch.zoomStep === 'number') {
         this._core.camera.setZoomStep(this._options.zoomStep);
       }
@@ -66,7 +66,7 @@ export class CameraHotkeysPlugin extends Plugin {
         this._core.camera.setPanStep(this._options.panStep);
       }
 
-      // Переключение контекстного меню на лету
+      // Context menu toggle on the fly
       if (
         typeof patch.disableContextMenu === 'boolean' &&
         patch.disableContextMenu !== prevDisableCtx
@@ -78,10 +78,6 @@ export class CameraHotkeysPlugin extends Plugin {
           container.removeEventListener('contextmenu', this._onContextMenuDOM as EventListener);
         }
       }
-
-      // Примечание: смена target/enablePanning/allow* на лету поддерживается
-      // за счёт проверок в рантайме. Переинициализация слушателей под новый target
-      // намеренно не выполняется во избежание неожиданных побочных эффектов.
     }
   }
 
@@ -90,9 +86,6 @@ export class CameraHotkeysPlugin extends Plugin {
 
     const stage: Konva.Stage = this._core.stage;
 
-    // Синхронизируем шаги зума/панорамирования с CameraManager (источник правды — плагин)
-    // Пользователь задаёт zoomStep/panStep через конструктор CameraHotkeysPlugin
-    // Если хотите, можно убрать эти строки, чтобы плагин только «читал» из камеры.
     if (typeof this._options.zoomStep === 'number') {
       this._core.camera.setZoomStep(this._options.zoomStep);
     }
@@ -100,11 +93,11 @@ export class CameraHotkeysPlugin extends Plugin {
       this._core.camera.setPanStep(this._options.panStep);
     }
 
-    // Запрещаем стандартное перетаскивание сцены левой кнопкой, сохраняем предыдущее состояние
+    // Disable standard scene dragging with left mouse button, save previous state
     this._prevStageDraggable = stage.draggable();
     stage.draggable(false);
 
-    // DOM keydown остаётся на target, т.к. Konva не генерирует key события
+    // DOM keydown remains on target, since Konva does not generate key events
     const t = this._options.target as EventTarget & {
       addEventListener: (
         type: string,
@@ -114,19 +107,19 @@ export class CameraHotkeysPlugin extends Plugin {
     };
     t.addEventListener('keydown', this._handleKeyDown as EventListener);
 
-    // Konva-события мыши с namespace .cameraHotkeys
+    // Konva mouse events with namespace .cameraHotkeys
     if (this._options.enablePanning) {
       stage.on('mousedown.cameraHotkeys', this._onMouseDownKonva);
       stage.on('mousemove.cameraHotkeys', this._onMouseMoveKonva);
       stage.on('mouseup.cameraHotkeys', this._onMouseUpKonva);
       stage.on('mouseleave.cameraHotkeys', this._onMouseLeaveKonva);
       if (this._options.disableContextMenu) {
-        // предотвращаем контекстное меню на контейнере
+        // Prevent context menu on container
         stage.container().addEventListener('contextmenu', this._onContextMenuDOM as EventListener);
       }
     }
 
-    // Колесо: перехват на DOM-уровне, чтобы не допускать зума при Shift
+    // Wheel: intercept on DOM level to prevent zooming when Shift is pressed
     stage.container().addEventListener(
       'wheel',
       this._onWheelDOM as EventListener,
@@ -136,7 +129,7 @@ export class CameraHotkeysPlugin extends Plugin {
       } as AddEventListenerOptions,
     );
 
-    // Резервная защита на уровне Konva: гасим wheel при отсутствии ctrl
+    // Konva reserve protection: suppress wheel when ctrl is not pressed
     stage.on('wheel.cameraHotkeysGuard', (e: Konva.KonvaEventObject<WheelEvent>) => {
       if (!e.evt.ctrlKey) {
         e.evt.preventDefault();
@@ -168,10 +161,9 @@ export class CameraHotkeysPlugin extends Plugin {
       stage.container().removeEventListener('contextmenu', this._onContextMenuDOM as EventListener);
     }
 
-    // Восстанавливаем предыдущее состояние draggable
+    // Restore previous draggable state
     if (this._prevStageDraggable !== undefined) {
       stage.draggable(this._prevStageDraggable);
-      // this._prevStageDraggable = undefined;
     }
 
     this._attached = false;
@@ -183,29 +175,29 @@ export class CameraHotkeysPlugin extends Plugin {
   private _onWheelDOM = (e: WheelEvent) => {
     if (!this._core) return;
 
-    // Зум — только при Ctrl. Meta не учитываем.
+    // Zoom only when Ctrl is pressed. Meta is not considered.
     const isCtrlZoom = e.ctrlKey;
     if (isCtrlZoom) return;
 
-    // Иначе — панорамируем по правилам и полностью гасим событие
+    // Otherwise, pan according to rules and fully suppress the event
     e.preventDefault();
-    // Останавливаем всплытие и немедленную обработку другими слушателями (в т.ч. Konva)
+    // Stop event bubbling and immediate processing by other listeners (including Konva)
     e.stopPropagation();
     (e as unknown as { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.();
 
     const { deltaX, deltaY, shiftKey } = e;
 
     if (this._isTouchpadWheel(e)) {
-      // Touchpad: свободное панорамирование
+      // Touchpad: free panning
       if (shiftKey) {
-        // При зажатом Shift — используем доминирующую компоненту (горизонтальную или вертикальную)
-        // и проецируем её на ось X (движение только по X). Это позволяет свайпать как влево/вправо,
-        // так и вверх/вниз для перемещения по X.
+        // With Shift held down, we use the dominant component (horizontal or vertical)
+        // and project it onto the X axis (movement only along X). This allows swiping
+        // both left/right and up/down for X movement.
         const primary = Math.abs(deltaX) >= Math.abs(deltaY) ? deltaX : deltaY;
         const dx = -primary;
         this._pan(dx, 0);
       } else {
-        // Без Shift — свободное панорамирование по обеим осям
+        // Without Shift, free panning along both axes
         const dx = -deltaX;
         const dy = -deltaY;
         this._pan(dx, dy);
@@ -213,7 +205,7 @@ export class CameraHotkeysPlugin extends Plugin {
       return;
     }
 
-    // Мышь: без Shift — ось Y; с Shift — ось X (вверх => влево, вниз => вправо)
+    // Mouse: without Shift — Y axis; with Shift — X axis (up => left, down => right)
     if (shiftKey) {
       const dx = deltaY < 0 ? -Math.abs(deltaY) : Math.abs(deltaY);
       this._pan(dx, 0);
@@ -227,7 +219,7 @@ export class CameraHotkeysPlugin extends Plugin {
   private _onMouseDownKonva = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!this._core || !this._options.enablePanning) return;
     const btn = e.evt.button;
-    // Разрешаем панорамирование только для средней (1) и правой (2) кнопок. Левую кнопку игнорируем.
+    // Allow panning only for middle (1) and right (2) buttons. Left button is ignored.
     const allow =
       (this._options.allowMiddleButtonPan && btn === 1) ||
       (this._options.allowRightButtonPan && btn === 2);
@@ -292,7 +284,7 @@ export class CameraHotkeysPlugin extends Plugin {
     if (this._options.ignoreEditableTargets && this._isEditableTarget(e.target)) return;
     if (!this._core) return;
 
-    // +/- zoom через CameraManager (используем zoomStep камеры)
+    // +/- zoom through CameraManager (using zoomStep from camera)
     const isPlus = e.code === 'Equal' || e.code === 'NumpadAdd';
     const isMinus = e.code === 'Minus' || e.code === 'NumpadSubtract';
     if (isPlus || isMinus) {
@@ -302,7 +294,7 @@ export class CameraHotkeysPlugin extends Plugin {
       return;
     }
 
-    // Стрелки — панорамирование на фиксированный шаг
+    // Arrows — panning by fixed step
     if (this._options.enableArrows) {
       const step = this._core.camera.panStep;
       switch (e.key) {
@@ -335,20 +327,20 @@ export class CameraHotkeysPlugin extends Plugin {
   }
 
   private _isTouchpadWheel(e: WheelEvent): boolean {
-    // Простая эвристика: пиксельный режим (deltaMode === 0) и наличие горизонтальной дельты
-    // или небольшие значения deltaY указывают на тачпад
+    // Simple heuristics: pixel mode (deltaMode === 0) and presence of horizontal delta
+    // or small deltaY values indicate touchpad
     const isPixel = e.deltaMode === 0;
     return isPixel && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) < 50);
   }
 
   private _pan(dx: number, dy: number) {
     if (!this._core) return;
-    // Панорамируем мир, а не stage, чтобы сетка и контент были в одной системе координат
+    // Pan the world, not the stage, to keep grid and content in the same coordinate system
     const world = this._core.nodes.world;
     const newX = world.x() + dx;
     const newY = world.y() + dy;
     world.position({ x: newX, y: newY });
-    // Эмитим событие панорамирования камеры
+    // Emit camera pan event
     this._core.eventBus.emit('camera:pan', { dx, dy, position: { x: newX, y: newY } });
     this._core.stage.batchDraw();
   }

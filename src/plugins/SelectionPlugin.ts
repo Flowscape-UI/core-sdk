@@ -11,34 +11,34 @@ import { DebounceHelper } from '../utils/DebounceHelper';
 
 import { Plugin } from './Plugin';
 
-// Узел Konva с поддержкой draggable() геттер/сеттер
+// Konva node with draggable() getter/setter support
 type DraggableNode = Konva.Node & { draggable(value?: boolean): boolean };
 
 export interface SelectionPluginOptions {
-  // Разрешить перетаскивание выбранной ноды
+  // Allow dragging of selected node
   dragEnabled?: boolean;
-  // Добавлять визуальный Transformer для выбранной ноды
+  // Add visual Transformer for selected node
   enableTransformer?: boolean;
-  // Снимать выделение кликом в пустую область
+  // Deselect on empty area click
   deselectOnEmptyClick?: boolean;
-  // Пользовательская проверка, можно ли выделять конкретный Konva.Node
+  // Custom check if specific Konva.Node can be selected
   selectablePredicate?: (node: Konva.Node) => boolean;
-  // Автопанорамирование мира при перетаскивании у краёв экрана
+  // Auto-pan world when dragging near screen edges
   autoPanEnabled?: boolean;
-  // Ширина зоны у края экрана (px)
+  // Edge zone width (px)
   autoPanEdgePx?: number;
-  // Максимальная скорость автопана в px/кадр
+  // Max auto-pan speed in px/frame
   autoPanMaxSpeedPx?: number;
 }
 
 /**
- * Универсальный плагин выбора и перетаскивания нод, совместимых с BaseNode.
+ * Universal selection and dragging plugin for nodes compatible with BaseNode.
  *
- * Поведение по умолчанию:
- * - Клик по ноде на слое NodeManager приводит к выделению ноды
- * - Выделенная нода становится перетаскиваемой (dragEnabled)
- * - Клик по пустой области снимает выделение (deselectOnEmptyClick)
- * - По желанию можно включить Konva.Transformer (enableTransformer)
+ * Default behavior:
+ * - Click on node in NodeManager layer selects the node
+ * - Selected node becomes draggable (dragEnabled)
+ * - Click on empty area deselects (deselectOnEmptyClick)
+ * - Optionally enable Konva.Transformer (enableTransformer)
  */
 export class SelectionPlugin extends Plugin {
   private _core?: CoreEngine;
@@ -50,9 +50,9 @@ export class SelectionPlugin extends Plugin {
   private _transformerWasVisibleBeforeDrag = false;
   private _cornerHandlesWereVisibleBeforeDrag = false;
   private _sizeLabelWasVisibleBeforeDrag = false;
-  // Состояние видимости для ротационных хендлеров во время drag
+  // Visibility state for rotation handles during drag
   private _rotateHandlesWereVisibleBeforeDrag = false;
-  // Группа и ссылки на угловые хендлеры для скругления
+  // Group and references to corner handles for rounding
   private _cornerHandlesGroup: Konva.Group | null = null;
   private _cornerHandles: {
     tl: Konva.Circle | null;
@@ -60,15 +60,15 @@ export class SelectionPlugin extends Plugin {
     br: Konva.Circle | null;
     bl: Konva.Circle | null;
   } = { tl: null, tr: null, br: null, bl: null };
-  // Флаг подавления показа corner-radius хендлеров во время трансформации
+  // Flag to suppress corner-radius handles during transformation
   private _cornerHandlesSuppressed = false;
-  // Сохранённая позиция противоположного угла при старте трансформации (для фиксации origin)
+  // Saved opposite corner position at transformation start (to fix origin)
   private _transformOppositeCorner: { x: number; y: number } | null = null;
-  // Label с размерами выбранной ноды (ширина × высота)
+  // Label with selected node dimensions (width × height)
   private _sizeLabel: Konva.Label | null = null;
-  // Label для отображения радиуса при наведении/перетаскивании corner-хендлеров
+  // Label for displaying radius on hover/drag of corner handles
   private _radiusLabel: Konva.Label | null = null;
-  // Группа и ссылки на угловые хендлеры ротации
+  // Group and references to rotation corner handles
   private _rotateHandlesGroup: Konva.Group | null = null;
   private _rotateHandles: {
     tl: Konva.Circle | null;
@@ -77,37 +77,36 @@ export class SelectionPlugin extends Plugin {
     bl: Konva.Circle | null;
   } = { tl: null, tr: null, br: null, bl: null };
   private _rotateDragState: { base: number; start: number } | null = null;
-  // Абсолютный центр на момент старта ротации — для компенсации позиции
+  // Absolute center at rotation start — for position compensation
   private _rotateCenterAbsStart: { x: number; y: number } | null = null;
-  // Сохранённое состояние stage.draggable() перед началом ротации
+  // Saved stage.draggable() state before rotation starts
   private _prevStageDraggableBeforeRotate: boolean | null = null;
 
-  // RAF-id для коалесцирования синхронизации оверлеев во время зума/панорамирования мира
+  // RAF-id for coalescing overlay sync during world zoom/pan
   private _worldSyncRafId: number | null = null;
-  // Ссылка на обработчик событий камеры для on/off
+  // Reference to camera event handler for on/off
   private _onCameraZoomEvent: (() => void) | null = null;
 
-  // Минимальная hover-рамка (синяя граница при наведении)
+  // Minimal hover frame (blue border on hover)
   private _hoverTr: Konva.Transformer | null = null;
   private _isPointerDown = false;
 
-  // Автопанорамирование мира при перетаскивании у краёв экрана
+  // Auto-pan world when dragging near screen edges
   private _autoPanRafId: number | null = null;
   private _autoPanActive = false;
-  private _autoPanEdgePx: number; // ширина зоны у края экрана (px)
-  private _autoPanMaxSpeedPx: number; // макс. скорость автопана в px/кадр
-  private _draggingNode: Konva.Node | null = null; // текущая нода в drag
+  private _autoPanEdgePx: number; // edge zone width (px)
+  private _autoPanMaxSpeedPx: number; // max auto-pan speed in px/frame
+  private _draggingNode: Konva.Node | null = null; // current node being dragged
 
-  // --- Пропорциональный ресайз по Shift для угловых хендлеров ---
+  // --- Proportional resize with Shift for corner handles ---
   private _ratioKeyPressed = false;
   private _onGlobalKeyDown: ((e: KeyboardEvent) => void) | null = null;
   private _onGlobalKeyUp: ((e: KeyboardEvent) => void) | null = null;
 
-  // Временная мульти-группа (Shift+Click)
+  // Temporary multi-group (Shift+Click)
   private _tempMultiSet = new Set<BaseNode>();
   private _tempMultiGroup: Konva.Group | null = null;
   private _tempMultiTr: Konva.Transformer | null = null;
-  // Единый менеджер оверлеев для временной группы
   private _tempOverlay: OverlayFrameManager | null = null;
   private _tempRotateHandlesGroup: Konva.Group | null = null;
   private _tempRotateHandles: {
@@ -120,7 +119,7 @@ export class SelectionPlugin extends Plugin {
     Konva.Node,
     {
       parent: Konva.Container;
-      indexInParent: number; // ИСПРАВЛЕНИЕ: сохраняем позицию в массиве детей
+      indexInParent: number; // FIX: save position in children array
       abs: { x: number; y: number };
       prevDraggable: boolean | null;
     }
@@ -183,10 +182,10 @@ export class SelectionPlugin extends Plugin {
         vx = this._autoPanMaxSpeedPx * (norm(rightPress) - norm(leftPress));
         vy = this._autoPanMaxSpeedPx * (norm(bottomPress) - norm(topPress));
         if (vx !== 0 || vy !== 0) {
-          // Смещение мира так, чтобы «подтягивать» поле под курсор (в экранных пикселях)
+          // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
-          // Компенсация для перетаскиваемой ноды: оставляем под курсором
+          // Compensation for dragged node: keep under cursor
           if (this._draggingNode && typeof this._draggingNode.setAbsolutePosition === 'function') {
             const abs = this._draggingNode.getAbsolutePosition();
             this._draggingNode.setAbsolutePosition({ x: abs.x + vx, y: abs.y + vy });
@@ -209,8 +208,8 @@ export class SelectionPlugin extends Plugin {
   }
 
   /**
-   * Отложенная перерисовка (throttling)
-   * Группирует множественные вызовы batchDraw в один
+   * Deferred redraw (throttling)
+   * Groups multiple batchDraw calls into one
    */
   private _scheduleBatchDraw() {
     if (this._batchDrawScheduled) return;
@@ -223,18 +222,18 @@ export class SelectionPlugin extends Plugin {
     });
   }
 
-  // Режим редактирования дочерней ноды внутри группы: хранение состояния родительской группы
+  // Child node editing mode inside group: storing parent group state
   private _parentGroupDuringChildEdit: Konva.Group | null = null;
   private _parentGroupPrevDraggable: boolean | null = null;
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _dragMoveScheduled = false;
   private _batchDrawScheduled = false;
 
-  // ОПТИМИЗАЦИЯ: Throttling для mousemove
+  // OPTIMIZATION: Throttling for mousemove
   private _hoverThrottle = new ThrottleHelper(16); // 60 FPS
 
-  // ОПТИМИЗАЦИЯ: Debouncing для UI updates (size label, rotate handles, etc.)
+  // OPTIMIZATION: Debouncing for UI updates (size label, rotate handles, etc.)
   private _uiUpdateDebounce = new DebounceHelper();
 
   constructor(options: SelectionPluginOptions = {}) {
@@ -256,26 +255,26 @@ export class SelectionPlugin extends Plugin {
       autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
     };
 
-    // Инициализация приватных полей автопана из опций
+    // Initialize auto-pan private fields from options
     this._autoPanEdgePx = this._options.autoPanEdgePx;
     this._autoPanMaxSpeedPx = this._options.autoPanMaxSpeedPx;
   }
 
   public setOptions(patch: Partial<SelectionPluginOptions>) {
     this._options = { ...this._options, ...patch } as typeof this._options;
-    // Обновляем Transformer под новое состояние опций
+    // Update Transformer for new options state
     if (this._core) this._refreshTransformer();
-    // Применяем новые значения автопана к приватным полям, если заданы
+    // Apply new auto-pan values to private fields if provided
     if (typeof patch.autoPanEdgePx === 'number') this._autoPanEdgePx = patch.autoPanEdgePx;
     if (typeof patch.autoPanMaxSpeedPx === 'number')
       this._autoPanMaxSpeedPx = patch.autoPanMaxSpeedPx;
-    // Если автопан был выключен — остановить цикл
+    // If auto-pan was disabled — stop the loop
     if (patch.autoPanEnabled === false) this._stopAutoPanLoop();
   }
 
   protected onAttach(core: CoreEngine): void {
     this._core = core;
-    // Инициализация контроллера временной мульти‑группы, проксирующего приватные методы
+    // Initialize temporary multi-group controller proxying private methods
     this._multiCtrl = new MultiGroupController({
       ensureTempMulti: (nodes) => {
         this._ensureTempMulti(nodes);
@@ -304,7 +303,7 @@ export class SelectionPlugin extends Plugin {
         this._scheduleBatchDraw();
       },
       onWorldChanged: () => {
-        // Коалесцируем как в основном обработчике мира
+        // Coalesce as in main world handler
         this._tempMultiTr?.forceUpdate();
         this._updateTempMultiSizeLabel();
         this._updateTempMultiHitRect();
@@ -314,7 +313,7 @@ export class SelectionPlugin extends Plugin {
       },
     });
 
-    // Навешиваем обработчики на сцену (namespace .selection)
+    // Attach handlers to stage (namespace .selection)
     const stage = core.stage;
     stage.on('mousedown.selection', this._onMouseDown);
 
@@ -323,10 +322,9 @@ export class SelectionPlugin extends Plugin {
       const stage = this._core.stage;
       const layer = this._core.nodes.layer;
 
-      // Только ЛКМ
+      // Left mouse button only
       if (e.evt.button !== 0) return;
 
-      // Клик по пустому месту — снимаем выделение (если включено)
       if (e.target === stage || e.target.getLayer() !== layer) {
         if (this._options.deselectOnEmptyClick) {
           this._destroyTempMulti();
@@ -335,25 +333,25 @@ export class SelectionPlugin extends Plugin {
         return;
       }
 
-      // Обычное выделение ноды (для группы — выберется группа)
+      // Normal node selection (for group — group will be selected)
       const target = e.target;
       if (!this._options.selectablePredicate(target)) return;
 
-      // Shift+Click или Ctrl+Click: собрать временную группу (мультивыделение)
+      // Shift+Click or Ctrl+Click: create temporary group (multi-selection)
       if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
         const base = this._findBaseNodeByTarget(target);
         if (!base) return;
 
-        // Если нода находится в группе, игнорируем (защита групп)
+        // If node is in a group, ignore (group protection)
         const nodeKonva = base.getNode();
         const parent = nodeKonva.getParent();
         if (parent && parent instanceof Konva.Group && parent !== this._core.nodes.world) {
-          // Нода в группе - не добавляем в мультивыделение
+          // Node in group - don't add to multi-selection
           return;
         }
 
         if (this._tempMultiSet.size === 0 && this._selected && this._selected !== base) {
-          // перенести текущую выбранную ноду в набор и убрать её одиночные оверлеи
+          // Move current selected node to set and remove its single overlays
           this._tempMultiSet.add(this._selected);
           if (this._transformer) {
             this._transformer.destroy();
@@ -391,13 +389,13 @@ export class SelectionPlugin extends Plugin {
       const baseNode = this._findBaseNodeByTarget(target);
       if (!baseNode) return;
 
-      // Обычный клик — разрушить временную группу и выделить одну ноду
+      // Normal click — destroy temporary group and select single node
       this._destroyTempMulti();
       this._select(baseNode);
       this._scheduleBatchDraw();
     });
 
-    // Двойной клик: "проваливание" на уровень ниже в иерархии групп
+    // Double click: "drill down" one level in group hierarchy
     stage.on('dblclick.selection', (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._core) return;
       const layer = this._core.nodes.layer;
@@ -415,23 +413,22 @@ export class SelectionPlugin extends Plugin {
       ) {
         e.cancelBubble = true;
 
-        // Находим ближайшую зарегистрированную группу между selectedNode и target
-        // Если группы нет - выбираем саму ноду
+        // Find closest registered group between selectedNode and target
+        // If no group - select the node itself
         let nextLevel: BaseNode | null = null;
 
-        // Ищем ближайшего зарегистрированного потомка selectedNode, который является предком target
         for (const n of this._core.nodes.list()) {
           const node = n.getNode() as unknown as Konva.Node;
 
-          // Проверяем, что node является потомком selectedNode
+          // Check that node is descendant of selectedNode
           if (
             typeof selectedNode.isAncestorOf === 'function' &&
             selectedNode.isAncestorOf(node) &&
             node !== selectedNode
           ) {
-            // Проверяем, что node является предком target (но не равен target, если это не группа)
+            // Check that node is ancestor of target (but not equal to target if not a group)
             if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(e.target)) {
-              // Проверяем, что это ближайший предок (нет промежуточных зарегистрированных нод)
+              // Check that this is the closest ancestor (no intermediate registered nodes)
               let isClosest = true;
               for (const other of this._core.nodes.list()) {
                 if (other === n) continue;
@@ -456,15 +453,15 @@ export class SelectionPlugin extends Plugin {
           }
         }
 
-        // Если не нашли промежуточную группу, ищем саму ноду target
+        // If no intermediate group found, search for target node itself
         nextLevel ??= this._core.nodes.list().find((n) => n.getNode() === e.target) ?? null;
 
         if (nextLevel) {
           this._select(nextLevel);
           const node = nextLevel.getNode();
-          // Включаем перетаскивание для выбранной ноды
+          // Enable dragging for selected node
           if (typeof node.draggable === 'function') node.draggable(true);
-          // Временно отключаем перетаскивание у родительской группы
+          // Temporarily disable dragging for parent group
           if (selectedNode instanceof Konva.Group) {
             this._parentGroupDuringChildEdit = selectedNode;
             this._parentGroupPrevDraggable =
@@ -476,18 +473,16 @@ export class SelectionPlugin extends Plugin {
       }
     });
 
-    // Реакция на удаление ноды — снимаем выделение, если выделенная нода была удалена
+    // React to node removal — deselect if selected node was removed
     core.eventBus.on('node:removed', this._onNodeRemoved);
 
-    // Hover-рамка: подсвечивает границы ноды/группы при наведении, даже если выделен другой объект
-    // ОПТИМИЗАЦИЯ: добавлен throttling для производительности
     stage.on('mousemove.hover', this._onHoverMoveThrottled);
     stage.on('mouseleave.hover', this._onHoverLeave);
     stage.on('mousedown.hover', this._onHoverDown);
     stage.on('mouseup.hover', this._onHoverUp);
     stage.on('touchstart.hover', this._onHoverDown);
     stage.on('touchend.hover', this._onHoverUp);
-    // Во время драга тоже скрываем оверлей
+    // Hide overlay during drag too
     this._core.nodes.layer.on('dragstart.hover', () => {
       this._destroyHoverTr();
     });
@@ -495,12 +490,12 @@ export class SelectionPlugin extends Plugin {
       this._destroyHoverTr();
     });
 
-    // Автопан: запускать уже при первом перетаскивании, даже если нода ещё не была выбрана
+    // Auto-pan: start on first drag, even if node wasn't selected yet
     const layer = this._core.nodes.layer;
     layer.on('dragstart.selectionAutoPan', (e: Konva.KonvaEventObject<DragEvent>) => {
       if (!this._options.autoPanEnabled) return;
       const target = e.target as Konva.Node;
-      // Учитываем пользовательский фильтр выбираемости, чтобы не реагировать на служебные ноды
+      // Consider custom selectability filter to avoid reacting to service nodes
       if (!this._options.selectablePredicate(target)) return;
       this._draggingNode = target;
       this._startAutoPanLoop();
@@ -510,11 +505,11 @@ export class SelectionPlugin extends Plugin {
       this._stopAutoPanLoop();
     });
 
-    // Когда панорамируется «камера» через перемещение world, необходимо синхронизировать все оверлеи
+    // When camera pans via world movement, need to sync all overlays
     const world = this._core.nodes.world;
     const syncOverlaysOnWorldChange = () => {
       if (!this._core) return;
-      // Коалесцируем множественные события (scale, x, y) в один апдейт на кадр
+      // Coalesce multiple events (scale, x, y) into one update per frame
       if (this._worldSyncRafId != null) return;
       this._worldSyncRafId = globalThis.requestAnimationFrame(() => {
         this._worldSyncRafId = null;
@@ -526,21 +521,20 @@ export class SelectionPlugin extends Plugin {
           this._sizeLabel ||
           this._tempMultiGroup
         ) {
-          // Пересчитать привязку и все пользовательские оверлеи в экранных координатах
+          // Recalculate attachment and all custom overlays in screen coordinates
           this._transformer?.forceUpdate();
           this._hoverTr?.forceUpdate();
           this._restyleSideAnchors();
           this._updateCornerRadiusHandlesPosition();
           this._updateRotateHandlesPosition();
           this._updateSizeLabel();
-          // Обновляем видимость хендлеров скругления в зависимости от зума
+          // Update corner radius handles visibility based on zoom
           this._updateCornerRadiusHandlesVisibility();
-          // Временная группа: форс‑апдейт единого менеджера оверлеев
           this._tempOverlay?.forceUpdate();
-          // ОПТИМИЗАЦИЯ: используем scheduleBatchDraw вместо прямого вызова
+          // OPTIMIZATION: use scheduleBatchDraw instead of direct call
           this._scheduleBatchDraw();
         }
-        // Hover-оверлей убираем до следующего mousemove, чтобы избежать мерцаний
+        // Remove hover overlay until next mousemove to avoid flickering
         this._destroyHoverTr();
       });
     };
@@ -548,7 +542,7 @@ export class SelectionPlugin extends Plugin {
       'xChange.selectionCamera yChange.selectionCamera scaleXChange.selectionCamera scaleYChange.selectionCamera',
       syncOverlaysOnWorldChange,
     );
-    // Слушаем события камеры для зума (CameraManager)
+    // Listen to camera events for zoom (CameraManager)
     this._onCameraZoomEvent = () => {
       syncOverlaysOnWorldChange();
     };
@@ -556,16 +550,16 @@ export class SelectionPlugin extends Plugin {
     core.eventBus.on('camera:setZoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
     core.eventBus.on('camera:reset', this._onCameraZoomEvent as unknown as () => void);
 
-    // Глобальные слушатели для Shift (пропорциональный ресайз только для угловых якорей)
+    // Global listeners for Shift (proportional resize only for corner anchors)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
       const ctrl = e.ctrlKey || e.metaKey;
-      // Ctrl+G — закрепить временную группу в постоянную (по коду клавиши, независимо от раскладки)
+      // Ctrl+G — commit temporary group to permanent (by key code, layout-independent)
       if (ctrl && !e.shiftKey && e.code === 'KeyG') {
         e.preventDefault();
         this._commitTempMultiToGroup();
       }
-      // Ctrl+Shift+G — разгруппировать выбранную постоянную группу (по коду клавиши)
+      // Ctrl+Shift+G — ungroup selected permanent group (by key code)
       if (ctrl && e.shiftKey && e.code === 'KeyG') {
         e.preventDefault();
         this._tryUngroupSelectedGroup();
@@ -579,24 +573,24 @@ export class SelectionPlugin extends Plugin {
   }
 
   protected onDetach(core: CoreEngine): void {
-    // Снимаем выделение и чистим состояния
+    // Deselect and clean states
     this._destroyTempMulti();
     this._clearSelection();
 
-    // Отписки
+    // Unsubscribe
     core.stage.off('.selection');
     core.stage.off('.hover');
     this._core?.nodes.layer.off('.hover');
-    // Снять слушатели world и сбросить отложенный RAF
+    // Remove world listeners and cancel pending RAF
     this._core?.nodes.world.off('.selectionCamera');
-    // Снять layer-уровневые обработчики автопана
+    // Remove layer-level auto-pan handlers
     this._core?.nodes.layer.off('.selectionAutoPan');
-    // Отменяем незавершённый RAF, если есть
+    // Cancel pending RAF if any
     if (this._worldSyncRafId != null) {
       globalThis.cancelAnimationFrame(this._worldSyncRafId);
       this._worldSyncRafId = null;
     }
-    // Снять слушатели событий камеры
+    // Remove camera event listeners
     if (this._onCameraZoomEvent) {
       core.eventBus.off('camera:zoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
       core.eventBus.off(
@@ -608,10 +602,10 @@ export class SelectionPlugin extends Plugin {
     }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 
-    // Снять hover-оверлей
+    // Remove hover overlay
     this._destroyHoverTr();
 
-    // Удалить глобальные слушатели клавиш
+    // Remove global key listeners
     if (this._onGlobalKeyDown) globalThis.removeEventListener('keydown', this._onGlobalKeyDown);
     if (this._onGlobalKeyUp) globalThis.removeEventListener('keyup', this._onGlobalKeyUp);
     this._onGlobalKeyDown = null;
@@ -621,13 +615,13 @@ export class SelectionPlugin extends Plugin {
   // ===================== Selection logic =====================
   private _onMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!this._core) return;
-    // Только левая кнопка мыши
+    // Left mouse button only
     if (e.evt.button !== 0) return;
 
     const stage = this._core.stage;
     const layer = this._core.nodes.layer;
 
-    // Клик по пустому месту
+    // Click on empty area
     if (e.target === stage || e.target.getLayer() !== layer) {
       let insideHandled = false;
       if (this._selected) {
@@ -667,7 +661,7 @@ export class SelectionPlugin extends Plugin {
                     if (typeof dnode.draggable === 'function') {
                       dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
                     }
-                    // После drag вернуть рамку
+                    // Restore frame after drag
                     if (this._selected) {
                       this._refreshTransformer();
                       this._core?.nodes.layer.batchDraw();
@@ -679,7 +673,7 @@ export class SelectionPlugin extends Plugin {
                 }
               };
               const onUp = () => {
-                // Если drag не стартовал — это клик: только тогда снимаем выделение
+                // If drag didn't start — it's a click: only then deselect
                 if (!dragStarted && this._options.deselectOnEmptyClick) this._clearSelection();
                 stage.off('mousemove.selection-once-bbox');
                 stage.off('mouseup.selection-once-bbox');
@@ -690,7 +684,7 @@ export class SelectionPlugin extends Plugin {
           }
         }
       }
-      // Если клик пришёл ВНЕ bbox — снимаем выделение мгновенно
+      // If click came OUTSIDE bbox — deselect immediately
       if (!insideHandled) {
         if (this._options.deselectOnEmptyClick) this._clearSelection();
       }
@@ -700,11 +694,11 @@ export class SelectionPlugin extends Plugin {
     const target = e.target;
     if (!this._options.selectablePredicate(target)) return;
 
-    // Базовый поиск (обычно группа)
+    // Basic search (usually group)
     let baseNode = this._findBaseNodeByTarget(target);
     if (!baseNode) return;
 
-    // Если есть выделение и клик пришёл внутри уже выделенной ноды — тянем именно её
+    // If there's selection and click came inside already selected node — drag it
     if (this._selected) {
       const selKonva = this._selected.getNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
@@ -718,15 +712,13 @@ export class SelectionPlugin extends Plugin {
       if (isAncestor(selKonva, target)) {
         baseNode = this._selected;
       }
-      // Иначе — остаётся группа (baseNode найден выше)
+      // Otherwise — remains group (baseNode found above)
     }
 
-    // this._select(baseNode); // uncomment if needed
-
-    // Стартуем перетаскивание сразу, без визуального выделения до окончания drag
+    // Start dragging immediately, without visual selection until drag ends
     const konvaNode = baseNode.getNode();
 
-    // Порог для «намеренного» движения, чтобы не мешать dblclick
+    // Threshold for "intentional" movement to not interfere with dblclick
     const threshold = 3;
     const startX = e.evt.clientX;
     const startY = e.evt.clientY;
@@ -754,7 +746,7 @@ export class SelectionPlugin extends Plugin {
     this._core.stage.on('mousemove.selection-once', onMove);
     this._core.stage.on('mouseup.selection-once', onUp);
 
-    // Если уже идёт перетаскивание — ничего не делаем
+    // If already dragging — do nothing
     if (typeof konvaNode.isDragging === 'function' && konvaNode.isDragging()) {
       return;
     }
@@ -763,17 +755,17 @@ export class SelectionPlugin extends Plugin {
     const prevNodeDraggable = hasDraggable ? konvaNode.draggable() : false;
     const prevStageDraggable = stage.draggable();
 
-    // На время drag делаем ноду перетаскиваемой
+    // Make node draggable during drag
     if (hasDraggable) {
       konvaNode.draggable(true);
     }
 
-    // На старте drag отключаем pan сцены
+    // Disable stage pan on drag start
     konvaNode.on('dragstart.selection-once', () => {
       stage.draggable(false);
     });
 
-    // По окончании drag: восстановить состояние сцены/ноды и выделить ноду
+    // On drag end: restore stage/node state and select node
     konvaNode.on('dragend.selection-once', () => {
       stage.draggable(prevStageDraggable);
       if (hasDraggable) {
@@ -783,7 +775,7 @@ export class SelectionPlugin extends Plugin {
           konvaNode.draggable(prevNodeDraggable);
         }
       }
-      // После завершения перетаскивания — вернуть визуальное выделение
+      // After drag completion — restore visual selection
       this._select(baseNode);
     });
   };
@@ -792,27 +784,27 @@ export class SelectionPlugin extends Plugin {
     if (!this._core) return;
     const core = this._core;
 
-    // Сбрасываем предыдущее выделение
+    // Clear previous selection
     this._clearSelection();
 
-    // Сохраняем и включаем draggable для выбранной ноды (если требуется)
+    // Save and enable draggable for the selected node (if enabled)
     const konvaNode = node.getNode();
     this._prevDraggable = konvaNode.draggable();
     if (this._options.dragEnabled && typeof konvaNode.draggable === 'function') {
       konvaNode.draggable(true);
     }
 
-    // Визуальный transformer (по желанию)
+    // Visual transformer (optional)
     this._selected = node;
     this._refreshTransformer();
 
-    // Эмитим событие выделения
+    // Emit selection event
     core.eventBus.emit('node:selected', node);
 
-    // Перетаскивание уже обрабатывается самим Konva Node при draggable(true)
-    // Прячем/показываем рамку и хендлеры радиуса на время drag
+    // Dragging is handled by Konva Node when draggable(true)
+    // Hide/show the frame and corner-radius handles during drag
     konvaNode.on('dragstart.selection', () => {
-      // Запоминаем активную ноду для компенсации смещения при автопане
+      // Remember active node for offset compensation during auto-pan
       this._draggingNode = konvaNode;
       if (this._transformer) {
         this._transformerWasVisibleBeforeDrag = this._transformer.visible();
@@ -831,11 +823,11 @@ export class SelectionPlugin extends Plugin {
         this._sizeLabel.visible(false);
       }
       this._core?.stage.batchDraw();
-      // Запустить автопан при перетаскивании
+      // Start auto-pan during dragging
       this._startAutoPanLoop();
     });
     konvaNode.on('dragmove.selection', () => {
-      // Оптимизация: throttling для dragmove
+      // Optimization: throttling for dragmove
       if (this._dragMoveScheduled) return;
 
       this._dragMoveScheduled = true;
@@ -846,7 +838,7 @@ export class SelectionPlugin extends Plugin {
       });
     });
 
-    // Эмит изменений после завершения drag
+    // Emit changes after drag completion
     konvaNode.on('dragend.selection', () => {
       const changes: {
         x?: number;
@@ -874,7 +866,7 @@ export class SelectionPlugin extends Plugin {
       core.eventBus.emit('node:transformed', node, changes);
     });
 
-    // Эмит изменений после завершения трансформации (resize/rotate/scale)
+    // Emit changes after transformation completion (resize/rotate/scale)
     konvaNode.on('transformend.selection', () => {
       const changes: {
         x?: number;
@@ -902,7 +894,7 @@ export class SelectionPlugin extends Plugin {
       this._core?.eventBus.emit('node:transformed', node, changes);
     });
     konvaNode.on('dragend.selection', () => {
-      // Сбросить ссылку на активную ноду
+      // Reset active node reference
       this._draggingNode = null;
       if (this._transformer) {
         if (this._transformerWasVisibleBeforeDrag) {
@@ -928,13 +920,13 @@ export class SelectionPlugin extends Plugin {
         }
         this._sizeLabelWasVisibleBeforeDrag = false;
       }
-      // Остановить автопан
+      // Stop auto-pan
       this._stopAutoPanLoop();
       this._select(node);
       this._core?.stage.batchDraw();
     });
 
-    // >>> ДОБАВИТЬ: панорамирование сцены при средней/правой кнопке, если нода уже выделена
+    // >>> ADD: stage panning with middle/right button if node is already selected
     konvaNode.on('mousedown.selection', (e: Konva.KonvaEventObject<MouseEvent>) => {
       const btn = e.evt.button;
       if (btn === 1 || btn === 2) {
@@ -950,13 +942,13 @@ export class SelectionPlugin extends Plugin {
     const selectedNode = this._selected;
     const node = this._selected.getNode();
 
-    // Вернуть предыдущее состояние draggable
+    // Restore previous draggable state
     if (typeof node.draggable === 'function' && this._prevDraggable !== null) {
       node.draggable(this._prevDraggable);
     }
     this._prevDraggable = null;
 
-    // Вернуть состояние draggable у родительской группы, если мы были в режиме редактирования дочерней ноды
+    // Restore draggable state of parent group if we were in child node edit mode
     if (this._parentGroupDuringChildEdit) {
       const grp = this._parentGroupDuringChildEdit;
       if (typeof grp.draggable === 'function' && this._parentGroupPrevDraggable !== null) {
@@ -966,19 +958,19 @@ export class SelectionPlugin extends Plugin {
       this._parentGroupPrevDraggable = null;
     }
 
-    // Снять слушатели drag c namespace
+    // Remove drag listeners with namespace
     node.off('.selection');
     node.off('.selection-once');
 
-    // Удалить кастомные хендлеры радиуса
+    // Remove custom radius handles
     this._destroyCornerRadiusHandles();
-    // Удалить ротационные хендлеры
+    // Remove rotation handles
     this._destroyRotateHandles();
 
-    // Удалить размерный label
+    // Remove size label
     this._destroySizeLabel();
 
-    // Удалить transformer, если был
+    // Remove transformer if exists
     if (this._transformer) {
       this._transformer.destroy();
       this._transformer = null;
@@ -986,7 +978,7 @@ export class SelectionPlugin extends Plugin {
 
     this._selected = null;
 
-    // Эмитим события снятия выделения
+    // Emit deselection events
     if (this._core) {
       this._core.eventBus.emit('node:deselected', selectedNode);
       this._core.eventBus.emit('selection:cleared');
@@ -995,11 +987,11 @@ export class SelectionPlugin extends Plugin {
     this._core?.stage.batchDraw();
   }
 
-  // ===== Helpers: временная мульти-группа =====
+  // ===== Helpers: temporary multi-group =====
   private _ensureTempMulti(nodes: BaseNode[]) {
     if (!this._core) return;
     const world = this._core.nodes.world;
-    // Заполняем набор для корректной проверки size при коммите (важно для лассо)
+    // Fill set for correct size check on commit (important for lasso)
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
 
@@ -1012,7 +1004,7 @@ export class SelectionPlugin extends Plugin {
         const kn = b.getNode() as unknown as Konva.Node;
         const parent = kn.getParent();
         if (!parent) continue;
-        // ИСПРАВЛЕНИЕ: сохраняем позицию в массиве детей родителя
+        // FIX: save position in parent's children array
         const indexInParent = kn.zIndex();
         const abs = kn.getAbsolutePosition();
         const prevDraggable =
@@ -1027,7 +1019,7 @@ export class SelectionPlugin extends Plugin {
           typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
         )
           (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
-        // Блокируем drag у детей и перенаправляем на группу
+        // Block drag on children and redirect to group
         kn.off('.tempMultiChild');
         kn.on('dragstart.tempMultiChild', (ev: Konva.KonvaEventObject<DragEvent>) => {
           ev.cancelBubble = true;
@@ -1041,10 +1033,10 @@ export class SelectionPlugin extends Plugin {
           if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
         });
       }
-      // Единый менеджер оверлеев для временной группы
+      // Unified overlay manager for temporary group
       this._tempOverlay ??= new OverlayFrameManager(this._core);
       this._tempOverlay.attach(grp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
-      // Поведение, как у обычной группы: drag группы, без панорамирования сцены
+      // Behavior like a regular group: drag group, without scene panning
       const stage = this._core.stage;
       const prevStageDraggable = stage.draggable();
       grp.draggable(true);
@@ -1056,7 +1048,7 @@ export class SelectionPlugin extends Plugin {
         stage.draggable(false);
         this._draggingNode = grp;
         this._startAutoPanLoop();
-        // Спрятать рамку/лейбл/хендлеры временной группы на время перетаскивания
+        // Hide frame/label/handles of temporary group during dragging
         this._tempOverlay?.hideOverlaysForDrag();
         forceUpdate();
       });
@@ -1066,16 +1058,16 @@ export class SelectionPlugin extends Plugin {
         stage.draggable(prevStageDraggable);
         this._draggingNode = null;
         this._stopAutoPanLoop();
-        // Вернуть рамку/лейбл/хендлеры после перетаскивания
+        // Restore frame/label/handles after dragging
         this._tempOverlay?.restoreOverlaysAfterDrag();
         forceUpdate();
       });
 
-      // Событие создания временного мультивыделения
+      // Event: temporary multi-selection created
       this._core.eventBus.emit('selection:multi:created', nodes);
       return;
     }
-    // обновить состав
+    // Update composition
     const curr = [...this._tempMultiGroup.getChildren()];
     const want = nodes.map((b) => b.getNode() as unknown as Konva.Node);
     const same = curr.length === want.length && want.every((n) => curr.includes(n as Konva.Group));
@@ -1087,7 +1079,7 @@ export class SelectionPlugin extends Plugin {
   private _destroyTempMulti() {
     if (!this._core) return;
     if (!this._tempMultiGroup && this._tempMultiSet.size === 0) return;
-    // Снять единый менеджер оверлеев (уберёт transformer/лейбл/rotate/hit)
+    // Detach unified overlay manager (removes transformer/label/rotate/hit)
     if (this._tempOverlay) {
       this._tempOverlay.detach();
       this._tempOverlay = null;
@@ -1096,21 +1088,21 @@ export class SelectionPlugin extends Plugin {
       this._tempMultiGroup.off('.tempMulti');
       const children = [...this._tempMultiGroup.getChildren()];
       for (const kn of children) {
-        // снять перехваты с детей
+        // Remove child intercepts
         kn.off('.tempMultiChild');
         const info = this._tempPlacement.get(kn);
-        // Сохраняем абсолютный трансформ ребёнка (позиция/скейл/вращение)
+        // Store child's absolute transform (position/scale/rotation)
         const absBefore = kn.getAbsoluteTransform().copy();
-        // Родитель-назначение: сохранённый или world
+        // Destination parent: saved one or world
         const dstParent = info?.parent ?? this._core.nodes.world;
-        // Переместить к родителю-назначению
+        // Move to destination parent
         kn.moveTo(dstParent);
-        // Рассчитать локальный трансформ, эквивалентный ранее абсолютному
+        // Compute local transform equivalent to the previous absolute transform
         const parentAbs = dstParent.getAbsoluteTransform().copy();
         parentAbs.invert();
         const local = parentAbs.multiply(absBefore);
         const d = local.decompose();
-        // Применить локальные x/y/rotation/scale, чтобы сохранить визуальный результат
+        // Apply local x/y/rotation/scale to preserve the visual result
         if (
           typeof (kn as unknown as { position?: (p: Konva.Vector2d) => void }).position ===
           'function'
@@ -1130,21 +1122,21 @@ export class SelectionPlugin extends Plugin {
             y: d.scaleY,
           });
         }
-        // Восстановить порядок и draggable
+        // Restore order and draggable
         if (info) {
-          // ИСПРАВЛЕНИЕ: восстанавливаем позицию через moveUp/moveDown
+          // FIX: restore position via moveUp/moveDown
           const currentIndex = kn.zIndex();
           const targetIndex = info.indexInParent;
 
           if (currentIndex !== targetIndex) {
             const diff = targetIndex - currentIndex;
             if (diff > 0) {
-              // Нужно переместить вверх
+              // Need to move up
               for (let i = 0; i < diff && kn.zIndex() < info.parent.children.length - 1; i++) {
                 kn.moveUp();
               }
             } else if (diff < 0) {
-              // Нужно переместить вниз
+              // Need to move down
               for (let i = 0; i < Math.abs(diff) && kn.zIndex() > 0; i++) {
                 kn.moveDown();
               }
@@ -1166,7 +1158,7 @@ export class SelectionPlugin extends Plugin {
     this._tempPlacement.clear();
     this._tempMultiSet.clear();
 
-    // Событие уничтожения временного мультивыделения
+    // Event: temporary multi-selection destroyed
     this._core.eventBus.emit('selection:multi:destroyed');
   }
 
@@ -1209,7 +1201,7 @@ export class SelectionPlugin extends Plugin {
   private _updateTempMultiSizeLabel() {
     if (!this._core || !this._tempMultiGroup || !this._tempMultiSizeLabel) return;
     const world = this._core.nodes.world;
-    // Визуальный bbox БЕЗ учёта stroke (и, соответственно, без рамки выделения)
+    // Visual bbox WITHOUT stroke (and thus without selection frame)
     const bbox = this._tempMultiGroup.getClientRect({ skipShadow: true, skipStroke: true });
     const logicalW = bbox.width / Math.max(1e-6, world.scaleX());
     const logicalH = bbox.height / Math.max(1e-6, world.scaleY());
@@ -1230,11 +1222,11 @@ export class SelectionPlugin extends Plugin {
     this._tempMultiSizeLabel.moveToTop();
   }
 
-  // Обновить/создать невидимую хит-зону, соответствующую bbox группы (для drag в пустых местах)
+  // Update/create an invisible hit zone matching the group's bbox (for dragging in empty areas)
   private _updateTempMultiHitRect() {
     if (!this._core || !this._tempMultiGroup) return;
     const layer = this._core.nodes.layer;
-    // Локальный bbox группы (без трансформации), чтобы прямоугольник корректно совпадал при любом повороте/скейле
+    // Group's local bbox (no transform) so the rect aligns correctly at any rotation/scale
     const local = this._tempMultiGroup.getClientRect({
       skipTransform: true,
       skipShadow: true,
@@ -1250,25 +1242,25 @@ export class SelectionPlugin extends Plugin {
         y: topLeft.y,
         width: w,
         height: h,
-        fill: 'rgba(0,0,0,0.001)', // почти невидимая, но участвующая в hit-test
+        fill: 'rgba(0,0,0,0.001)', // almost invisible but participates in hit-test
         listening: true,
         perfectDrawEnabled: false,
       });
-      // Разрешаем drag группы при mousedown в пустой области
+      // Allow group drag on mousedown in empty area
       rect.on('mousedown.tempMultiHit', (ev: Konva.KonvaEventObject<MouseEvent>) => {
         if (ev.evt.button !== 0) return;
         ev.cancelBubble = true;
         const anyGrp = this._tempMultiGroup as unknown as { startDrag?: () => void };
         if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
       });
-      // Добавляем в группу и держим на заднем плане
+      // Add to the group and keep at the back
       this._tempMultiGroup.add(rect);
       rect.moveToBottom();
       this._tempMultiHitRect = rect;
       layer.batchDraw();
       return;
     }
-    // Обновляем геометрию существующего прямоугольника
+    // Update geometry of the existing rectangle
     this._tempMultiHitRect.position(topLeft);
     this._tempMultiHitRect.size({ width: w, height: h });
     this._tempMultiHitRect.moveToBottom();
@@ -1284,45 +1276,45 @@ export class SelectionPlugin extends Plugin {
     const children = [...this._tempMultiGroup.getChildren()];
     const groupedBaseNodes: BaseNode[] = [];
 
-    // ИСПРАВЛЕНИЕ: Сортируем ноды по их текущему z-index в world ПЕРЕД добавлением в группу
-    // Это сохраняет их относительный порядок отрисовки
+    // FIX: Sort nodes by their current z-index in the world BEFORE adding to the group
+    // This preserves their relative render order
     const sortedChildren = children.sort((a, b) => {
       return a.zIndex() - b.zIndex();
     });
 
-    // Находим максимальный z-index для позиционирования самой группы в world
+    // Find the maximum z-index to position the group itself in the world
     const maxZIndex = Math.max(...sortedChildren.map((kn) => kn.zIndex()));
 
     for (const kn of sortedChildren) {
-      // Снять перехваты временной группы с детей
+      // Remove temporary group intercepts from children
       kn.off('.tempMultiChild');
       const abs = kn.getAbsolutePosition();
       g.add(kn as unknown as Konva.Group | Konva.Shape);
       kn.setAbsolutePosition(abs);
 
-      // ИСПРАВЛЕНИЕ: НЕ устанавливаем z-index детям!
-      // Konva автоматически установит порядок при добавлении в группу
-      // Порядок добавления (sortedChildren) = порядок отрисовки
+      // FIX: Do NOT set z-index on children!
+      // Konva will automatically set order when added to the group
+      // Add order (sortedChildren) = render order
 
       if (
         typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
       )
         (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
 
-      // Собираем BaseNode соответствующие Konva-нодам
+      // Collect BaseNodes corresponding to the Konva nodes
       const base = this._core.nodes
         .list()
         .find((b) => b.getNode() === (kn as unknown as Konva.Node));
       if (base) groupedBaseNodes.push(base);
     }
 
-    // ИСПРАВЛЕНИЕ: Позиционируем саму группу в world с правильным z-index
-    // Используем moveUp/moveDown вместо прямой установки zIndex(value)
+    // FIX: Position the group itself in the world with the correct z-index
+    // Use moveUp/moveDown instead of setting zIndex(value) directly
     const world = this._core.nodes.world;
     const currentGroupIndex = g.zIndex();
     const targetIndex = maxZIndex;
 
-    // Перемещаем группу на позицию максимального z-index из детей
+    // Move the group to the maximum children's z-index position
     if (currentGroupIndex < targetIndex) {
       const diff = targetIndex - currentGroupIndex;
       for (let i = 0; i < diff && g.zIndex() < world.children.length - 1; i++) {
@@ -1334,21 +1326,21 @@ export class SelectionPlugin extends Plugin {
       this._tempMultiTr.destroy();
       this._tempMultiTr = null;
     }
-    // Детачим единый менеджер оверлеев временной группы, чтобы не оставались висящие элементы UI
+    // Detach the unified overlay manager for the temporary group to prevent UI elements from remaining
     if (this._tempOverlay) {
       this._tempOverlay.detach();
       this._tempOverlay = null;
     }
-    // Снять обработчики .tempMulti у самой временной группы перед уничтожением
+    // Remove .tempMulti handlers from the temporary group before destruction
     this._tempMultiGroup.off('.tempMulti');
     this._tempMultiGroup.destroy();
     this._tempMultiGroup = null;
     this._tempPlacement.clear();
     this._tempMultiSet.clear();
-    // Явно включаем draggable для созданной группы (на случай, если downstream логика поменяет опции)
+    // Explicitly enable draggable for the created group (in case downstream logic changes options)
     if (typeof g.draggable === 'function') g.draggable(true);
 
-    // Событие создания постоянной группы
+    // Event: group created
     this._core.eventBus.emit('group:created', newGroup, groupedBaseNodes);
     this._select(newGroup);
     this._core.stage.batchDraw();
@@ -1363,19 +1355,19 @@ export class SelectionPlugin extends Plugin {
     const world = this._core.nodes.world;
 
     for (const kn of children) {
-      // Сохраняем полный абсолютный трансформ ребёнка (позиция + scale + rotation)
+      // Save the full absolute transform of the child (position + scale + rotation)
       const absBefore = kn.getAbsoluteTransform().copy();
 
-      // Перемещаем к world
+      // Move to world
       world.add(kn as unknown as Konva.Group | Konva.Shape);
 
-      // Рассчитываем локальный трансформ, эквивалентный ранее абсолютному
+      // Calculate local transform equivalent to the previous absolute transform
       const worldAbs = world.getAbsoluteTransform().copy();
       worldAbs.invert();
       const local = worldAbs.multiply(absBefore);
       const d = local.decompose();
 
-      // Применяем локальные x/y/rotation/scale, чтобы сохранить визуальный результат
+      // Apply local x/y/rotation/scale to preserve the visual result
       if (
         typeof (kn as unknown as { position?: (p: Konva.Vector2d) => void }).position === 'function'
       ) {
@@ -1393,7 +1385,7 @@ export class SelectionPlugin extends Plugin {
         });
       }
 
-      // Включаем draggable для разгруппированных нод
+      // Enable draggable for ungrouped nodes
       if (
         typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
       ) {
@@ -1405,13 +1397,13 @@ export class SelectionPlugin extends Plugin {
     this._selected = null;
     this._transformer?.destroy();
     this._transformer = null;
-    // Удаляем размерный label группы при разгруппировке
+    // Remove size label of the group on ungrouping
     this._destroySizeLabel();
     this._core.nodes.remove(sel);
     this._core.stage.batchDraw();
   }
 
-  // ===================== Hover (минимально) =====================
+  // ===================== Hover (minimal) =====================
   private _ensureHoverTr(): Konva.Transformer {
     if (!this._core) throw new Error('Core is not attached');
     if (this._hoverTr?.getParent()) return this._hoverTr;
@@ -1440,7 +1432,7 @@ export class SelectionPlugin extends Plugin {
     }
   }
 
-  // ОПТИМИЗАЦИЯ: Throttled версия _onHoverMove
+  // OPTIMIZATION: Throttled version of _onHoverMove
   private _onHoverMoveThrottled = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!this._hoverThrottle.shouldExecute()) return;
     this._onHoverMove(e);
@@ -1451,11 +1443,11 @@ export class SelectionPlugin extends Plugin {
     const stage = this._core.stage;
     const layer = this._core.nodes.layer;
     const target = e.target;
-    // Если есть временная группа (наша или area-temp-group) и указатель внутри неё — подавить hover
+    // If there's a temporary group (ours or area-temp-group) and pointer is inside it — suppress hover
     const isInsideTemp = (() => {
       const hasTemp = !!this._tempMultiGroup;
       if (!hasTemp) {
-        // Проверим, не внутри ли area-temp-group
+        // Check if inside area-temp-group
         let cur: Konva.Node | null = target;
         while (cur) {
           if (cur instanceof Konva.Group && typeof cur.name === 'function') {
@@ -1470,7 +1462,6 @@ export class SelectionPlugin extends Plugin {
         }
         return false;
       }
-      // есть _tempMultiGroup — проверим принадлежность
       let cur: Konva.Node | null = target;
       while (cur) {
         if (cur === this._tempMultiGroup) return true;
@@ -1482,21 +1473,21 @@ export class SelectionPlugin extends Plugin {
       this._destroyHoverTr();
       return;
     }
-    // Если зажата кнопка мыши — hover не показываем
+    // If mouse button is pressed — do not show hover
     const buttons = typeof e.evt.buttons === 'number' ? e.evt.buttons : 0;
     if (this._isPointerDown || buttons & 1) {
       this._destroyHoverTr();
       return;
     }
-    // Наведение вне рабочего слоя — скрыть
+    // If hover is outside the working layer — hide
     if (target === stage || target.getLayer() !== layer) {
       this._destroyHoverTr();
       return;
     }
-    // Найти «владельца»:
-    // - по умолчанию ближайшая зарегистрированная группа;
-    // - если её нет — ближайший зарегистрированный предок (включая сам таргет);
-    // - НО: если есть выделенная нода в этой же группе и ховер по другой ноде из группы — подсвечиваем именно эту ноду.
+    // Find the "owner":
+    // - by default, the nearest registered group;
+    // - if none, the nearest registered ancestor (including the target itself);
+    // - HOWEVER: if there is a selected node in this same group and hover over another node from the group — highlight this node specifically.
     const registeredArr = this._core.nodes.list().map((n) => n.getNode() as unknown as Konva.Node);
     const registered = new Set<Konva.Node>(registeredArr);
 
@@ -1512,7 +1503,7 @@ export class SelectionPlugin extends Plugin {
     const findNearestRegisteredGroup = (start: Konva.Node): Konva.Node | null => {
       let cur: Konva.Node | null = start;
       let lastGroup: Konva.Node | null = null;
-      // Ищем самую верхнюю (внешнюю) зарегистрированную группу
+      // Find the highest (outermost) registered group
       while (cur) {
         if (registered.has(cur) && cur instanceof Konva.Group) {
           lastGroup = cur;
@@ -1526,12 +1517,12 @@ export class SelectionPlugin extends Plugin {
     const targetOwnerNode = findNearestRegistered(target);
 
     const ctrlPressed = e.evt.ctrlKey;
-    // При зажатом Ctrl — всегда подсвечиваем leaf-ноду (если она зарегистрирована)
+    // With Ctrl pressed — always highlight the leaf node (if it is registered)
     let owner: Konva.Node | null = ctrlPressed
       ? (targetOwnerNode ?? targetOwnerGroup)
       : (targetOwnerGroup ?? targetOwnerNode);
 
-    // Спец-правило (без Ctrl): если выделена НОДА (не группа) внутри группы и ховер по ДРУГОЙ ноде группы — подсвечиваем leaf-ноду
+    // Special rule (without Ctrl): if a NODE (not a group) is selected inside a group and hover over another node from the group — highlight this node specifically
     if (
       !ctrlPressed &&
       this._selected &&
@@ -1551,7 +1542,7 @@ export class SelectionPlugin extends Plugin {
         };
         return isDesc(group, nodeA) && isDesc(group, nodeB);
       };
-      // Если у нас есть группа для ховера и обе ноды под ней, и при этом ховерится не выбранная нода — выбрать targetOwnerNode
+      // If we have a hover group and both nodes are under it, and the hover is not the selected node — select targetOwnerNode
       if (
         targetOwnerGroup &&
         inSameGroup(selectedNode, targetOwnerNode, targetOwnerGroup) &&
@@ -1560,22 +1551,22 @@ export class SelectionPlugin extends Plugin {
         owner = targetOwnerNode;
       }
     }
-    // Если так и не нашли — скрыть
+    // If not found — hide
     if (!owner) {
       this._destroyHoverTr();
       return;
     }
-    // Учитываем пользовательский предикат уже по owner
+    // Consider the user predicate already by owner
     if (!this._options.selectablePredicate(owner)) {
       this._destroyHoverTr();
       return;
     }
 
-    // Если навели на уже выделённую ноду/ветку — не дублируем рамку
+    // If we hover over the already selected node/branch — do not duplicate the frame
     if (this._selected) {
       const selectedNode = this._selected.getNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
-        // true, если a — предок b
+        // true, if a is an ancestor of b
         let cur: Konva.Node | null = b;
         while (cur) {
           if (cur === a) return true;
@@ -1583,8 +1574,8 @@ export class SelectionPlugin extends Plugin {
         }
         return false;
       };
-      // Скрываем hover только если это та же нода или если selectedNode является предком owner
-      // НЕ скрываем, если owner является предком selectedNode (это означает, что owner - более высокая группа)
+      // Hide hover only if it is the same node or if selectedNode is an ancestor of owner
+      // Do not hide if owner is an ancestor of selectedNode (this means that owner is a higher group)
       const shouldSuppress = ctrlPressed
         ? owner === selectedNode
         : owner === selectedNode || isAncestor(selectedNode, owner);
@@ -1617,7 +1608,7 @@ export class SelectionPlugin extends Plugin {
   private _refreshTransformer() {
     if (!this._core) return;
 
-    // Очистка предыдущего
+    // Clear the previous one
     if (this._transformer) {
       this._transformer.destroy();
       this._transformer = null;
@@ -1627,12 +1618,9 @@ export class SelectionPlugin extends Plugin {
 
     const layer = this._core.nodes.layer;
     const transformer = new Konva.Transformer({
-      // Отключаем стандартную ротацию Transformer — вращаем только кастомными хендлерами
       rotateEnabled: false,
       rotationSnapTolerance: 15,
-      // Запрещаем флип по осям, чтобы не было внезапных инверсий при зажатом Shift
       flipEnabled: false,
-      // По умолчанию свободный ресайз. Пропорции включаем динамически по Shift.
       keepRatio: false,
       rotationSnaps: [
         0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, 195, 210, 225, 240, 255, 270, 285,
@@ -1651,7 +1639,7 @@ export class SelectionPlugin extends Plugin {
     });
     layer.add(transformer);
     transformer.nodes([this._selected.getNode() as unknown as Konva.Node]);
-    // Глобальный ограничитель размеров: не даём схлопываться до 0 и фиксируем противоположный угол
+    // Global size constraint: do not allow collapsing to 0 and fix the opposite angle
     transformer.boundBoxFunc((_, newBox) => {
       const MIN = 1; // px
       let w = newBox.width;
@@ -1659,8 +1647,8 @@ export class SelectionPlugin extends Plugin {
       let x = newBox.x;
       let y = newBox.y;
 
-      // Просто клампим размеры к MIN, не сдвигая позицию
-      // (фиксация противоположного угла делается в transform.corner-sync)
+      // Clamp sizes to MIN, without moving the position
+      // (fixing the opposite angle is done in transform.corner-sync)
       if (w < 0) {
         w = MIN;
       } else if (w < MIN) {
@@ -1676,15 +1664,15 @@ export class SelectionPlugin extends Plugin {
       return { ...newBox, x, y, width: w, height: h };
     });
     this._transformer = transformer;
-    // Растянуть якоря на всю сторону и скрыть их визуально (оставив hit-area)
+    // Stretch anchors to the full side and hide them visually (leaving hit-area)
     this._restyleSideAnchors();
-    // Добавить угловые хендлеры для cornerRadius, если поддерживается
+    // Add corner radius handlers if supported
     this._setupCornerRadiusHandles(false);
-    // Добавить угловые хендлеры ротации
+    // Add rotation handlers
     this._setupRotateHandles();
-    // Добавить/обновить размерный label
+    // Add/Update size label
     this._setupSizeLabel();
-    // Во время трансформации (ресайз/скейл) синхронизировать позиции всех оверлеев
+    // During transformation (resize/scale) synchronize positions of all overlays
     const updateKeepRatio = () => {
       const active =
         typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
@@ -1697,13 +1685,13 @@ export class SelectionPlugin extends Plugin {
     };
     transformer.on('transformstart.keepratio', () => {
       updateKeepRatio();
-      // Скрываем corner-radius хендлеры на время трансформации
+      // Hide corner-radius handlers during transformation
       this._cornerHandlesSuppressed = true;
       this._cornerHandlesGroup?.visible(false);
       this._hideRadiusLabel();
 
-      // Сохраняем абсолютную позицию противоположного угла для фиксации origin
-      // ТОЛЬКО для угловых якорей (для всех типов нод, включая группы)
+      // Save the absolute position of the opposite corner for fixing origin
+      // ONLY for corner anchors (for all node types, including groups)
       const node = this._selected?.getNode() as unknown as Konva.Node | undefined;
       const activeAnchor =
         typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
@@ -1713,9 +1701,9 @@ export class SelectionPlugin extends Plugin {
         activeAnchor === 'bottom-left' ||
         activeAnchor === 'bottom-right';
 
-      // Применяем фиксацию для угловых якорей (включая группы)
+      // Apply fixing for corner anchors (including groups)
       if (node && isCornerAnchor) {
-        // Для групп используем clientRect, для одиночных нод — width/height
+        // For groups use clientRect, for single nodes — width/height
         const isGroup = node instanceof Konva.Group;
         let width: number;
         let height: number;
@@ -1723,7 +1711,7 @@ export class SelectionPlugin extends Plugin {
         let localY = 0;
 
         if (isGroup) {
-          // Для групп берём визуальный bbox
+          // For groups use clientRect, for single nodes — width/height
           const clientRect = node.getClientRect({
             skipTransform: true,
             skipShadow: true,
@@ -1734,14 +1722,14 @@ export class SelectionPlugin extends Plugin {
           localX = clientRect.x;
           localY = clientRect.y;
         } else {
-          // Для одиночных нод — стандартные размеры
+          // For single nodes use width/height
           width = node.width();
           height = node.height();
         }
 
         const absTransform = node.getAbsoluteTransform();
 
-        // Определяем локальные координаты противоположного угла
+        // Determine the local coordinates of the opposite corner
         let oppositeX = 0;
         let oppositeY = 0;
 
@@ -1760,29 +1748,28 @@ export class SelectionPlugin extends Plugin {
           oppositeY = localY;
         }
 
-        // Преобразуем в абсолютные координаты
+        // Convert to absolute coordinates
         this._transformOppositeCorner = absTransform.point({ x: oppositeX, y: oppositeY });
       } else {
-        // Для боковых якорей не фиксируем угол
+        // For side anchors do not fix the angle
         this._transformOppositeCorner = null;
       }
     });
     transformer.on('transform.keepratio', updateKeepRatio);
 
     transformer.on('transform.corner-sync', () => {
-      // На лету «впитываем» неравномерный масштаб в width/height для Rect,
-      // чтобы скругления оставались полукруглыми, а не эллипсами
+      // «Incorporate» non-uniform scaling into width/height for Rect,
       const n = this._selected?.getNode() as unknown as Konva.Node | undefined;
       if (n) {
         this._bakeRectScale(n);
 
-        // Корректируем позицию ноды, чтобы противоположный угол оставался на месте
+        // Correct the node position to keep the opposite angle in place
         if (this._transformOppositeCorner) {
           const activeAnchor =
             typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
           const absTransform = n.getAbsoluteTransform();
 
-          // Для групп используем clientRect, для одиночных нод — width/height
+          // For groups use clientRect, for single nodes use width/height
           const isGroup = n instanceof Konva.Group;
           let width: number;
           let height: number;
@@ -1790,7 +1777,7 @@ export class SelectionPlugin extends Plugin {
           let localY = 0;
 
           if (isGroup) {
-            // Для групп берём визуальный bbox
+            // For groups use clientRect, for single nodes use width/height
             const clientRect = n.getClientRect({
               skipTransform: true,
               skipShadow: true,
@@ -1801,12 +1788,12 @@ export class SelectionPlugin extends Plugin {
             localX = clientRect.x;
             localY = clientRect.y;
           } else {
-            // Для одиночных нод — стандартные размеры
+            // For single nodes use width/height
             width = n.width();
             height = n.height();
           }
 
-          // Определяем локальные координаты противоположного угла
+          // Determine the local coordinates of the opposite corner
           let oppositeX = 0;
           let oppositeY = 0;
 
@@ -1824,14 +1811,14 @@ export class SelectionPlugin extends Plugin {
             oppositeY = localY;
           }
 
-          // Текущая абсолютная позиция противоположного угла
+          // Current absolute position of the opposite corner
           const currentOpposite = absTransform.point({ x: oppositeX, y: oppositeY });
 
-          // Вычисляем смещение
+          // Calculate the offset
           const dx = this._transformOppositeCorner.x - currentOpposite.x;
           const dy = this._transformOppositeCorner.y - currentOpposite.y;
 
-          // Корректируем позицию ноды в локальных координатах родителя
+          // Correct the node position in local coordinates of the parent
           const parent = n.getParent();
           if (parent && (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01)) {
             const parentInv = parent.getAbsoluteTransform().copy().invert();
@@ -1843,28 +1830,28 @@ export class SelectionPlugin extends Plugin {
         }
       }
       this._restyleSideAnchors();
-      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      // OPTIMIZATION: use debounced UI update
       this._scheduleUIUpdate();
-      // Временная группа: обновить позиции ротационных хендлеров
+      // Temporary group: update rotation handles position
       this._updateTempRotateHandlesPosition();
       this._core?.nodes.layer.batchDraw();
     });
     transformer.on('transformend.corner-sync', () => {
-      // Сбрасываем флаг подавления corner-radius хендлеров и сохранённый угол
+      // Reset the flag suppressing corner-radius handlers and saved angle
       this._cornerHandlesSuppressed = false;
       this._transformOppositeCorner = null;
       this._restyleSideAnchors();
-      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      // OPTIMIZATION: use debounced UI update
       this._scheduleUIUpdate();
       this._core?.nodes.layer.batchDraw();
     });
-    // Слушать изменения атрибутов выбранной ноды, если размеры/позиция меняются программно
+    // Listen to attribute changes of the selected node, if size/position changes programmatically
     const selNode = this._selected.getNode() as unknown as Konva.Node;
-    // Снять прежние обработчики, если были, затем повесить новые с namespace
+    // Remove previous handlers if any, then attach new ones with namespace
     selNode.off('.overlay-sync');
     const syncOverlays = () => {
       this._restyleSideAnchors();
-      // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+      // OPTIMIZATION: use debounced UI update
       this._scheduleUIUpdate();
       this._scheduleBatchDraw();
     };
@@ -1875,7 +1862,7 @@ export class SelectionPlugin extends Plugin {
     this._scheduleBatchDraw();
   }
 
-  // Растянуть side-anchors (top/right/bottom/left) на всю сторону выбранной ноды
+  // Restyle side-anchors (top/right/bottom/left) to fill the side of the selected node
   private _restyleSideAnchors() {
     if (!this._core || !this._selected || !this._transformer) return;
     const node = this._selected.getNode() as unknown as Konva.Node;
@@ -1895,7 +1882,7 @@ export class SelectionPlugin extends Plugin {
     const tr = makeRotateHandle('rotate-tr');
     const br = makeRotateHandle('rotate-br');
     const bl = makeRotateHandle('rotate-bl');
-    // Добавляем по одному, чтобы исключить проблемы с varargs в рантайме/типах
+    // Add one by one to exclude runtime/type issues with varargs
     group.add(tl);
     group.add(tr);
     group.add(br);
@@ -1907,47 +1894,46 @@ export class SelectionPlugin extends Plugin {
         if (!this._selected) return;
         const node = this._selected.getNode() as unknown as Konva.Node;
         const dec = node.getAbsoluteTransform().decompose();
-        // Вариант 2: не меняем offset/pivot. Фиксируем абсолютный центр для компенсации смещения в dragmove
         const center = this._getNodeCenterAbs(node);
         this._rotateCenterAbsStart = center;
         const p = this._core?.stage.getPointerPosition() ?? h.getAbsolutePosition();
         const start = (Math.atan2(p.y - center.y, p.x - center.x) * 180) / Math.PI;
         this._rotateDragState = { base: dec.rotation || 0, start };
-        // Сохраняем текущее состояние stage.draggable перед отключением
+        // Save the current state of stage.draggable before disabling
         if (this._core) this._prevStageDraggableBeforeRotate = this._core.stage.draggable();
-        // Отключим drag сцены и самой ноды
+        // Disable drag on the stage and the node
         if (typeof node.draggable === 'function') node.draggable(false);
         this._core?.stage.draggable(false);
-        // Курсор: во время ротации показываем 'grabbing'
+        // Cursor: show 'grabbing' during rotation
         if (this._core) this._core.stage.container().style.cursor = 'grabbing';
       });
       h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
         if (!this._core || !this._selected || !this._rotateDragState) return;
         const node = this._selected.getNode() as unknown as Konva.Node;
-        // Используем зафиксированный центр, если он есть, чтобы исключить дрейф
+        // Use fixed center if available to prevent drift
         const centerRef = this._rotateCenterAbsStart ?? this._getNodeCenterAbs(node);
         const pointer = this._core.stage.getPointerPosition() ?? h.getAbsolutePosition();
         const curr = (Math.atan2(pointer.y - centerRef.y, pointer.x - centerRef.x) * 180) / Math.PI;
         let rot = this._rotateDragState.base + (curr - this._rotateDragState.start);
-        // Snapping как у Transformer, но с корректной нормализацией углов
+        // Snapping as in Transformer, but with correct angle normalization
         const norm = (deg: number) => {
           let x = deg % 360;
           if (x < 0) x += 360;
           return x;
         };
         const angDiff = (a: number, b: number) => {
-          // минимальная signed-разница между a и b по модулю 360 в диапазоне [-180, 180)
+          // minimum signed difference between a and b modulo 360 in range [-180, 180)
           let d = norm(a - b + 180) - 180;
           return d;
         };
-        // Snap только при зажатом Shift. Без Shift — свободная ротация
+        // Snap only when Shift is pressed. Free rotation without Shift
         if (e.evt.shiftKey) {
           const tr = this._transformer;
           let snaps: number[] | undefined;
           let tol = 5;
           if (tr) {
             const s = tr.rotationSnaps();
-            if (Array.isArray(s)) snaps = s.map((v) => norm(v)); // нормализуем снэпы (360 -> 0)
+            if (Array.isArray(s)) snaps = s.map((v) => norm(v));
             const t = tr.rotationSnapTolerance();
             if (typeof t === 'number') tol = t;
           }
@@ -1958,7 +1944,7 @@ export class SelectionPlugin extends Plugin {
             for (const a of snaps) {
               const d = Math.abs(angDiff(rotN, a));
               if (d < bestDiff && d <= tol) {
-                best = a; // используем нормализованный угол снэпа
+                best = a; // use normalized snap angle
                 bestDiff = d;
               }
             }
@@ -1966,7 +1952,7 @@ export class SelectionPlugin extends Plugin {
           }
         }
         node.rotation(rot);
-        // Компенсация позиции: удерживаем центр неизменным
+        // Compensation for position: keep the center unchanged
         if (this._rotateCenterAbsStart) {
           const centerAfter = this._getNodeCenterAbs(node);
           const dxAbs = this._rotateCenterAbsStart.x - centerAfter.x;
@@ -1981,35 +1967,33 @@ export class SelectionPlugin extends Plugin {
             if (typeof node.position === 'function') node.position({ x: nx, y: ny });
           }
         }
-        // Обновить рамку трансформера немедленно
         this._transformer?.forceUpdate();
-        // Пересчитать кастомные middle‑хендлеры под текущее вращение
         this._restyleSideAnchors();
         this._core.nodes.layer.batchDraw();
-        // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+        // OPTIMIZATION: use debounced UI update
         this._scheduleUIUpdate();
       });
       h.on('dragend.rotate', () => {
         this._rotateDragState = null;
         this._rotateCenterAbsStart = null;
-        // Вернём pan сцены, draggable ноды — согласно настройкам
+        // Restore scene pan, draggable node — according to settings
         if (this._selected) {
           const node = this._selected.getNode() as unknown as Konva.Node;
           if (this._options.dragEnabled && typeof node.draggable === 'function') {
             node.draggable(true);
           }
         }
-        // Восстанавливаем предыдущее состояние stage.draggable вместо безусловного true
+        // Restore previous state of stage.draggable instead of unconditional true
         if (this._core && this._prevStageDraggableBeforeRotate !== null) {
           this._core.stage.draggable(this._prevStageDraggableBeforeRotate);
           this._prevStageDraggableBeforeRotate = null;
         }
-        // Финально пересчитать кастомные middle‑хендлеры
+        // Final recalculation of custom middle‑handlers
         this._restyleSideAnchors();
-        // ОПТИМИЗАЦИЯ: используем debounced обновление UI
+        // OPTIMIZATION: use debounced UI update
         this._scheduleUIUpdate();
         this._core?.nodes.layer.batchDraw();
-        // Вернуть курсор в состояние 'grab' при окончании перетаскивания хендлера
+        // Restore cursor to 'grab' after rotation handler drag end
         if (this._core) this._core.stage.container().style.cursor = 'grab';
       });
     };
@@ -2019,7 +2003,7 @@ export class SelectionPlugin extends Plugin {
     bindRotate(br);
     bindRotate(bl);
 
-    // Hover-курсоры для хендлеров ротации
+    // Hover cursors for rotation handles
     const setCursor = (c: string) => {
       if (this._core) this._core.stage.container().style.cursor = c;
     };
@@ -2071,7 +2055,6 @@ export class SelectionPlugin extends Plugin {
   private _getNodeCenterAbs(node: Konva.Node) {
     const tr = node.getAbsoluteTransform().copy();
     const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
-    // ВАЖНО: учитываем local.x/local.y, иначе центр смещается
     return tr.point({ x: local.x + local.width / 2, y: local.y + local.height / 2 });
   }
 
@@ -2084,8 +2067,7 @@ export class SelectionPlugin extends Plugin {
     if (width <= 0 || height <= 0) return;
     const tr = node.getAbsoluteTransform().copy();
     const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
-    const offset = 12; // вынесем хендлер чуть наружу от угла вдоль направления от центра
-    // ВАЖНО: corners и центр нужно брать с учётом local.x/local.y
+    const offset = 12;
     const centerAbs = mapAbs({ x: local.x + width / 2, y: local.y + height / 2 });
     const c0 = mapAbs({ x: local.x, y: local.y });
     const c1 = mapAbs({ x: local.x + width, y: local.y });
@@ -2111,7 +2093,6 @@ export class SelectionPlugin extends Plugin {
     if (this._rotateHandles.br) this._rotateHandles.br.absolutePosition(p2);
     if (this._rotateHandles.bl) this._rotateHandles.bl.absolutePosition(p3);
 
-    // Компенсация зума: фиксированный визуальный размер
     const parent = this._rotateHandlesGroup.getParent();
     if (parent) {
       const pd = parent.getAbsoluteTransform().decompose();
@@ -2122,7 +2103,6 @@ export class SelectionPlugin extends Plugin {
       if (this._rotateHandles.br) this._rotateHandles.br.scale({ x: invX, y: invY });
       if (this._rotateHandles.bl) this._rotateHandles.bl.scale({ x: invX, y: invY });
     }
-    // Z-index наверх
     this._rotateHandlesGroup.moveToTop();
   }
 
@@ -2130,11 +2110,7 @@ export class SelectionPlugin extends Plugin {
   private _setupSizeLabel() {
     if (!this._core || !this._selected) return;
     const layer = this._core.nodes.layer;
-
-    // Уничтожить предыдущий, если был
     this._destroySizeLabel();
-
-    // Собираем Konva.Label с Tag и Text
     const label = new Konva.Label({ listening: false, opacity: 0.95 });
     const tag = new Konva.Tag({
       fill: '#2b83ff',
@@ -2157,8 +2133,7 @@ export class SelectionPlugin extends Plugin {
     this._updateSizeLabel();
   }
 
-  // ОПТИМИЗАЦИЯ: Debounced обновление UI элементов
-  // Вместо обновления на каждый фрейм - обновляем один раз через requestAnimationFrame
+  // OPTIMIZATION: Debounced UI update
   private _scheduleUIUpdate() {
     this._uiUpdateDebounce.schedule(() => {
       this._updateSizeLabel();
@@ -2170,13 +2145,10 @@ export class SelectionPlugin extends Plugin {
   private _updateSizeLabel() {
     if (!this._core || !this._selected || !this._sizeLabel) return;
     const node = this._selected.getNode();
-    // Визуальный bbox — для позиционирования (привязка к нижнему центру экрана)
     const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
-    // Логический размер — независим от зума камеры (world): localRect * (absNodeScale / absWorldScale)
     const localRect = node.getClientRect({
       skipTransform: true,
       skipShadow: true,
-      // Исключаем stroke/border, чтобы показывать реальные размеры ноды
       skipStroke: true,
     });
     const nodeDec = node.getAbsoluteTransform().decompose();
@@ -2193,12 +2165,10 @@ export class SelectionPlugin extends Plugin {
     const text = this._sizeLabel.getText();
     text.text(String(w) + ' × ' + String(h));
 
-    // Позиционируем по нижнему центру bbox с небольшим отступом вниз
-    const offset = 8; // пикселей
+    const offset = 8;
     const centerX = bbox.x + bbox.width / 2;
     const bottomY = bbox.y + bbox.height + offset;
 
-    // Синхронно ставим абсолютную позицию и центровку без кадра задержки
     const labelRect = this._sizeLabel.getClientRect({
       skipTransform: true,
       skipShadow: true,
@@ -2208,7 +2178,6 @@ export class SelectionPlugin extends Plugin {
     this._sizeLabel.absolutePosition({ x: centerX, y: bottomY });
     this._sizeLabel.offsetX(labelW / 2);
     this._sizeLabel.offsetY(0);
-    // Компенсировать любые трансформации родителя (слоя/сцены): инверсия абсолютного масштаба родителя
     const parent = this._sizeLabel.getParent();
     if (parent) {
       const pDec = parent.getAbsoluteTransform().decompose();
@@ -2218,7 +2187,6 @@ export class SelectionPlugin extends Plugin {
     }
     this._sizeLabel.moveToTop();
     if (this._transformer) this._transformer.moveToTop();
-    // Поднять круглые corner‑handles выше трансформера
     if (this._cornerHandlesGroup) this._cornerHandlesGroup.moveToTop();
   }
 
@@ -2231,7 +2199,6 @@ export class SelectionPlugin extends Plugin {
 
   // ===================== Corner Radius Handles =====================
   private _isCornerRadiusSupported(konvaNode: Konva.Node): konvaNode is Konva.Rect {
-    // Поддерживаем только Konva.Rect, у которого есть cornerRadius()
     return konvaNode instanceof Konva.Rect;
   }
 
@@ -2246,7 +2213,6 @@ export class SelectionPlugin extends Plugin {
   }
 
   private _setCornerRadiusArray(konvaNode: Konva.Rect, arr: [number, number, number, number]) {
-    // Если все одинаковые, можно ставить числом, но массив тоже валиден в Konva
     const [a, b, c, d] = arr;
     if (a === b && b === c && c === d) {
       konvaNode.cornerRadius(a);
@@ -2269,15 +2235,12 @@ export class SelectionPlugin extends Plugin {
     const group = new Konva.Group({ name: 'corner-radius-handles-group', listening: true });
     layer.add(group);
     group.moveToTop();
-    // Изначально скрываем хендлеры - они появятся при hover на ноду
     group.visible(false);
     this._cornerHandlesGroup = group;
 
-    // Добавляем обработчики для показа/скрытия хендлеров при hover на ноду
     node.off('.cornerRadiusHover');
     node.on('mouseenter.cornerRadiusHover', () => {
       if (!this._core || !this._cornerHandlesGroup) return;
-      // Проверяем зум - при зуме < 0.3 хендлеры не показываем
       const world = this._core.nodes.world;
       const currentZoom = world.scaleX();
       if (currentZoom < 0.3) return;
@@ -2285,22 +2248,18 @@ export class SelectionPlugin extends Plugin {
     });
     node.on('mouseleave.cornerRadiusHover', () => {
       if (!this._cornerHandlesGroup) return;
-      // Скрываем хендлеры только если курсор не над самими хендлерами
       const pointer = stage.getPointerPosition();
       if (!pointer) {
         this._cornerHandlesGroup.visible(false);
         return;
       }
-      // Проверяем, находится ли курсор над группой хендлеров
       const shapes = layer.getIntersection(pointer);
       if (shapes && this._cornerHandlesGroup.isAncestorOf(shapes)) {
-        // Курсор над хендлерами - не скрываем
         return;
       }
       this._cornerHandlesGroup.visible(false);
     });
 
-    // Добавляем обработчики на саму группу хендлеров
     group.on('mouseenter.cornerRadiusHover', () => {
       if (!this._core || !this._cornerHandlesGroup) return;
       const world = this._core.nodes.world;
@@ -2312,8 +2271,6 @@ export class SelectionPlugin extends Plugin {
       if (this._cornerHandlesGroup) this._cornerHandlesGroup.visible(false);
     });
 
-    // Проверяем, находится ли курсор уже над нодой при создании хендлеров
-    // Если да - сразу показываем хендлеры
     const pointer = stage.getPointerPosition();
     if (pointer) {
       const world = this._core.nodes.world;
@@ -2326,8 +2283,6 @@ export class SelectionPlugin extends Plugin {
       }
     }
 
-    // ===== Хелперы =====
-    // Квадраты упираются в центральную линию по X или Y (что раньше)
     const computeCornerSquares = () => {
       const width = node.width();
       const height = node.height();
@@ -2373,7 +2328,6 @@ export class SelectionPlugin extends Plugin {
       return { snappedAbs, r: t, meta: s };
     };
 
-    // ===== Визуализация квадратов =====
     const makeSquare = (name: string): Konva.Line =>
       new Konva.Line({
         name,
@@ -2401,7 +2355,7 @@ export class SelectionPlugin extends Plugin {
         strokeWidth: 1.5,
         draggable: true,
         dragOnTop: true,
-        hitStrokeWidth: 16, // увеличенная зона попадания — меньше «срывов»
+        hitStrokeWidth: 16,
       });
       handle.on('mouseenter.corner-radius', () => {
         if (this._core) this._core.stage.container().style.cursor = 'default';
@@ -2416,12 +2370,11 @@ export class SelectionPlugin extends Plugin {
     group.add(tl, tr, br, bl);
     this._cornerHandles = { tl, tr, br, bl };
 
-    // ===== “Умный роутинг” при совпадении хэндлеров =====
     type Key = 'tl' | 'tr' | 'br' | 'bl';
     const keyToIndex: Record<Key, 0 | 1 | 2 | 3> = { tl: 0, tr: 1, br: 2, bl: 3 };
-    let routeEnabled = false; // на этом драге выбираем угол по направлению?
-    let routeActive: Key | null = null; // какой угол выбран направлением
-    let lastAltOnly = false; // Alt зафиксированный в текущем драге
+    let routeEnabled = false;
+    let routeActive: Key | null = null;
+    let lastAltOnly = false;
 
     const getCenterAbs = () => {
       const absT = node.getAbsoluteTransform().copy();
@@ -2457,18 +2410,16 @@ export class SelectionPlugin extends Plugin {
       return countNear >= 2;
     };
 
-    // Выбор routeActive по абсолютной позиции указателя (или предложенной pos из dragBoundFunc)
     const pickRouteByAbsPos = (posAbs: Konva.Vector2d) => {
       if (!routeEnabled || routeActive) return;
       const c = getCenterAbs();
       let vx = posAbs.x - c.x,
         vy = posAbs.y - c.y;
       const mag = Math.hypot(vx, vy);
-      if (mag < 0.1) return; // микрозона около центра — не выбираем
+      if (mag < 0.1) return;
       vx /= mag;
       vy /= mag;
 
-      // Диагональные направления «центр→угол» в абсолюте (устойчиво к поворотам/скейлам)
       const absT = node.getAbsoluteTransform().copy();
       const squares = computeCornerSquares();
       const diag: Record<Key, { x: number; y: number }> = (
@@ -2499,16 +2450,12 @@ export class SelectionPlugin extends Plugin {
       routeActive = best;
     };
 
-    // ===== Ограничитель + пересчёт радиуса внутри dragBoundFunc (устойчив к выходу курсора) =====
     const makeBound = (defKey: Key) => (pos: Konva.Vector2d) => {
-      // Выбрать угол по направлению "центр → pos" если мы в умном режиме
       pickRouteByAbsPos(pos);
       const key = routeActive ?? defKey;
 
-      // Проекция на диагональ соответствующего квадрата
       const { snappedAbs, r: t, meta: s } = snapToCornerDiagonal(pos, key);
 
-      // 0..100% → пиксельный радиус (целое число)
       const w = node.width();
       const hgt = node.height();
       const maxR = Math.max(0, Math.min(w, hgt) / 2);
@@ -2516,7 +2463,6 @@ export class SelectionPlugin extends Plugin {
       let rPix = Math.round(percent * maxR);
       rPix = Math.max(0, Math.min(rPix, maxR));
 
-      // Применить радиус (Alt — только выбранный угол, иначе все 4)
       const arr = this._getCornerRadiusArray(node);
       const idx = keyToIndex[key];
       if (lastAltOnly) {
@@ -2529,12 +2475,11 @@ export class SelectionPlugin extends Plugin {
       }
       this._setCornerRadiusArray(node, arr);
 
-      // Обновить визуалку и лейбл (делаем здесь — даже если dragmove не пришёл)
       this._showRadiusLabelForCorner(idx);
       updatePositions();
       this._core?.nodes.layer.batchDraw();
 
-      return snappedAbs; // Конва поставит хэндлер туда, куда мы «снэпнули»
+      return snappedAbs;
     };
 
     tl.dragBoundFunc(makeBound('tl'));
@@ -2542,18 +2487,15 @@ export class SelectionPlugin extends Plugin {
     br.dragBoundFunc(makeBound('br'));
     bl.dragBoundFunc(makeBound('bl'));
 
-    // ===== Обновление позиций (ручки + квадраты) =====
     const updatePositions = () => {
       const { tl, tr, br, bl } = this._cornerHandles;
       if (!tl || !tr || !br || !bl) return;
 
-      // Подавляем показ во время трансформации
       if (this._cornerHandlesSuppressed) {
         this._cornerHandlesGroup?.visible(false);
         this._radiusLabel?.visible(false);
         return;
       }
-      // Скрывать хендлеры скругления углов при зуме < 0.3
       if (this._core && this._cornerHandlesGroup && this._radiusLabel) {
         const world = this._core.nodes.world;
         const currentZoom = world.scaleX();
@@ -2574,14 +2516,14 @@ export class SelectionPlugin extends Plugin {
       const radii = this._getCornerRadiusArray(node);
 
       const placeHandle = (key: Key, idx: 0 | 1 | 2 | 3, h: Konva.Circle) => {
-        const s = squares[key]; // { corner, sign, side }
+        const s = squares[key];
         const w = node.width();
         const hgt = node.height();
         const maxR = Math.max(0, Math.min(w, hgt) / 2);
 
-        const rPix = Math.max(0, Math.min(maxR, radii[idx] || 0)); // radii[] уже в пикселях
-        const percent = maxR > 0 ? rPix / maxR : 0; // 0..1
-        const t = Math.max(0, Math.min(s.side, percent * s.side)); // обратно в ось-смещение квадрата
+        const rPix = Math.max(0, Math.min(maxR, radii[idx] || 0));
+        const percent = maxR > 0 ? rPix / maxR : 0;
+        const t = Math.max(0, Math.min(s.side, percent * s.side));
 
         const pLocal = {
           x: s.corner.x + s.sign.x * t,
@@ -2613,7 +2555,6 @@ export class SelectionPlugin extends Plugin {
       placeHandle('br', 2, br);
       placeHandle('bl', 3, bl);
 
-      // фиксированный визуальный размер кружков
       const grpParent = this._cornerHandlesGroup?.getParent();
       if (grpParent) {
         const pd = grpParent.getAbsoluteTransform().decompose();
@@ -2628,14 +2569,9 @@ export class SelectionPlugin extends Plugin {
     };
     this._updateCornerRadiusHandlesPosition = updatePositions;
 
-    // ===== Drag-логика с роутингом (минимальная) =====
     const onDragStartRoute = (h: Konva.Circle, ev?: Konva.KonvaEventObject<DragEvent>) => {
-      lastAltOnly = !!(ev?.evt as MouseEvent | undefined)?.altKey; // зафиксировать Alt на старте
+      lastAltOnly = !!(ev?.evt as MouseEvent | undefined)?.altKey;
       const startAbs = h.getAbsolutePosition();
-      // включаем умный режим если выполнено ЛЮБОЕ из условий:
-      // - рядом с центром-точкой
-      // - рядом с любой центральной линией
-      // - рядом одновременно несколько хэндлеров (зона слияния)
       routeEnabled =
         isNearCenterPoint(startAbs, 8) ||
         isNearCenterLine(startAbs, 6) ||
@@ -2645,14 +2581,13 @@ export class SelectionPlugin extends Plugin {
 
       if (routeEnabled) {
         const p = this._core?.stage.getPointerPosition() ?? startAbs;
-        pickRouteByAbsPos(p); // сразу выбрать угол, чтобы не было кадра неопределённости
+        pickRouteByAbsPos(p);
       }
     };
 
     const dragHandler =
       (_defaultKey: Key, _defaultIndex: 0 | 1 | 2 | 3) =>
       (e: Konva.KonvaEventObject<DragEvent>) => {
-        // только обновляем Alt во время драга; остальное делает dragBoundFunc
         lastAltOnly = (e.evt as MouseEvent).altKey;
       };
 
@@ -2662,7 +2597,6 @@ export class SelectionPlugin extends Plugin {
       lastAltOnly = false;
     };
 
-    // биндинги
     tl.on('dragstart.corner-radius', (ev) => {
       onDragStartRoute(tl, ev);
     });
@@ -2686,7 +2620,6 @@ export class SelectionPlugin extends Plugin {
     br.on('dragend.corner-radius', dragEndReset);
     bl.on('dragend.corner-radius', dragEndReset);
 
-    // ===== Лейблы (как было) =====
     const showRadius = (cornerIndex: 0 | 1 | 2 | 3) => () => {
       this._showRadiusLabelForCorner(cornerIndex);
     };
@@ -2719,7 +2652,6 @@ export class SelectionPlugin extends Plugin {
     br.on('dragend.corner-radius', hideRadius);
     bl.on('dragend.corner-radius', hideRadius);
 
-    // Блокируем перетаскивание ноды на время правки радиуса
     const onDown = () => {
       if (!this._selected) return;
       const n = this._selected.getNode() as unknown as Konva.Node;
@@ -2739,7 +2671,6 @@ export class SelectionPlugin extends Plugin {
     br.on('mouseup.corner-radius touchend.corner-radius', onUp);
     bl.on('mouseup.corner-radius touchend.corner-radius', onUp);
 
-    // ===== Автосинк при пане/зуме/трансформациях =====
     const ns = '.corner-squares';
     let pending = false;
     const schedule = () => {
@@ -2824,18 +2755,14 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesGroup = null;
     }
     this._cornerHandles = { tl: null, tr: null, br: null, bl: null };
-    // Сброс курсора, если вдруг остался
     if (this._core) this._core.stage.container().style.cursor = 'default';
-    // Уничтожить и radius label
     this._destroyRadiusLabel();
-    // Снять подписки overlay-sync с выбранной ноды, чтобы не держать висящие обработчики
     if (this._selected) {
       const n = this._selected.getNode() as unknown as Konva.Node;
       n.off('.overlay-sync');
     }
   }
 
-  // «Запекает» неравномерный масштаб в размеры прямоугольника, сохраняя абсолютную позицию
   private _bakeRectScale(node: Konva.Node) {
     if (!(node instanceof Konva.Rect)) return;
     const sx = node.scaleX();
@@ -2850,7 +2777,6 @@ export class SelectionPlugin extends Plugin {
     node.height(ny);
     node.scaleX(1);
     node.scaleY(1);
-    // Восстановить абсолютную позицию ноды
     node.setAbsolutePosition(absBefore);
   }
 
@@ -2860,7 +2786,6 @@ export class SelectionPlugin extends Plugin {
     if (!this._isCornerRadiusSupported(nodeRaw)) return;
     const node = nodeRaw;
 
-    // Используем локальный прямоугольник, как для rotate-хендлеров, чтобы учесть local.x/local.y, stroke и т.п.
     const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: true });
     const width = local.width;
     const height = local.height;
@@ -2869,7 +2794,6 @@ export class SelectionPlugin extends Plugin {
     const tr = node.getAbsoluteTransform().copy();
     const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
 
-    // Инвариантный визуальный отступ 12px: приводим к локальным координатам, чтобы на экране он оставался постоянным
     const absScale = node.getAbsoluteScale();
     const invX = 1 / (Math.abs(absScale.x) || 1);
     const invY = 1 / (Math.abs(absScale.y) || 1);
@@ -2889,7 +2813,6 @@ export class SelectionPlugin extends Plugin {
       normalize({ x: width / 2 - offXLocal, y: -(height / 2 - offYLocal) }), // bl -> center
     ] as const;
 
-    // Учитываем смещение локального прямоугольника (local.x/local.y)
     const p0 = mapAbs({
       x: local.x + offXLocal + dirLocal[0].x * Math.min(maxR, radii[0]),
       y: local.y + offYLocal + dirLocal[0].y * Math.min(maxR, radii[0]),
@@ -2912,8 +2835,6 @@ export class SelectionPlugin extends Plugin {
     if (this._cornerHandles.br) this._cornerHandles.br.absolutePosition(p2);
     if (this._cornerHandles.bl) this._cornerHandles.bl.absolutePosition(p3);
 
-    // Компенсировать масштаб родителя (слоя/сцены), чтобы кружки были постоянного размера,
-    // не двигая их координаты: масштабируем каждый кружок, а НЕ всю группу
     const grpParent = this._cornerHandlesGroup.getParent();
     if (grpParent) {
       const pd = grpParent.getAbsoluteTransform().decompose();
@@ -2924,7 +2845,6 @@ export class SelectionPlugin extends Plugin {
       if (this._cornerHandles.br) this._cornerHandles.br.scale({ x: invPX, y: invPY });
       if (this._cornerHandles.bl) this._cornerHandles.bl.scale({ x: invPX, y: invPY });
     }
-    // Гарантировать z-index над квадратными якорями трансформера
     this._cornerHandlesGroup.moveToTop();
   }
 
@@ -2937,10 +2857,8 @@ export class SelectionPlugin extends Plugin {
     const layer = this._core.nodes.layer;
     const node = this._selected.getNode() as unknown as Konva.Node;
 
-    // Проверяем, находится ли курсор над нодой или хендлерами
     const pointer = stage.getPointerPosition();
     if (!pointer) {
-      // Нет курсора - скрываем хендлеры
       if (currentZoom < 0.3) {
         this._cornerHandlesGroup.visible(false);
       }
@@ -2954,7 +2872,6 @@ export class SelectionPlugin extends Plugin {
       return;
     }
 
-    // При нормальном зуме проверяем, находится ли курсор над нодой или хендлерами
     const shapes = layer.getIntersection(pointer);
     if (shapes) {
       const isOverNode = shapes === node || node.isAncestorOf(shapes);
@@ -3008,12 +2925,10 @@ export class SelectionPlugin extends Plugin {
       skipStroke: true,
     });
     const labelW = labelRect.width;
-    // Расположим левее и чуть ниже точки (handle) на 8px
     const offset = { x: 8, y: 8 };
     lbl.absolutePosition({ x: absPt.x - offset.x, y: absPt.y + offset.y });
     lbl.offsetX(labelW);
     lbl.offsetY(0);
-    // Компенсация масштаба родителя
     const parent = lbl.getParent();
     if (parent) {
       const pDec = parent.getAbsoluteTransform().decompose();
@@ -3060,8 +2975,6 @@ export class SelectionPlugin extends Plugin {
   // ===================== Helpers =====================
   private _findBaseNodeByTarget(target: Konva.Node): BaseNode | null {
     if (!this._core) return null;
-    // Если уже выбрана дочерняя нода и клик пришёл по ней (или её внутренним частям),
-    // отдаём приоритет именно ей, чтобы drag шёл по дочернему элементу, а не по группе
     if (this._selected) {
       const selectedKonva = this._selected.getNode() as unknown as Konva.Node;
       if (selectedKonva === target) return this._selected;
@@ -3069,14 +2982,10 @@ export class SelectionPlugin extends Plugin {
         return this._selected;
       }
     }
-    // Ищем соответствующую BaseNode по ссылке на внутренний konvaNode
-    // 1) Ищем САМОГО ВЕРХНЕГО предка (самую внешнюю группу)
     let topMostAncestor: BaseNode | null = null;
     for (const n of this._core.nodes.list()) {
       const node = n.getNode() as unknown as Konva.Node;
       if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(target)) {
-        // Проверяем, является ли этот предок самым верхним
-        // (т.е. нет другого зарегистрированного предка выше него)
         let isTopMost = true;
         for (const other of this._core.nodes.list()) {
           if (other === n) continue;
@@ -3093,7 +3002,6 @@ export class SelectionPlugin extends Plugin {
     }
     if (topMostAncestor) return topMostAncestor;
 
-    // 2) Если предок не найден — проверяем точное совпадение
     for (const n of this._core.nodes.list()) {
       if (n.getNode() === target) return n;
     }
@@ -3101,7 +3009,6 @@ export class SelectionPlugin extends Plugin {
   }
 
   private _onNodeRemoved = (removed: BaseNode) => {
-    // Если удалили выделенную ноду — снять выделение
     if (this._selected && this._selected === removed) {
       this._clearSelection();
     }

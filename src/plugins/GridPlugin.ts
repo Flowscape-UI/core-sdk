@@ -5,22 +5,22 @@ import type { CoreEngine } from '../core/CoreEngine';
 import { Plugin } from './Plugin';
 
 export interface GridPluginOptions {
-  stepX?: number; // шаг сетки в мировых координатах
+  stepX?: number; // grid step in world coordinates
   stepY?: number;
-  color?: string; // цвет линий сетки
-  lineWidth?: number; // толщина линий на экране (px)
+  color?: string; // grid line color
+  lineWidth?: number; // grid line width on screen (px)
   visible?: boolean;
-  minScaleToShow?: number | null; // если задан и масштаб меньше — сетка скрыта
-  enableSnap?: boolean; // включить привязку к сетке при drag/resize
+  minScaleToShow?: number | null; // if set and scale is less — grid is hidden
+  enableSnap?: boolean; // enable snap to grid on drag/resize
 }
 
 /**
- * GridPlugin — рисует сетку и реализует привязку (snap) к сетке при сильном зуме.
- * Архитектура идентична остальным плагинам: onAttach/onDetach, собственный слой с Konva.Shape.
+ * GridPlugin — draws a grid and implements snap to grid on drag/resize.
+ * Architecture is identical to other plugins: onAttach/onDetach, own layer with Konva.Shape.
  *
- * Важные моменты текущей архитектуры движка:
- * - Панорамирование/масштаб выполняются трансформациями Stage.
- * - Ноды располагаются на слое NodeManager (core.nodes.layer), также туда добавляются Transformers.
+ * Important points of the current architecture:
+ * - Panning/scale is performed by Stage transformations.
+ * - Nodes are placed on the NodeManager layer (core.nodes.layer), also Transformers are added to it.
  */
 export class GridPlugin extends Plugin {
   private _core?: CoreEngine;
@@ -40,7 +40,7 @@ export class GridPlugin extends Plugin {
   private _nodesAddHandler: ((e: Konva.KonvaEventObject<Event>) => void) | null = null;
   private _nodesRemoveHandler: ((e: Konva.KonvaEventObject<Event>) => void) | null = null;
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _redrawScheduled = false;
   private _transformersCache: Konva.Node[] = [];
   private _cacheInvalidated = true;
@@ -59,23 +59,23 @@ export class GridPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Рисуем сетку в том же слое, что и контент (nodes.layer), но вне группы world,
-    // чтобы сетка не трансформировалась камерой и могла перекрывать ноды.
+    // Draw grid in the same layer as content (nodes.layer), but outside the world group,
+    // so it doesn't transform with the camera and can overlap nodes.
     const layer = core.nodes.layer;
 
-    // Shape с кастомным sceneFunc
+    // Shape with custom sceneFunc
     const sceneFunc = (ctx: Konva.Context, _shape: Konva.Shape) => {
       if (!this._visible) return;
       if (!this._core) return;
       const stage = this._core.stage;
       const world = this._core.nodes.world;
       const scale = world.scaleX();
-      // Появляется только при достижении minScaleToShow (если задан)
+      // Only appears when minScaleToShow is reached (if set)
       if (this._minScaleToShow != null && scale < this._minScaleToShow) return;
 
       const stageW = stage.width();
       const stageH = stage.height();
-      // GridLayer не трансформируется, мир трансформируется через world
+      // GridLayer doesn't transform, world transforms through world
       const scaleX = world.scaleX();
       const scaleY = world.scaleY();
       const stepXPx = Math.max(1, this._stepX) * Math.max(1e-6, scaleX);
@@ -87,7 +87,7 @@ export class GridPlugin extends Plugin {
       ctx.beginPath();
       ctx.lineWidth = this._lineWidth;
       ctx.strokeStyle = this._color;
-      // Без округления/0.5px, чтобы не накапливать дрейф при масштабировании
+      // Without rounding/0.5px, to avoid drift accumulation during scaling
       for (let x = offX; x <= stageW; x += stepXPx) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, stageH);
@@ -101,13 +101,13 @@ export class GridPlugin extends Plugin {
 
     const shape = new Konva.Shape({ listening: false, sceneFunc });
     layer.add(shape);
-    // Сетка должна быть поверх нод, но ниже Transformer-ов — порядок выставим ниже
+    // Grid should be above nodes, but below Transformers — order will be set below
 
     this._layer = layer;
     this._shape = shape;
 
-    // Подписки на изменения трансформации/размера сцены и world — перерисовка сетки
-    // Оптимизация: используем throttling
+    // Subscriptions to scene and world transformations/size changes — grid redraw
+    // Optimization: use throttling
     const stage = core.stage;
     const world = core.nodes.world;
     stage.on('resize.grid', () => {
@@ -117,29 +117,29 @@ export class GridPlugin extends Plugin {
       this._scheduleRedraw();
     });
 
-    // Функция: поднять все Transformers поверх grid-shape
+    // Function: raise all Transformers above grid-shape
     const bringTransformersToTop = () => {
-      // Оптимизация: кэшируем трансформеры
+      // Optimization: cache transformers
       if (this._cacheInvalidated) {
         this._transformersCache = layer.find('Transformer');
         this._cacheInvalidated = false;
       }
       for (const n of this._transformersCache) n.moveToTop();
-      // а затем вернуть сетку непосредственно под ними
+      // Then move the grid directly below them
       this._shape?.moveToTop();
       for (const n of this._transformersCache) n.moveToTop();
     };
     bringTransformersToTop();
 
-    // Snap: перетаскивание
+    // Snap: dragging
     this._dragMoveHandler = (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._core || !this._enableSnap) return;
       const stage = this._core.stage;
       const world = this._core.nodes.world;
       const target = e.target as Konva.Node;
-      // Пропускаем stage и слои
+      // Skip stage and layers
       if (target === (stage as unknown as Konva.Node) || target instanceof Konva.Layer) return;
-      // Проверим, что таргет находится внутри слоя нод
+      // Check if target is inside nodes layer
       const nodesLayer = this._core.nodes.layer;
       let p: Konva.Node | null = target;
       let inNodesLayer = false;
@@ -151,7 +151,7 @@ export class GridPlugin extends Plugin {
         p = p.getParent();
       }
       if (!inNodesLayer) return;
-      // Только для draggable
+      // Only for draggable
       const anyNode = target as unknown as { draggable?: () => boolean };
       if (typeof anyNode.draggable === 'function' && !anyNode.draggable()) return;
 
@@ -161,7 +161,7 @@ export class GridPlugin extends Plugin {
       const pixelMode = this._minScaleToShow != null ? sx >= this._minScaleToShow : false;
 
       if (pixelMode) {
-        // Снап по клеткам мировой сетки (кратность stepX/stepY в мировых координатах)
+        // Snap to world grid cells (multiple of stepX/stepY in world coordinates)
         const wx = (abs.x - world.x()) / sx;
         const wy = (abs.y - world.y()) / sy;
         const stepX = Math.max(1, this._stepX);
@@ -174,7 +174,7 @@ export class GridPlugin extends Plugin {
           target.absolutePosition({ x: snappedAbsX, y: snappedAbsY });
         }
       } else {
-        // Мировой снап: кратность шагу в мире, независимо от масштаба
+        // World snap: multiple of stepX/stepY in world coordinates, independent of scale
         const wx = (abs.x - world.x()) / sx;
         const wy = (abs.y - world.y()) / sy;
         const stepX = Math.max(1, this._stepX);
@@ -190,7 +190,7 @@ export class GridPlugin extends Plugin {
     };
     stage.on('dragmove.grid', this._dragMoveHandler);
 
-    // Snap: resize через Transformer.boundBoxFunc
+    // Snap: resize through Transformer.boundBoxFunc
     const attachTransformerSnap = (n: Konva.Node) => {
       const anyN = n as unknown as {
         getClassName?: () => string;
@@ -210,29 +210,28 @@ export class GridPlugin extends Plugin {
         const nodes = typeof anyN.nodes === 'function' ? anyN.nodes() : [];
         const target = nodes[0];
         if (!target) return base;
-        // Всегда попиксельный снап габаритов в экранных пикселях. Якорь rotater не трогаем.
+        // Always pixel snap of the bounds in screen pixels. The rotater anchor is not touched.
         const anchor = typeof anyN.getActiveAnchor === 'function' ? anyN.getActiveAnchor() : '';
         if (anchor === 'rotater') return base;
 
-        // Снап рёбер по мировой сетке: в каких единицах приходит base? В координатах родителя ноды,
-        // которые соотносятся с "миром" (узлы в world). Поэтому квантуем по stepX/stepY напрямую.
-        // СНАП РЁБЕР В МИРЕ (через абсолютные трансформации)
+        // Snap edges to world grid: in what units does base come? In the parent coordinates of the node,
+        // which are related to "world" (nodes in world). Therefore we quantize by stepX/stepY directly.
         const stepX = Math.max(1, this._stepX);
         const stepY = Math.max(1, this._stepY);
         const a = typeof anchor === 'string' ? anchor : '';
 
-        // Для неповернутых — точный snap рёбер в мировых координатах.
+        // For non-rotated — exact snap of edges in world coordinates.
         const worldAbs = this._core.nodes.world.getAbsoluteTransform();
         const invWorldAbs = worldAbs.copy();
         invWorldAbs.invert();
 
-        // Бокс boundBoxFunc (base/newBox) — в АБСОЛЮТНЫХ координатах
+        // Box boundBoxFunc (base/newBox) — in ABSOLUTE coordinates
         const leftA = base.x;
         const rightA = base.x + base.width;
         const topA = base.y;
         const bottomA = base.y + base.height;
 
-        // Перевод в МИР: abs -> world
+        // Translation to WORLD: abs -> world
         const Lw = invWorldAbs.point({ x: leftA, y: topA }).x;
         const Rw = invWorldAbs.point({ x: rightA, y: topA }).x;
         const Tw = invWorldAbs.point({ x: leftA, y: topA }).y;
@@ -243,14 +242,14 @@ export class GridPlugin extends Plugin {
         let newTw = Tw;
         let newBw = Bw;
 
-        // Снапим только движущиеся рёбра к ближайшим линиям мировой сетки (eps для стабильности)
+        // Snap only moving edges to the nearest lines of the world grid (eps for stability)
         const q = (v: number, s: number) => Math.round((v + 1e-9) / s) * s;
         if (a.includes('left')) newLw = q(Lw, stepX);
         if (a.includes('right')) newRw = q(Rw, stepX);
         if (a.includes('top')) newTw = q(Tw, stepY);
         if (a.includes('bottom')) newBw = q(Bw, stepY);
 
-        // Минимальные размеры в МИРЕ
+        // Minimal sizes in WORLD
         if (newRw - newLw < stepX) {
           if (a.includes('left')) newLw = newRw - stepX;
           else newRw = newLw + stepX;
@@ -260,13 +259,13 @@ export class GridPlugin extends Plugin {
           else newBw = newTw + stepY;
         }
 
-        // Обратно в АБСОЛЮТНЫЕ координаты: world -> abs
+        // Back to ABSOLUTE coordinates: world -> abs
         const leftAbs = worldAbs.point({ x: newLw, y: newTw }).x;
         const topAbs = worldAbs.point({ x: newLw, y: newTw }).y;
         const rightAbs = worldAbs.point({ x: newRw, y: newTw }).x;
         const bottomAbs = worldAbs.point({ x: newLw, y: newBw }).y;
 
-        // 1) Сборка итогового бокса напрямую из ABS-координат, полученных из заснапленных мировых рёбер
+        // Assembly of the final box directly from ABS coordinates, obtained from snapped world edges
         const round3 = (v: number) => Math.round(v * 1000) / 1000;
         const result = {
           x: round3(leftAbs),
@@ -277,7 +276,7 @@ export class GridPlugin extends Plugin {
         };
         return result;
       };
-      // Устанавливаем boundBoxFunc ЧЕРЕЗ queueMicrotask, чтобы SelectionPlugin успел установить свой boundBoxFunc первым
+      // Setup boundBoxFunc through queueMicrotask, so that SelectionPlugin can set its boundBoxFunc first
       globalThis.queueMicrotask(() => {
         tr.boundBoxFunc(snapFn);
       });
@@ -290,23 +289,23 @@ export class GridPlugin extends Plugin {
       for (const c of children) walkAttach(c);
     };
 
-    // Пройтись по текущему дереву слоя нод
+    // Walk through the current tree of nodes layer
     walkAttach(core.nodes.layer as unknown as Konva.Node);
 
-    // Обработка динамического добавления/удаления
+    // Handle dynamic addition/deletion
     this._nodesAddHandler = (e: Konva.KonvaEventObject<Event>) => {
       const added = (e as unknown as { child?: Konva.Node }).child ?? (e.target as Konva.Node);
       walkAttach(added);
-      // если добавили Transformer — поднять его выше сетки
+      // If added Transformer — raise it above the grid
       const anyAdded = added as unknown as { getClassName?: () => string };
       const cls = typeof anyAdded.getClassName === 'function' ? anyAdded.getClassName() : '';
       if (cls === 'Transformer') {
-        this._cacheInvalidated = true; // инвалидируем кэш
+        this._cacheInvalidated = true; // invalidate cache
         added.moveToTop();
-        // восстановить сетку сразу под Transformers
+        // restore grid immediately below Transformers
         this._shape?.moveToTop();
-        // и снова поднять все Transformers наверх
-        // Оптимизация: обновляем кэш и используем его
+        // and raise all Transformers again
+        // Optimization: update cache and use it
         this._transformersCache = layer.find('Transformer');
         this._cacheInvalidated = false;
         for (const n of this._transformersCache) n.moveToTop();
@@ -332,15 +331,15 @@ export class GridPlugin extends Plugin {
         for (const c of children) walkDetach(c);
       };
       walkDetach(removed);
-      // Проверяем, был ли удалён Transformer
+      // Check if removed was a Transformer
       const anyRemoved = removed as unknown as { getClassName?: () => string };
       const cls = typeof anyRemoved.getClassName === 'function' ? anyRemoved.getClassName() : '';
       if (cls === 'Transformer') {
-        this._cacheInvalidated = true; // инвалидируем кэш
+        this._cacheInvalidated = true; // invalidate cache
       }
-      // Восстановить порядок: сетка сразу под Transformer, трансформеры поверх
+      // Restore order: grid immediately below Transformers, transformers above
       this._shape?.moveToTop();
-      // Оптимизация: обновляем кэш и используем его
+      // Optimization: update cache and use it
       if (this._cacheInvalidated) {
         this._transformersCache = layer.find('Transformer');
         this._cacheInvalidated = false;
@@ -350,7 +349,7 @@ export class GridPlugin extends Plugin {
     core.nodes.layer.on('add.grid', this._nodesAddHandler);
     core.nodes.layer.on('remove.grid', this._nodesRemoveHandler);
 
-    // Попиксельный снап радиуса скругления у прямоугольников
+    // Pixel snap of the radius of rounded rectangles
     core.nodes.layer.on('cornerRadiusChange.grid', (e: Konva.KonvaEventObject<Event>) => {
       const node = e.target as unknown as {
         getClassName?: () => string;
@@ -363,7 +362,7 @@ export class GridPlugin extends Plugin {
       if (typeof getCR !== 'function') return;
       const value = getCR.call(node);
       const apply = (rounded: number | number[]) => {
-        // В Konva API setter — та же функция cornerRadius(value)
+        // Konva API setter — the same function cornerRadius(value)
         (node as { cornerRadius: (v: number | number[]) => void }).cornerRadius(rounded);
       };
       const stage = this._core?.stage;
@@ -394,12 +393,10 @@ export class GridPlugin extends Plugin {
         }
       }
     });
-
-    // Первичная отрисовка
   }
 
   /**
-   * Отложенная перерисовка (throttling)
+   * Deferred redraw (throttling)
    */
   private _scheduleRedraw() {
     if (this._redrawScheduled) return;
@@ -418,7 +415,7 @@ export class GridPlugin extends Plugin {
     core.nodes.layer.off('.grid');
 
     if (this._shape) this._shape.destroy();
-    // Слой нод принадлежит движку — не удаляем его
+    // Layer nodes belong to the engine — do not delete
 
     this._shape = null;
     this._layer = null;
@@ -433,7 +430,7 @@ export class GridPlugin extends Plugin {
     this._visible = visible;
     if (this._core) this._core.stage.batchDraw();
   }
-  // Геттеры для синхронизации с линейкой
+  // Getters for synchronization with the ruler
   public get stepX(): number {
     return this._stepX;
   }

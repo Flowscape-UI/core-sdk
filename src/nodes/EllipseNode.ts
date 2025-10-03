@@ -24,7 +24,6 @@ export class EllipseNode extends BaseNode<Konva.Ellipse> {
     super(ellipse, options);
   }
 
-  // ===== Getters =====
   public getRadiusX(): number {
     return this.konvaNode.radiusX();
   }
@@ -45,7 +44,6 @@ export class EllipseNode extends BaseNode<Konva.Ellipse> {
     return this.konvaNode.strokeWidth();
   }
 
-  // ===== Chainable setters =====
   public setRadiusX(value: number): this {
     this.konvaNode.radiusX(value);
     return this;

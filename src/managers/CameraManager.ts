@@ -6,7 +6,7 @@ import type { CoreEvents } from '../types/core.events.interface';
 export interface CameraManagerOptions {
   stage: Konva.Stage;
   eventBus: EventBus<CoreEvents>;
-  target?: Konva.Node; // по умолчанию сам stage, но лучше передавать world-группу
+  target?: Konva.Node;
   initialScale?: number;
   minScale?: number;
   maxScale?: number;
@@ -25,7 +25,7 @@ export class CameraManager {
   private _zoomStep: number;
   private _panStep: number;
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _wheelScheduled = false;
   private _pendingWheelEvent: WheelEvent | null = null;
 
@@ -38,8 +38,6 @@ export class CameraManager {
     this._maxScale = options.maxScale ?? 5;
     this._zoomStep = options.zoomStep ?? 1.05;
     this._panStep = options.panStep ?? 40;
-    // Перетаскивание лучше делать на target, но Konva.Layer/Group не имеют draggable по умолчанию.
-    // Мы оставляем Stage недраггибл и управляем позицией через камеру.
     this._initWheelZoom();
   }
 
@@ -47,7 +45,7 @@ export class CameraManager {
     this._stage.on('wheel', (e) => {
       e.evt.preventDefault();
 
-      // Оптимизация: throttling для wheel событий
+      // Optimization: throttling for wheel events
       this._pendingWheelEvent = e.evt;
 
       if (this._wheelScheduled) return;
@@ -126,7 +124,6 @@ export class CameraManager {
   }
 
   public setDraggable(enabled: boolean) {
-    // оставлено для совместимости — теперь не используется
     this._stage.draggable(enabled);
   }
 

@@ -24,7 +24,6 @@ export class RegularPolygonNode extends BaseNode<Konva.RegularPolygon> {
     super(poly, options);
   }
 
-  // Getters
   public getSides(): number {
     return this.konvaNode.sides();
   }
@@ -41,7 +40,6 @@ export class RegularPolygonNode extends BaseNode<Konva.RegularPolygon> {
     return this.konvaNode.strokeWidth();
   }
 
-  // Setters (chainable)
   public setSides(v: number): this {
     this.konvaNode.sides(v);
     return this;

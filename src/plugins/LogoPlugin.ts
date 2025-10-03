@@ -45,8 +45,8 @@ export class LogoPlugin extends Plugin {
     this._layer.add(this._image);
     this.setSource(this._src);
 
-    // Namespace `.logo` для простого снятия всех обработчиков
-    // Отслеживаем именно изменения свойств стадии, чтобы реагировать на любой источник панорамирования/зума
+    // Namespace `.logo` for easy removal of all handlers
+    // Monitor stage property changes to react to any panning/zooming source
     const stage = this._core.stage;
     stage.on('resize.logo', () => {
       this._layout();

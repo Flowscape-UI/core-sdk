@@ -1,8 +1,8 @@
 /**
- * ThrottleHelper - утилита для throttling (ограничения частоты вызовов)
+ * ThrottleHelper - utility for throttling (limiting the frequency of calls)
  *
- * Используется для ограничения частоты выполнения операций до определённого количества раз в секунду.
- * Например, для ограничения обновлений UI до 60 FPS (16ms) или 30 FPS (32ms).
+ * Used to limit the frequency of operation execution to a certain number of times per second.
+ * For example, to limit UI updates to 60 FPS (16ms) or 30 FPS (32ms).
  *
  * @example
  * ```typescript
@@ -10,7 +10,7 @@
  *
  * onMouseMove() {
  *   if (!this._throttle.shouldExecute()) return;
- *   // Выполняем дорогую операцию
+ *   // Execute expensive operation
  * }
  * ```
  */
@@ -19,15 +19,15 @@ export class ThrottleHelper {
   private _throttle: number;
 
   /**
-   * @param throttleMs - минимальный интервал между вызовами в миллисекундах
+   * @param throttleMs - minimum interval between calls in milliseconds
    */
   constructor(throttleMs = 16) {
     this._throttle = throttleMs;
   }
 
   /**
-   * Проверяет, можно ли выполнить операцию
-   * @returns true если прошло достаточно времени с последнего вызова
+   * Checks if the operation can be executed
+   * @returns true if enough time has passed since the last call
    */
   public shouldExecute(): boolean {
     const now = Date.now();
@@ -39,21 +39,21 @@ export class ThrottleHelper {
   }
 
   /**
-   * Сбрасывает таймер (следующий вызов будет выполнен немедленно)
+   * Resets the timer (the next call will be executed immediately)
    */
   public reset(): void {
     this._lastTime = 0;
   }
 
   /**
-   * Изменяет интервал throttling
+   * Changes the throttling interval
    */
   public setThrottle(throttleMs: number): void {
     this._throttle = throttleMs;
   }
 
   /**
-   * Возвращает текущий интервал throttling
+   * Returns the current throttling interval
    */
   public getThrottle(): number {
     return this._throttle;

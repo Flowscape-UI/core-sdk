@@ -1,9 +1,9 @@
 /**
- * DebounceHelper - утилита для debouncing (отложенного выполнения)
+ * DebounceHelper - utility for debouncing (delayed execution)
  *
- * Используется для группировки множественных вызовов в один через requestAnimationFrame.
- * Полезно для оптимизации обновлений UI - вместо обновления на каждое событие,
- * обновляем один раз в следующем фрейме.
+ * Used to group multiple calls into one through requestAnimationFrame.
+ * Useful for optimizing UI updates - instead of updating on every event,
+ * we update once in the next frame.
  *
  * @example
  * ```typescript
@@ -20,10 +20,10 @@ export class DebounceHelper {
   private _scheduled = false;
 
   /**
-   * Планирует выполнение callback в следующем фрейме
-   * Если уже запланировано - игнорирует повторные вызовы
+   * Schedules execution of callback in the next frame
+   * If already scheduled - ignores repeated calls
    *
-   * @param callback - функция для выполнения
+   * @param callback - function to execute
    */
   public schedule(callback: () => void): void {
     if (this._scheduled) return;
@@ -37,16 +37,16 @@ export class DebounceHelper {
   }
 
   /**
-   * Проверяет, запланировано ли выполнение
+   * Checks if execution is scheduled
    */
   public isScheduled(): boolean {
     return this._scheduled;
   }
 
   /**
-   * Отменяет запланированное выполнение
-   * Примечание: не отменяет уже запущенный requestAnimationFrame,
-   * но предотвратит выполнение callback
+   * Cancels scheduled execution
+   * Note: does not cancel already scheduled requestAnimationFrame,
+   * but prevents callback execution
    */
   public cancel(): void {
     this._scheduled = false;

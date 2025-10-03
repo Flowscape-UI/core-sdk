@@ -1,4 +1,4 @@
-// Универсальный тип слушателя для набора аргументов
+// Universal listener type for a set of arguments
 type Listener<TArgs extends unknown[]> = (...args: TArgs) => void;
 
 export class EventBus<
@@ -10,7 +10,7 @@ export class EventBus<
     this._listeners = new Map();
   }
 
-  // Доступ к внутренней карте слушателей (debug/инспекция)
+  // Access to internal listener map (debug/inspection)
   public get listeners(): Map<string, Listener<TEvents[keyof TEvents & string]>[]> {
     return this._listeners as unknown as Map<string, Listener<TEvents[keyof TEvents & string]>[]>;
   }
@@ -43,7 +43,7 @@ export class EventBus<
   public emit<K extends keyof TEvents & string>(event: K, ...args: TEvents[K]): void {
     const handlers = this._listeners.get(event) as Listener<TEvents[K]>[] | undefined;
     if (handlers) {
-      // Клонируем массив на случай модификаций во время обхода
+      // Clone array in case of modifications during iteration
       [...handlers].forEach((cb) => {
         cb(...args);
       });

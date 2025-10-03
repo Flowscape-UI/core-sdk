@@ -17,20 +17,20 @@ export interface AreaSelectionPluginOptions {
 
 /**
  * AreaSelectionPlugin
- * - Drag ЛКМ по пустому месту рисует рамку выбора (marquee) в экранных координатах
- * - Все ноды, чьи клиентские прямоугольники пересекают рамку, временно объединяются в группу
- * - Клик вне — временная группа удаляется, ноды возвращаются на исходные места
- * - Ctrl+G — закрепить в постоянную группу (GroupNode через NodeManager)
- * - Ctrl+Shift+G — разъединить выбранную постоянную группу
+ * - Drag LKM over empty space draws selection rectangle (marquee) in screen coordinates
+ * - All nodes whose client rectangles intersect the rectangle are temporarily grouped
+ * - Click outside — temporary group is removed, nodes return to their original positions
+ * - Ctrl+G — lock in permanent group (GroupNode through NodeManager)
+ * - Ctrl+Shift+G — unlock selected permanent group
  */
 export class AreaSelectionPlugin extends Plugin {
   private _core?: CoreEngine;
-  private _layer: Konva.Layer | null = null; // слой для рамки
+  private _layer: Konva.Layer | null = null; // layer for selection rectangle
   private _rect: Konva.Rect | null = null;
 
   private _start: { x: number; y: number } | null = null;
   private _transformer: Konva.Transformer | null = null;
-  // Режим лассо формирует временную группу, поэтому одиночные эмуляции кликов не нужны
+  // Modelasso forms temporary group, so single clicks are not needed
   private _selecting = false;
 
   private _options: Required<AreaSelectionPluginOptions>;
@@ -49,7 +49,6 @@ export class AreaSelectionPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Слой поверх контента для отрисовки рамки
     const layer = new Konva.Layer({ name: 'area-selection-layer', listening: false });
     core.stage.add(layer);
     this._layer = layer;
@@ -69,36 +68,35 @@ export class AreaSelectionPlugin extends Plugin {
     });
     layer.add(this._rect);
 
-    // Подписки на события мыши на сцене
     const stage = core.stage;
 
     stage.on('mousedown.area', (e: Konva.KonvaEventObject<MouseEvent>) => {
-      // Только ЛКМ и только клик по пустому месту (вне слоя нод)
+      // Only LKM and only click on empty space (outside nodes layer)
       if (e.evt.button !== 0) return;
       if (e.target !== stage && e.target.getLayer() === core.nodes.layer) return;
 
       const p = stage.getPointerPosition();
       if (!p || !this._rect) return;
 
-      // Игнорируем клики на линейках (RulerPlugin)
+      // Ignore clicks on rulers (RulerPlugin)
       const rulerLayer = stage.findOne('.ruler-layer');
       if (rulerLayer && e.target.getLayer() === rulerLayer) {
         return;
       }
 
-      // Игнорируем клики на направляющих линиях (RulerGuidesPlugin)
+      // Ignore clicks on guides (RulerGuidesPlugin)
       const guidesLayer = stage.findOne('.guides-layer');
       if (guidesLayer && e.target.getLayer() === guidesLayer) {
         return;
       }
 
-      // Игнорируем клики в области линейки по координатам (30px от краёв)
-      const rulerThickness = 30; // должно совпадать с RulerPlugin
+      // Ignore clicks on rulers (RulerPlugin)
+      const rulerThickness = 30; // should match RulerPlugin
       if (p.y <= rulerThickness || p.x <= rulerThickness) {
         return;
       }
 
-      // Если клик пришёлся в пределы bbox постоянной группы — запрещаем рамочный выбор
+      // If click is inside permanent group bbox, disable marquee selection
       if (this._pointerInsidePermanentGroupBBox(p)) {
         return;
       }
@@ -114,14 +112,14 @@ export class AreaSelectionPlugin extends Plugin {
     stage.on('mousemove.area', () => {
       if (!this._selecting || !this._rect || !this._start) return;
 
-      // Проверяем, не находимся ли мы над линейкой или направляющими
+      // Check if we are over rulers (RulerPlugin)
       const p = stage.getPointerPosition();
       if (!p) return;
 
       const rulerThickness = 30;
       const overRuler = p.y <= rulerThickness || p.x <= rulerThickness;
 
-      // Если начали выделение и попали на линейку - отменяем выделение
+      // If we are over rulers (RulerPlugin), disable marquee selection
       if (overRuler) {
         this._selecting = false;
         this._rect.visible(false);
@@ -137,8 +135,8 @@ export class AreaSelectionPlugin extends Plugin {
       this._rect.size({ width: w, height: h });
       this._layer?.batchDraw();
 
-      // Текущее множество нод под рамкой — формируем временную группу (как Shift‑мультивыбор)
-      // Если нода принадлежит постоянной группе, выбираем всю группу
+      // Current set of nodes under the rectangle — form temporary group (as Shift‑multi selection)
+      // If node belongs to permanent group, select the entire group
       const bbox = { x, y, width: w, height: h };
       const allNodes: BaseNode[] = this._core?.nodes.list() ?? [];
       const pickedSet = new Set<BaseNode>();
@@ -159,7 +157,7 @@ export class AreaSelectionPlugin extends Plugin {
         if (pickedBase.length > 0) {
           ctrl.ensure(pickedBase);
         } else {
-          // Если рамка ушла с единственной (или всех) нод — временная группа спадает
+          // If the rectangle left the only (or all) node — temporary group fades away
           ctrl.destroy();
         }
         this._core?.stage.batchDraw();
@@ -171,10 +169,10 @@ export class AreaSelectionPlugin extends Plugin {
       this._finalizeArea();
     });
 
-    // Клик вне — снять временную группу/выделение
+    // Click outside — remove temporary group/selection
     stage.on('click.area', (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._core) return;
-      // Не вмешиваемся в Shift‑клики: мультивыделение обрабатывает SelectionPlugin
+      // Do not interfere with Shift‑clicks: multi selection handles SelectionPlugin
       if (e.evt.shiftKey) return;
       const sel = this._getSelectionPlugin();
       const ctrl = sel?.getMultiGroupController();
@@ -184,11 +182,11 @@ export class AreaSelectionPlugin extends Plugin {
       const target = e.target as Konva.Node;
       const groupNode = this._currentGroupNode();
       if (groupNode) {
-        // если клик не по потомку текущей группы — очистить
+        // If click is not on a child of the current group, clear selection
         const isInside = this._isAncestor(groupNode, target);
         if (!isInside) this._clearSelection();
       } else {
-        // Только временная (через SelectionPlugin)
+        // Only temporary (via SelectionPlugin)
         if (tempActive && ctrl) {
           const insideTemp = ctrl.isInsideTempByTarget(target);
           if (!insideTemp) {
@@ -199,17 +197,17 @@ export class AreaSelectionPlugin extends Plugin {
       }
     });
 
-    // Горячие клавиши обрабатываются в SelectionPlugin, здесь дублирования больше нет
+    // Hotkeys are handled in SelectionPlugin, no duplicates here
   }
 
   protected onDetach(core: CoreEngine): void {
-    // Снять подписки
+    // Remove subscriptions
     core.stage.off('.area');
 
-    // Очистить текущее состояние
+    // Clear current state
     this._clearSelection();
 
-    // Удалить слой рамки
+    // Remove layer
     if (this._layer) this._layer.destroy();
     this._layer = null;
     this._rect = null;
@@ -221,11 +219,11 @@ export class AreaSelectionPlugin extends Plugin {
     this._selecting = false;
 
     const bbox = this._rect.getClientRect({ skipStroke: true });
-    // скрыть рамку, но не удалять — пригодится дальше
+    // hide rect, but do not remove — will be needed later
     this._rect.visible(false);
     this._layer?.batchDraw();
 
-    // Найти ноды, пересекающиеся с bbox (в клиентских координатах)
+    // Find nodes intersecting with bbox (in client coordinates)
     const nodes: BaseNode[] = this._core.nodes.list();
     const picked: Konva.Node[] = [];
     for (const n of nodes) {
@@ -237,7 +235,7 @@ export class AreaSelectionPlugin extends Plugin {
       if (this._rectsIntersect(bbox, r)) picked.push(node);
     }
 
-    // Сформировать множество нод и применить как временную группу (как при Shift‑мультивыборе)
+    // Form a set of nodes and apply as a temporary group (as Shift‑multi selection)
     const sel = this._getSelectionPlugin();
     if (sel) {
       const list: BaseNode[] = this._core.nodes.list();
@@ -253,28 +251,25 @@ export class AreaSelectionPlugin extends Plugin {
         sel.getMultiGroupController().ensure(baseNodes);
         this._core.stage.batchDraw();
       } else {
-        // Ничего не выбрано — очистить временную группу
         sel.getMultiGroupController().destroy();
       }
     }
-
-    // Сброс внутренних состояний рамки
   }
 
   private _clearSelection() {
-    // если выбран постоянный GroupNode через наш Transformer — просто снять трансформер
+    // If permanent GroupNode selected via our Transformer — just remove transformer
     if (this._isPermanentGroupSelected()) {
       if (this._transformer) this._transformer.destroy();
       this._transformer = null;
       this._core?.stage.batchDraw();
     }
-    // удалить временную группу (если есть) через SelectionPlugin
+    // Remove temporary group (if any) via SelectionPlugin
     const sel = this._getSelectionPlugin();
     const ctrl = sel?.getMultiGroupController();
     if (ctrl) ctrl.destroy();
   }
 
-  // Получить SelectionPlugin из CoreEngine
+  // Get SelectionPlugin from CoreEngine
   private _getSelectionPlugin(): SelectionPlugin | null {
     if (!this._core) return null;
     const sel = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
@@ -286,17 +281,17 @@ export class AreaSelectionPlugin extends Plugin {
     a: { x: number; y: number; width: number; height: number },
     b: { x: number; y: number; width: number; height: number },
   ): boolean {
-    // Включающее пересечение: касание по границе тоже считается
+    // Inclusive intersection: touching by border is also considered
     return (
       a.x <= b.x + b.width && a.x + a.width >= b.x && a.y <= b.y + b.height && a.y + a.height >= b.y
     );
   }
 
-  // Найти родительский GroupNode для указанного нода
+  // Find parent GroupNode for current node
   private _findOwningGroupBaseNode(node: Konva.Node): BaseNode | null {
     if (!this._core) return null;
     const list: BaseNode[] = this._core.nodes.list();
-    // Собираем все постоянные группы (GroupNode) и сравниваем их Konva.Node
+    // Collect all permanent groups (GroupNode) and compare their Konva.Node
     const groupBaseNodes = list.filter((bn) => bn instanceof GroupNode);
     let cur: Konva.Node | null = node;
     while (cur) {
@@ -320,7 +315,7 @@ export class AreaSelectionPlugin extends Plugin {
     const nodes = typeof this._transformer.nodes === 'function' ? this._transformer.nodes() : [];
     const n = nodes[0];
     if (!n) return false;
-    // Постоянная группа — это зарегистрированный в NodeManager GroupNode
+    // Permanent group is a registered in NodeManager GroupNode
     if (!this._core) return false;
     return this._core.nodes.list().some((bn) => bn instanceof GroupNode && bn.getNode() === n);
   }
@@ -333,7 +328,7 @@ export class AreaSelectionPlugin extends Plugin {
     return n instanceof Konva.Group ? n : null;
   }
 
-  // true, если указатель внутри визуального bbox любой постоянной группы (GroupNode из NodeManager)
+  // true, if pointer inside visual bbox any permanent group (GroupNode from NodeManager)
   private _pointerInsidePermanentGroupBBox(p: { x: number; y: number }): boolean {
     if (!this._core) return false;
     const list: BaseNode[] = this._core.nodes.list();

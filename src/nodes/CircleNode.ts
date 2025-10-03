@@ -23,7 +23,6 @@ export class CircleNode extends BaseNode<Konva.Circle> {
     super(circle, options);
   }
 
-  // ===== Getters =====
   public getRadius(): number {
     return this.konvaNode.radius();
   }
@@ -40,7 +39,6 @@ export class CircleNode extends BaseNode<Konva.Circle> {
     return this.konvaNode.strokeWidth();
   }
 
-  // ===== Chainable setters =====
   public setRadius(radius: number): this {
     this.konvaNode.radius(radius);
     return this;

@@ -62,12 +62,12 @@ export class RotateHandlesController {
     this.handles = { tl, tr, br, bl };
 
     const bindRotate = (h: Konva.Circle) => {
-      // Cursor: pointer при наведении на хендлер ротации
+      // Cursor: pointer on hover
       h.on('mouseenter.rotate', () => {
         this.core.stage.container().style.cursor = 'pointer';
       });
       h.on('mouseleave.rotate', () => {
-        // Возвращаем курсор по умолчанию
+        // Return cursor to default
         this.core.stage.container().style.cursor = 'default';
       });
       h.on('dragstart.rotate', () => {
@@ -141,16 +141,16 @@ export class RotateHandlesController {
         tr2?.forceUpdate();
         if (tr2) restyleSideAnchorsForTr(this.core, tr2, n);
         this.updatePosition();
-        // держим ниже Transformer во время движения
+        // keep below Transformer while moving
         this.placeBelowTransformer();
         this.core.nodes.layer.batchDraw();
-        // Уведомляем OverlayFrameManager для обновления label снизу
+        // Notify OverlayFrameManager to update the label below
         if (this.onUpdate) this.onUpdate();
       });
       h.on('dragend.rotate', () => {
         this.dragState = null;
         this.centerAbsStart = null;
-        // ВАЖНО: НЕ включаем stage.draggable(true), чтобы ЛКМ не панорамировала
+        // IMPORTANT: DO NOT enable stage.draggable(true), so that LMB does not pan
         this.core.stage.draggable(false);
         this.updatePosition();
         this.placeBelowTransformer();
@@ -163,7 +163,7 @@ export class RotateHandlesController {
     bindRotate(tr);
     bindRotate(br);
     bindRotate(bl);
-    // начальная раскладка: кружки ниже рамки
+    // initial layout: circles below transformer
     this.updatePosition();
     this.placeBelowTransformer();
   }
@@ -179,7 +179,7 @@ export class RotateHandlesController {
   }
 
   public moveToTop(): void {
-    // совместимость: не поднимаем выше рамки, а лишь размещаем ниже неё
+    // compatibility: do not raise above the frame, but only place below it
     this.placeBelowTransformer();
   }
 
@@ -224,11 +224,11 @@ export class RotateHandlesController {
     const tr = this.getTransformer();
     const layer = this.core.nodes.layer;
     if (tr && tr.getLayer() === layer) {
-      // ИСПРАВЛЕНИЕ: используем moveDown() вместо zIndex(value)
+      // Fix: use moveDown() instead of zIndex(value)
       const trIndex = tr.zIndex();
       const groupIndex = this.group.zIndex();
-      
-      // Перемещаем группу так, чтобы она была ниже transformer
+
+      // Move the group so that it is below the transformer
       if (groupIndex >= trIndex) {
         const diff = groupIndex - trIndex + 1;
         for (let i = 0; i < diff && this.group.zIndex() > 0; i++) {

@@ -11,29 +11,21 @@ interface AttachOptions {
 
 /**
  * OverlayFrameManager
- * Единый менеджер рамки Transformer + size label + hit-rect + ротационные хендлеры
- * для любой Konva-ноды/группы. Используется и для обычного выделения, и для временной группы.
+ * Unified manager for Transformer + size label + hit-rect + rotation handles
+ * for any Konva node/group. Used both for regular selection and temporary group.
  */
 export class OverlayFrameManager {
   private core: CoreEngine;
   private tr: Konva.Transformer | null = null;
   private sizeLabel: Konva.Label | null = null;
   private rotateGroup: Konva.Group | null = null;
-  // private rotateHandles: {
-  //   tl: Konva.Circle | null;
-  //   tr: Konva.Circle | null;
-  //   br: Konva.Circle | null;
-  //   bl: Konva.Circle | null;
-  // } = { tl: null, tr: null, br: null, bl: null };
   private rotateCtrl: RotateHandlesController | null = null;
   private keepRatioPredicate: (() => boolean) | null = null;
   private boundNode: Konva.Node | null = null;
   private hitRect: Konva.Rect | null = null;
-  // private rotateDragState: { base: number; start: number } | null = null;
-  // private rotateCenterAbsStart: Konva.Vector2d | null = null;
-  // Сохранённая позиция противоположного угла при старте трансформации (для фиксации origin)
+  // Saved position of opposite corner at start of transformation (for fixing origin)
   private transformOppositeCorner: { x: number; y: number } | null = null;
-  // Состояние видимости на время drag
+  // Visibility state during drag
   private trWasVisibleBeforeDrag = false;
   private labelWasVisibleBeforeDrag = false;
   private rotateWasVisibleBeforeDrag = false;
@@ -76,7 +68,7 @@ export class OverlayFrameManager {
     });
     layer.add(tr);
     tr.nodes([node]);
-    // Глобальный ограничитель размеров: не даём схлопываться до 0
+    // Global size constraint: prevent collapsing to 0
     tr.boundBoxFunc((_, newBox) => {
       const MIN = 1; // px
       const w = Math.max(MIN, Math.abs(newBox.width));
@@ -85,10 +77,10 @@ export class OverlayFrameManager {
     });
     this.tr = tr;
 
-    // Сайд‑анкоры в едином стиле
+    // Side anchors in a unified style
     restyleSideAnchorsForTr(this.core, tr, node);
 
-    // Динамический keepRatio по Shift для угловых якорей
+    // Dynamic keepRatio by Shift for corner anchors
     const updateKeepRatio = () => {
       const active = typeof tr.getActiveAnchor === 'function' ? tr.getActiveAnchor() : '';
       const isCorner =
@@ -102,8 +94,8 @@ export class OverlayFrameManager {
     tr.on('transformstart.overlayKeepRatio', () => {
       updateKeepRatio();
 
-      // Сохраняем абсолютную позицию противоположного угла для фиксации origin
-      // ТОЛЬКО для угловых якорей
+      // Save absolute position of opposite corner for fixing origin
+      // ONLY for corner anchors
       const activeAnchor = typeof tr.getActiveAnchor === 'function' ? tr.getActiveAnchor() : '';
       const isCornerAnchor =
         activeAnchor === 'top-left' ||
@@ -112,7 +104,7 @@ export class OverlayFrameManager {
         activeAnchor === 'bottom-right';
 
       if (isCornerAnchor) {
-        // Для групп используем clientRect, для одиночных нод — width/height
+        // For groups use clientRect, for single nodes — width/height
         const isGroup = node instanceof Konva.Group;
         let width: number;
         let height: number;
@@ -136,7 +128,7 @@ export class OverlayFrameManager {
 
         const absTransform = node.getAbsoluteTransform();
 
-        // Определяем локальные координаты противоположного угла
+        // Determine local coordinates of opposite corner
         let oppositeX = 0;
         let oppositeY = 0;
 
@@ -154,25 +146,25 @@ export class OverlayFrameManager {
           oppositeY = localY;
         }
 
-        // Преобразуем в абсолютные координаты
+        // Convert to absolute coordinates
         this.transformOppositeCorner = absTransform.point({ x: oppositeX, y: oppositeY });
       } else {
-        // Для боковых якорей не фиксируем угол
+        // For side anchors do not fix angle
         this.transformOppositeCorner = null;
       }
     });
     tr.on('transform.overlayKeepRatio', updateKeepRatio);
 
-    // Обновление кастомных боковых якорей и ротационных кружков во время трансформации
+    // Update custom side anchors and rotation handles during transformation
     const onTransform = () => {
       if (!this.boundNode) return;
 
-      // Корректируем позицию ноды, чтобы противоположный угол оставался на месте
+      // Correct node position to keep opposite corner in place
       if (this.transformOppositeCorner) {
         const activeAnchor = typeof tr.getActiveAnchor === 'function' ? tr.getActiveAnchor() : '';
         const absTransform = this.boundNode.getAbsoluteTransform();
 
-        // Для групп используем clientRect, для одиночных нод — width/height
+        // For groups use clientRect, for single nodes — width/height
         const isGroup = this.boundNode instanceof Konva.Group;
         let width: number;
         let height: number;
@@ -194,7 +186,7 @@ export class OverlayFrameManager {
           height = this.boundNode.height();
         }
 
-        // Определяем локальные координаты противоположного угла
+        // Determine local coordinates of opposite corner
         let oppositeX = 0;
         let oppositeY = 0;
 
@@ -212,14 +204,14 @@ export class OverlayFrameManager {
           oppositeY = localY;
         }
 
-        // Текущая абсолютная позиция противоположного угла
+        // Current absolute position of opposite corner
         const currentOpposite = absTransform.point({ x: oppositeX, y: oppositeY });
 
-        // Вычисляем смещение
+        // Calculate offset
         const dx = this.transformOppositeCorner.x - currentOpposite.x;
         const dy = this.transformOppositeCorner.y - currentOpposite.y;
 
-        // Корректируем позицию ноды в локальных координатах родителя
+        // Correct node position in local coordinates of parent
         const parent = this.boundNode.getParent();
         if (parent && (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01)) {
           const parentInv = parent.getAbsoluteTransform().copy().invert();
@@ -233,13 +225,13 @@ export class OverlayFrameManager {
       this.tr?.forceUpdate();
       restyleSideAnchorsForTr(this.core, this.tr, this.boundNode);
       this.rotateCtrl?.updatePosition();
-      // Держим Transformer выше ротационных хендлеров
+      // Keep Transformer above rotation handles
       this.tr?.moveToTop();
       layer.batchDraw();
     };
     tr.on('transform.overlayFrameTransform', onTransform);
     tr.on('transformend.overlayFrameTransform', () => {
-      // Сбрасываем сохранённый угол после завершения трансформации
+      // Reset saved opposite corner after transformation
       this.transformOppositeCorner = null;
       onTransform();
     });
@@ -251,7 +243,7 @@ export class OverlayFrameManager {
     // Hit-rect
     this.updateHitRect();
 
-    // Rotate handles (через общий контроллер)
+    // Rotate handles (through common controller)
     if (this.rotateCtrl) {
       this.rotateCtrl.detach();
       this.rotateCtrl = null;
@@ -261,13 +253,13 @@ export class OverlayFrameManager {
       getNode: () => this.boundNode,
       getTransformer: () => this.tr,
       onUpdate: () => {
-        // Обновляем позицию label снизу при ротации (как при зуме)
+        // Update position of label below on rotation (like on zoom)
         this.forceUpdate();
         this.core.nodes.layer.batchDraw();
       },
     });
     this.rotateCtrl.attach();
-    // Сразу позиционировать хендлеры и гарантировать, что рамка выше них
+    // Position handles immediately and guarantee that the frame is above them
     this.rotateCtrl.updatePosition();
     this.tr.moveToTop();
 
@@ -300,10 +292,6 @@ export class OverlayFrameManager {
       this.rotateCtrl.detach();
       this.rotateCtrl = null;
     }
-    // this.rotateHandles = { tl: null, tr: null, br: null, bl: null };
-    // this.rotateDragState = null;
-    // this.rotateCenterAbsStart = null;
-    // this.boundNode = null;
   }
 
   public forceUpdate() {
@@ -340,7 +328,7 @@ export class OverlayFrameManager {
     } else {
       this.rotateWasVisibleBeforeDrag = false;
     }
-    // Скрыть ротационные кружки контроллера (если есть): через detach
+    // Hide rotation handles of the controller (if any): through detach
     if (this.rotateCtrl) {
       this.rotateCtrlWasAttachedBeforeDrag = true;
       this.rotateCtrl.detach();
@@ -353,7 +341,7 @@ export class OverlayFrameManager {
     if (this.tr && this.trWasVisibleBeforeDrag) this.tr.visible(true);
     if (this.sizeLabel && this.labelWasVisibleBeforeDrag) this.sizeLabel.visible(true);
     if (this.rotateGroup && this.rotateWasVisibleBeforeDrag) this.rotateGroup.visible(true);
-    // Вернуть ротационные кружки контроллера через повторный attach
+    // Restore rotation handles of the controller through re-attach
     if (this.rotateCtrl && this.rotateCtrlWasAttachedBeforeDrag) {
       this.rotateCtrl.attach();
       this.rotateCtrl.updatePosition();

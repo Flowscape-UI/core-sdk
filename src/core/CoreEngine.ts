@@ -64,7 +64,7 @@ export class CoreEngine {
     }
     this.container.style.background = this._backgroundColor;
     this._eventBus = new EventBus<CoreEvents>();
-    // Слой для сетки (не трансформируется камерой)
+    // Layer for grid (not transformed by camera)
     this._gridLayer = new Konva.Layer({ listening: false });
     this._stage.add(this._gridLayer);
 

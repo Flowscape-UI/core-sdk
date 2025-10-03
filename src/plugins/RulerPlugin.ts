@@ -5,13 +5,13 @@ import type { CoreEngine } from '../core/CoreEngine';
 import { Plugin } from './Plugin';
 
 export interface RulerPluginOptions {
-  thicknessPx?: number; // ширина линейки в пикселях
+  thicknessPx?: number; // Ruler thickness in pixels
   fontFamily?: string;
   fontSizePx?: number;
-  color?: string; // цвет текста и делений
-  bgColor?: string; // цвет фона линейки
-  borderColor?: string; // цвет границы
-  enabled?: boolean; // включена ли линейка при старте
+  color?: string; // Ruler text and ticks color
+  bgColor?: string; // Ruler background color
+  borderColor?: string; // Ruler border color
+  enabled?: boolean; // Is ruler enabled by default
 }
 
 export class RulerPlugin extends Plugin {
@@ -34,13 +34,13 @@ export class RulerPlugin extends Plugin {
   private _redrawScheduled = false;
   private _lastRedrawTime = 0;
   private _redrawThrottleMs = 16; // ~60 FPS
-  private _panThrottleMs = 32; // ~30 FPS для панорамирования (более агрессивный throttling)
+  private _panThrottleMs = 32; // ~30 FPS for panning (more aggressive throttling)
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _cachedActiveGuide: { type: 'h' | 'v'; coord: number } | null = null;
   private _cacheInvalidated = true;
 
-  // Кэш вычислений шагов делений (по scale)
+  // Cache for step calculations (by scale)
   private _stepsCache = new Map<
     number,
     {
@@ -50,7 +50,7 @@ export class RulerPlugin extends Plugin {
       mediumStep: number;
       labelStep: number;
       drawStep: number;
-      // Предвычисленные константы для цикла
+      // Precomputed constants for loop
       drawStepEpsilon: number;
       majorTickLength: number;
       mediumTickLength: number;
@@ -82,8 +82,8 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Вычисляет оптимальный шаг делений линейки
-   * Использует красивые числа: 1, 2, 5, 10, 20, 50, 100 и т.д.
+   * Calculate optimal step for ruler ticks
+   * Uses nice numbers: 1, 2, 5, 10, 20, 50, 100 and so on
    */
   private _calculateNiceStep(minWorldStep: number): number {
     if (!isFinite(minWorldStep) || minWorldStep <= 0) return 1;
@@ -101,18 +101,18 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Форматирует число для отображения на линейке
-   * Всегда возвращает целое число без десятичных знаков
+   * Format number for display on ruler
+   * Always returns an integer without decimal places
    */
   private _formatNumber(value: number): string {
     return Math.round(value).toString();
   }
 
   /**
-   * Вычисляет и кэширует параметры делений для текущего масштаба
+   * Calculate and cache parameters for ticks for current scale
    */
   private _getStepsConfig(scale: number) {
-    // Проверяем кэш
+    // Check cache
     const cached = this._stepsCache.get(scale);
     if (cached) return cached;
 
@@ -121,12 +121,12 @@ export class RulerPlugin extends Plugin {
     const minWorldStep = minStepPx / scale;
     let step = this._calculateNiceStep(minWorldStep);
 
-    // ВАЖНО: округляем до целого числа
+    // IMPORTANT: round to integer
     if (step < 1) step = 1;
 
     const stepPx = step * scale;
 
-    // Адаптивная система уровней делений и подписей
+    // Adaptive system of levels for ticks and labels
     let majorStep: number;
     let mediumStep: number;
     let labelStep: number;
@@ -149,7 +149,7 @@ export class RulerPlugin extends Plugin {
       drawStep = step;
     }
 
-    // Предвычисляем константы для цикла
+    // Precompute constants for cycle
     const config = {
       step,
       stepPx,
@@ -164,7 +164,7 @@ export class RulerPlugin extends Plugin {
       fontString: `${String(this._options.fontSizePx)}px ${this._options.fontFamily}`,
     };
 
-    // Ограничиваем размер кэша (храним последние 10 масштабов)
+    // Limit cache size (keep last 10 scales)
     if (this._stepsCache.size > 10) {
       const firstKey = this._stepsCache.keys().next().value;
       if (firstKey !== undefined) this._stepsCache.delete(firstKey);
@@ -177,24 +177,24 @@ export class RulerPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Создаём слой для линейки
+    // Create layer for ruler and RulerHighlightPlugin
     this._layer = new Konva.Layer({
       name: 'ruler-layer',
-      listening: true, // слушаем события для возможности взаимодействия с RulerGuidesPlugin
+      listening: true,
     });
 
     if (this._options.enabled) {
       core.stage.add(this._layer);
     }
 
-    // Группы для горизонтальной и вертикальной линейки
-    // listening: true чтобы события от фонов могли всплывать к RulerGuidesPlugin
+    // Groups for horizontal and vertical ruler
+    // listening: true to allow events from backgrounds to bubble to RulerGuidesPlugin
     this._hGroup = new Konva.Group({ listening: true });
     this._vGroup = new Konva.Group({ listening: true });
     this._layer.add(this._hGroup);
     this._layer.add(this._vGroup);
 
-    // Фоны линеек (могут слушать события от других плагинов, например RulerGuidesPlugin)
+    // Ruler backgrounds (can listen to events from other plugins, e.g. RulerGuidesPlugin)
     this._hBg = new Konva.Rect({
       fill: this._options.bgColor,
       listening: true,
@@ -208,7 +208,7 @@ export class RulerPlugin extends Plugin {
     this._hGroup.add(this._hBg);
     this._vGroup.add(this._vBg);
 
-    // Границы линеек (разделители между линейкой и рабочей областью)
+    // Ruler borders (dividers between ruler and working area)
     this._hBorder = new Konva.Line({
       stroke: this._options.borderColor,
       strokeWidth: 1,
@@ -222,29 +222,29 @@ export class RulerPlugin extends Plugin {
     this._hGroup.add(this._hBorder);
     this._vGroup.add(this._vBorder);
 
-    // Shape для горизонтальной линейки (деления + подписи)
+    // Shape for horizontal ruler (ticks + labels)
     this._hTicksShape = new Konva.Shape({
       listening: false,
       sceneFunc: (ctx) => {
-        // Получаем активную направляющую один раз для обеих линеек
+        // Get active guide once for both rulers
         const activeGuide = this._getActiveGuideInfo();
         this._drawHorizontalRuler(ctx, activeGuide);
       },
     });
     this._hGroup.add(this._hTicksShape);
 
-    // Shape для вертикальной линейки (деления + подписи)
+    // Shape for vertical ruler (ticks + labels)
     this._vTicksShape = new Konva.Shape({
       listening: false,
       sceneFunc: (ctx) => {
-        // Получаем активную направляющую один раз для обеих линеек
+        // Get active guide once for both rulers
         const activeGuide = this._getActiveGuideInfo();
         this._drawVerticalRuler(ctx, activeGuide);
       },
     });
     this._vGroup.add(this._vTicksShape);
 
-    // Подписываемся на изменения камеры и размера stage
+    // Subscribe to camera and stage size changes
     const stage = core.stage;
     const world = core.nodes.world;
 
@@ -252,34 +252,34 @@ export class RulerPlugin extends Plugin {
       this._scheduleRedraw();
     });
 
-    // Разделяем события панорамирования и зума для разного throttling
+    // Split panning and zooming events for different throttling
     world.on('xChange.ruler yChange.ruler', () => {
       this._invalidateGuideCache();
-      this._scheduleRedraw(true); // true = панорамирование (более агрессивный throttling)
+      this._scheduleRedraw(true); // true = panning (more aggressive throttling)
     });
 
     world.on('scaleXChange.ruler scaleYChange.ruler', () => {
       this._invalidateGuideCache();
-      this._scheduleRedraw(false); // false = зум (обычный throttling)
+      this._scheduleRedraw(false); // false = zoom (normal throttling)
     });
 
-    // Подписываемся на изменения направляющих для инвалидации кэша
+    // Subscribe to changes in guides for cache invalidation
     stage.on('guidesChanged.ruler', () => {
       this._invalidateGuideCache();
       this._scheduleRedraw();
     });
 
-    // Первичная отрисовка
+    // Initial draw
     this._redraw();
     core.stage.batchDraw();
   }
 
   protected onDetach(core: CoreEngine): void {
-    // Отписываемся от всех событий
+    // Unsubscribe from all events
     core.stage.off('.ruler');
     core.nodes.world.off('.ruler');
 
-    // Удаляем слой
+    // Remove layer
     if (this._layer) {
       this._layer.destroy();
       this._layer = null;
@@ -287,17 +287,17 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Получить активную направляющую из RulerGuidesPlugin (с кэшированием)
+   * Get active guide from RulerGuidesPlugin (with caching)
    */
   private _getActiveGuideInfo(): { type: 'h' | 'v'; coord: number } | null {
     if (!this._core) return null;
 
-    // Используем кэш, если он не инвалидирован
+    // Use cache if it is not invalidated
     if (!this._cacheInvalidated) {
       return this._cachedActiveGuide;
     }
 
-    // Ищем RulerGuidesPlugin через stage
+    // Find RulerGuidesPlugin through stage
     const guidesLayer = this._core.stage.findOne('.guides-layer');
     if (!guidesLayer) {
       this._cachedActiveGuide = null;
@@ -305,12 +305,12 @@ export class RulerPlugin extends Plugin {
       return null;
     }
 
-    // Получаем активную направляющую
+    // Get active guide
     const guides = (guidesLayer as unknown as Konva.Layer).find('Line');
     for (const guide of guides) {
       const line = guide as Konva.Line & { worldCoord: number };
       if (line.strokeWidth() === 2) {
-        // активная линия имеет strokeWidth = 2
+        // Active line has strokeWidth = 2
         const worldCoord = line.worldCoord;
         const type = line.name() === 'guide-h' ? 'h' : 'v';
         this._cachedActiveGuide = { type, coord: worldCoord };
@@ -325,17 +325,17 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Инвалидировать кэш активной направляющей
+   * Invalidate active guide cache
    */
   private _invalidateGuideCache() {
     this._cacheInvalidated = true;
   }
 
   /**
-   * Универсальная отрисовка линейки (горизонтальной или вертикальной)
-   * @param ctx - контекст canvas
-   * @param axis - ось линейки ('h' для горизонтальной, 'v' для вертикальной)
-   * @param activeGuide - кэшированная информация об активной направляющей
+   * Universal ruler drawing (horizontal or vertical)
+   * @param ctx - canvas context
+   * @param axis - ruler axis ('h' for horizontal, 'v' for vertical)
+   * @param activeGuide - cached active guide info
    */
   private _drawRuler(
     ctx: Konva.Context,
@@ -353,11 +353,11 @@ export class RulerPlugin extends Plugin {
     const stageSize = isHorizontal ? stage.width() : stage.height();
     const worldOffset = isHorizontal ? world.x() : world.y();
 
-    // Горизонтальная линейка подсвечивает вертикальную направляющую и наоборот
+    // Horizontal ruler highlights vertical guide and vice versa
     const highlightCoord =
       activeGuide?.type === (isHorizontal ? 'v' : 'h') ? activeGuide.coord : null;
 
-    // Получаем кэшированную конфигурацию шагов
+    // Get cached step configuration
     const config = this._getStepsConfig(scale);
     const {
       majorStep,
@@ -373,25 +373,25 @@ export class RulerPlugin extends Plugin {
 
     ctx.save();
 
-    // Вычисляем первое видимое деление
+    // Calculate first visible tick
     const worldStart = -worldOffset / scale;
     const firstTick = Math.floor(worldStart / drawStep) * drawStep;
 
-    // Собираем деления по типам для батчинга
+    // Collect ticks by type for batching
     const majorTicks: number[] = [];
     const mediumTicks: number[] = [];
     const minorTicks: number[] = [];
     const labels: { pos: number; text: string }[] = [];
     let highlightedTick: number | null = null;
 
-    // Первый проход: классификация делений
+    // First pass: classify ticks
     for (let worldPos = firstTick; ; worldPos += drawStep) {
       const screenPos = worldOffset + worldPos * scale;
 
       if (screenPos > stageSize) break;
       if (screenPos < 0) continue;
 
-      // Проверяем, является ли эта координата активной направляющей
+      // Check if this coordinate is an active guide
       const isHighlighted =
         highlightCoord !== null && Math.abs(worldPos - highlightCoord) < drawStepEpsilon;
 
@@ -401,7 +401,7 @@ export class RulerPlugin extends Plugin {
         continue;
       }
 
-      // Определяем тип деления
+      // Determine tick type
       const isMajor = Math.abs(worldPos % majorStep) < drawStepEpsilon;
       const isMedium = !isMajor && Math.abs(worldPos % mediumStep) < drawStepEpsilon;
 
@@ -413,15 +413,15 @@ export class RulerPlugin extends Plugin {
         minorTicks.push(screenPos);
       }
 
-      // Подпись
+      // Label
       const shouldShowLabel = Math.abs(worldPos % labelStep) < drawStepEpsilon;
       if (shouldShowLabel) {
         labels.push({ pos: screenPos, text: this._formatNumber(worldPos) });
       }
     }
 
-    // Второй проход: батчинг отрисовки делений
-    // Рисуем минорные деления
+    // Second pass: batch tick drawing
+    // Draw minor ticks
     if (minorTicks.length > 0) {
       ctx.strokeStyle = this._options.color;
       ctx.globalAlpha = 0.4;
@@ -439,7 +439,7 @@ export class RulerPlugin extends Plugin {
       ctx.stroke();
     }
 
-    // Рисуем средние деления
+    // Draw medium ticks
     if (mediumTicks.length > 0) {
       ctx.strokeStyle = this._options.color;
       ctx.globalAlpha = 0.6;
@@ -457,7 +457,7 @@ export class RulerPlugin extends Plugin {
       ctx.stroke();
     }
 
-    // Рисуем крупные деления
+    // Draw major ticks
     if (majorTicks.length > 0) {
       ctx.strokeStyle = this._options.color;
       ctx.globalAlpha = 0.9;
@@ -475,7 +475,7 @@ export class RulerPlugin extends Plugin {
       ctx.stroke();
     }
 
-    // Рисуем подсвеченное деление
+    // Draw highlighted tick
     if (highlightedTick !== null) {
       ctx.strokeStyle = '#ff8c00';
       ctx.globalAlpha = 1;
@@ -491,7 +491,7 @@ export class RulerPlugin extends Plugin {
       ctx.stroke();
     }
 
-    // Рисуем подписи
+    // Draw labels
     if (labels.length > 0) {
       ctx.font = fontString;
       ctx.textBaseline = 'top';
@@ -505,7 +505,7 @@ export class RulerPlugin extends Plugin {
         if (isHorizontal) {
           ctx.fillText(label.text, label.pos + 4, 4);
         } else {
-          // Для вертикальной линейки поворачиваем текст
+          // Rotate text for vertical ruler
           const x = 4;
           const y = label.pos + 4;
           ctx.setTransform(0, -1, 1, 0, x, y);
@@ -515,14 +515,14 @@ export class RulerPlugin extends Plugin {
       }
     }
 
-    // Дополнительно рисуем подсвеченную координату, даже если она не попадает в обычную сетку
+    // Additionally draw highlighted coordinate, even if it doesn't fall on regular grid
     if (highlightCoord !== null) {
       const screenPos = worldOffset + highlightCoord * scale;
       if (screenPos >= 0 && screenPos <= stageSize) {
         const alreadyDrawn = Math.abs(highlightCoord % drawStep) < drawStepEpsilon;
 
         if (!alreadyDrawn) {
-          // Рисуем деление
+          // Draw tick
           ctx.strokeStyle = '#ff8c00';
           ctx.globalAlpha = 1;
           ctx.lineWidth = 2;
@@ -536,7 +536,7 @@ export class RulerPlugin extends Plugin {
           }
           ctx.stroke();
 
-          // Рисуем подпись
+          // Draw label
           ctx.fillStyle = '#ff8c00';
           ctx.font = fontString;
           ctx.textBaseline = 'top';
@@ -559,8 +559,8 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Отрисовка горизонтальной линейки
-   * @param activeGuide - кэшированная информация об активной направляющей
+   * Draw horizontal ruler
+   * @param activeGuide - cached active guide info
    */
   private _drawHorizontalRuler(
     ctx: Konva.Context,
@@ -570,8 +570,8 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Отрисовка вертикальной линейки
-   * @param activeGuide - кэшированная информация об активной направляющей
+   * Draw vertical ruler
+   * @param activeGuide - cached active guide info
    */
   private _drawVerticalRuler(
     ctx: Konva.Context,
@@ -581,7 +581,7 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Полная перерисовка линейки
+   * Full ruler redraw
    */
   private _redraw() {
     if (!this._core || !this._layer) return;
@@ -591,7 +591,7 @@ export class RulerPlugin extends Plugin {
     const stageH = stage.height();
     const tPx = this._options.thicknessPx;
 
-    // Обновляем размеры фонов
+    // Update background sizes
     if (this._hBg) {
       this._hBg.size({ width: stageW, height: tPx });
     }
@@ -599,7 +599,7 @@ export class RulerPlugin extends Plugin {
       this._vBg.size({ width: tPx, height: stageH });
     }
 
-    // Обновляем границы
+    // Update borders
     if (this._hBorder) {
       this._hBorder.points([0, tPx, stageW, tPx]);
     }
@@ -607,14 +607,14 @@ export class RulerPlugin extends Plugin {
       this._vBorder.points([tPx, 0, tPx, stageH]);
     }
 
-    // Перерисовываем линейки
+    // Redraw rulers
     this._layer.batchDraw();
   }
 
   /**
-   * Отложенная перерисовка с улучшенным throttling
-   * Группирует быстрые события зума/панорамирования для оптимизации
-   * @param isPanning - true для панорамирования (более агрессивный throttling)
+   * Deferred redraw with improved throttling
+   * Groups fast zoom/pan events for optimization
+   * @param isPanning - true for panning (more aggressive throttling)
    */
   private _scheduleRedraw(isPanning = false) {
     if (!this._core || !this._layer) return;
@@ -622,15 +622,15 @@ export class RulerPlugin extends Plugin {
     const now = globalThis.performance.now();
     const timeSinceLastRedraw = now - this._lastRedrawTime;
 
-    // Если уже запланирована перерисовка, пропускаем
+    // If redraw is already scheduled, skip
     if (this._redrawScheduled) return;
 
     this._redrawScheduled = true;
 
-    // Выбираем throttle период в зависимости от типа события
+    // Choose throttle period based on event type
     const throttleMs = isPanning ? this._panThrottleMs : this._redrawThrottleMs;
 
-    // Если прошло достаточно времени с последней перерисовки, рисуем сразу
+    // If enough time has passed since last redraw, draw immediately
     if (timeSinceLastRedraw >= throttleMs) {
       globalThis.requestAnimationFrame(() => {
         this._redrawScheduled = false;
@@ -638,7 +638,7 @@ export class RulerPlugin extends Plugin {
         this._redraw();
       });
     } else {
-      // Иначе откладываем до истечения throttle периода
+      // Otherwise defer until throttle period expires
       const delay = throttleMs - timeSinceLastRedraw;
       globalThis.setTimeout(() => {
         globalThis.requestAnimationFrame(() => {
@@ -650,9 +650,6 @@ export class RulerPlugin extends Plugin {
     }
   }
 
-  /**
-   * Показать линейку
-   */
   public show() {
     if (this._core && this._layer) {
       this._core.stage.add(this._layer);
@@ -662,9 +659,6 @@ export class RulerPlugin extends Plugin {
     }
   }
 
-  /**
-   * Скрыть линейку
-   */
   public hide() {
     if (this._layer?.getStage()) {
       this._layer.remove();
@@ -673,7 +667,7 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Переключить видимость линейки
+   * Toggle ruler visibility
    */
   public toggle() {
     if (this._layer?.getStage()) {
@@ -684,7 +678,7 @@ export class RulerPlugin extends Plugin {
   }
 
   /**
-   * Проверить, видима ли линейка
+   * Check if ruler is visible
    */
   public isVisible(): boolean {
     return !!this._layer?.getStage();

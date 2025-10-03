@@ -25,7 +25,6 @@ export class ShapeNode extends BaseNode<Konva.Rect> {
     super(shape, options);
   }
 
-  // ===== Chainable setters =====
   public setFill(color: string): this {
     this.konvaNode.fill(color);
     return this;
@@ -51,9 +50,7 @@ export class ShapeNode extends BaseNode<Konva.Rect> {
     return this;
   }
 
-  // ===== Getters with typings =====
   public getFill(): string | undefined {
-    // Konva typings allow string | undefined depending on state
     return this.konvaNode.fill() as string | undefined;
   }
 

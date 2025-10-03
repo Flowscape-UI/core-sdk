@@ -1,8 +1,8 @@
 import Konva from 'konva';
 
 /**
- * Единая фабрика ротационных хендлеров для рамки.
- * Параметры соответствуют реализованным в SelectionPlugin.
+ * Unified factory for rotation handles of the frame.
+ * Parameters correspond to those implemented in SelectionPlugin.
  */
 export function makeRotateHandle(name: string): Konva.Circle {
   return new Konva.Circle({
@@ -13,9 +13,9 @@ export function makeRotateHandle(name: string): Konva.Circle {
     fill: '#ffffff',
     stroke: '#2b83ff',
     strokeWidth: 1.5,
-    // Делаем хендлер невидимым визуально, но сохраняем интерактивность
+    // Make the handler invisible visually, but keep interactivity
     opacity: 0,
-    // Увеличим зону попадания курсора, чтобы было легче навести
+    // Increase cursor hit area to make it easier to hit
     hitStrokeWidth: 16,
     draggable: true,
     dragOnTop: true,

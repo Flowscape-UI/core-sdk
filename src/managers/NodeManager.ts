@@ -22,7 +22,7 @@ export class NodeManager {
   private _stage: Konva.Stage;
   private _eventBus: EventBus<CoreEvents>;
 
-  // Кэш для оптимизации
+  // Cache for optimization
   private _batchDrawScheduled = false;
   private _listCache: BaseNode[] | null = null;
   private _listCacheInvalidated = true;
@@ -169,19 +169,12 @@ export class NodeManager {
     this._scheduleBatchDraw();
   }
 
-  // Снять регистрацию BaseNode, НЕ удаляя его Konva-ноду из сцены.
-  // Полезно при переносе Konva-ноды внутрь другой группы без разрушения экземпляра.
-  // public unregister(node: BaseNode) {
-  //   this._nodes.delete(node.id);
-  //   this._layer.batchDraw();
-  // }
-
   public findById(id: string): BaseNode | undefined {
     return this._nodes.get(id);
   }
 
   public list(): BaseNode[] {
-    // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: кэшируем результат
+    // CRITICAL OPTIMIZATION: cache result
     if (this._listCacheInvalidated || !this._listCache) {
       this._listCache = Array.from(this._nodes.values());
       this._listCacheInvalidated = false;
@@ -190,8 +183,8 @@ export class NodeManager {
   }
 
   /**
-   * Отложенная перерисовка (throttling)
-   * КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: группируем множественные добавления нод
+   * Deferred redraw (throttling)
+   * CRITICAL OPTIMIZATION: group multiple node additions
    */
   private _scheduleBatchDraw() {
     if (this._batchDrawScheduled) return;

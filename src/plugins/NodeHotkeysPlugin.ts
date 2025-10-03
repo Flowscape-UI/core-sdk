@@ -18,7 +18,7 @@ interface ClipboardData {
     position: { x: number; y: number };
     children?: ClipboardData['nodes'];
   }[];
-  // Визуальный центр в мировых координатах на момент копирования (учитывает offset/rotation/scale)
+  // Visual center in world coordinates at the time of copying (takes into account offset/rotation/scale)
   center?: { x: number; y: number };
 }
 
@@ -41,7 +41,7 @@ export class NodeHotkeysPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Подписываемся на keydown
+    // Subscribe to keydown
     this._options.target.addEventListener('keydown', this._onKeyDown as EventListener);
   }
 
@@ -55,7 +55,7 @@ export class NodeHotkeysPlugin extends Plugin {
   private _onKeyDown = (e: KeyboardEvent) => {
     if (!this._core) return;
 
-    // Получаем SelectionPlugin лениво при первом использовании
+    // Lazy get SelectionPlugin on first use
     if (!this._selectionPlugin) {
       const plugin = this._core.plugins.get('SelectionPlugin');
       if (plugin) {
@@ -65,7 +65,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     if (!this._selectionPlugin) return;
 
-    // Игнорируем, если фокус на редактируемом элементе
+    // Ignore if focus is on editable element
     if (this._options.ignoreEditableTargets && this._isEditableTarget(e.target)) {
       return;
     }
@@ -73,42 +73,42 @@ export class NodeHotkeysPlugin extends Plugin {
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
 
-    // Ctrl+C - Копировать
+    // Ctrl+C - Copy
     if (ctrl && e.code === 'KeyC') {
       e.preventDefault();
       this._handleCopy();
       return;
     }
 
-    // Ctrl+X - Вырезать
+    // Ctrl+X - Cut
     if (ctrl && e.code === 'KeyX') {
       e.preventDefault();
       this._handleCut();
       return;
     }
 
-    // Ctrl+V - Вставить
+    // Ctrl+V - Paste
     if (ctrl && e.code === 'KeyV') {
       e.preventDefault();
       this._handlePaste();
       return;
     }
 
-    // Delete или Backspace - Удалить
+    // Delete or Backspace - Delete
     if (e.code === 'Delete' || e.code === 'Backspace') {
       e.preventDefault();
       this._handleDelete();
       return;
     }
 
-    // Ctrl+] или Ctrl+Shift+= - Повысить z-index (moveUp)
+    // Ctrl+] or Ctrl+Shift+= - Raise z-index (moveUp)
     if (ctrl && (e.code === 'BracketRight' || (shift && e.code === 'Equal'))) {
       e.preventDefault();
       this._handleMoveUp();
       return;
     }
 
-    // Ctrl+[ или Ctrl+Shift+- - Понизить z-index (moveDown)
+    // Ctrl+[ or Ctrl+Shift+- - Lower z-index (moveDown)
     if (ctrl && (e.code === 'BracketLeft' || (shift && e.code === 'Minus'))) {
       e.preventDefault();
       this._handleMoveDown();
@@ -146,7 +146,7 @@ export class NodeHotkeysPlugin extends Plugin {
     const center = this._computeSelectionWorldCenter(selected);
     this._clipboard = { nodes, center };
 
-    // Удаляем ноды
+    // Delete nodes
     this._deleteNodes(selected);
 
     // Cut successfully
@@ -158,13 +158,13 @@ export class NodeHotkeysPlugin extends Plugin {
   private _handlePaste(): void {
     if (!this._core || !this._clipboard || this._clipboard.nodes.length === 0) return;
 
-    // Определяем позицию вставки
+    // Determine paste position
     const pastePosition = this._getPastePosition();
 
-    // Вычисляем центр скопированных нод
+    // Calculate center of copied nodes
     const clipboardCenter = this._getClipboardCenter();
 
-    // Вставляем ноды со смещением относительно новой позиции
+    // Paste nodes with offset relative to new position
     const newNodes: BaseNode[] = [];
     for (const nodeData of this._clipboard.nodes) {
       const offsetX = nodeData.position.x - clipboardCenter.x;
@@ -197,7 +197,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
   private _getSelectedNodes(): BaseNode[] {
     if (!this._selectionPlugin) return [];
-    // 1) Если активна временная группа (_tempMultiGroup), собрать ноды из её детей
+    // 1) If a temporary group (_tempMultiGroup) is active, collect nodes from its children
     const tempGroup = (
       this._selectionPlugin as unknown as { _tempMultiGroup?: { getChildren?: () => unknown[] } }
     )._tempMultiGroup;
@@ -212,14 +212,14 @@ export class NodeHotkeysPlugin extends Plugin {
       if (set.size > 0) return Array.from(set);
     }
 
-    // 2) Проверяем временную группу через _tempMultiSet (мультисет SelectionPlugin)
+    // 2) Check temporary group through _tempMultiSet (multiset SelectionPlugin)
     const tempMultiSet = (this._selectionPlugin as unknown as { _tempMultiSet?: Set<BaseNode> })
       ._tempMultiSet;
     if (tempMultiSet && tempMultiSet.size > 0) {
       return Array.from(tempMultiSet);
     }
 
-    // 3) Проверяем одиночное выделение
+    // 3) Check single selection
     const selected = (this._selectionPlugin as unknown as { _selected?: BaseNode | null })
       ._selected;
     if (selected) {
@@ -232,7 +232,7 @@ export class NodeHotkeysPlugin extends Plugin {
   private _deleteNodes(nodes: BaseNode[]): void {
     if (!this._core) return;
 
-    // Снимаем выделение перед удалением
+    // Clear selection before deletion
     if (this._selectionPlugin) {
       const plugin = this._selectionPlugin as unknown as {
         _destroyTempMulti?: () => void;
@@ -246,13 +246,13 @@ export class NodeHotkeysPlugin extends Plugin {
       }
     }
 
-    // Удаляем ноды
+    // Delete nodes
     for (const node of nodes) {
       this._core.nodes.remove(node);
     }
   }
 
-  // Сериализация ноды в буфер, позиция — в координатах мира
+  // Serialize node to buffer, position in world coordinates
   private _serializeNode(node: BaseNode): ClipboardData['nodes'][0] {
     const konvaNode = node.getNode();
     const attrs = konvaNode.getAttrs();
@@ -276,14 +276,14 @@ export class NodeHotkeysPlugin extends Plugin {
       position: pos,
     };
 
-    // Если это группа, сериализуем дочерние элементы
+    // If it's a group, serialize child elements
     if (nodeType === 'group') {
       const gKn = konvaNode as unknown as Konva.Group;
       const children = gKn.getChildren();
       const serializedChildren: ClipboardData['nodes'] = [];
 
       for (const child of children) {
-        // Сериализуем каждый дочерний Konva.Node напрямую
+        // Serialize each child Konva.Node directly
         const childSerialized = this._serializeKonvaNode(child as unknown as Konva.Node);
         if (childSerialized) {
           serializedChildren.push(childSerialized);
@@ -298,28 +298,28 @@ export class NodeHotkeysPlugin extends Plugin {
     return serialized;
   }
 
-  // Сериализация Konva.Node (не BaseNode) для дочерних элементов группы
+  // Serialize Konva.Node (not BaseNode) for group children
   private _serializeKonvaNode(kn: Konva.Node): ClipboardData['nodes'][0] | null {
     if (!this._core) return null;
 
     const attrs = kn.getAttrs();
     const className = kn.getClassName();
 
-    // Определяем тип по className Konva (Rect -> shape, Circle -> circle, etc.)
+    // Define type of className Konva (Rect -> shape, Circle -> circle, etc.)
     let nodeType = className.toLowerCase();
     if (nodeType === 'rect') nodeType = 'shape';
 
-    // Для дочерних элементов группы сохраняем ОТНОСИТЕЛЬНЫЕ позиции (x, y внутри группы)
+    // For group children, save RELATIVE positions (x, y inside group)
     const serialized: ClipboardData['nodes'][0] = {
       type: nodeType,
       config: {
         ...attrs,
         id: undefined,
       },
-      position: { x: kn.x(), y: kn.y() }, // Относительные координаты внутри группы
+      position: { x: kn.x(), y: kn.y() }, // Relative coordinates inside group
     };
 
-    // Рекурсивно обрабатываем вложенные группы
+    // Recursively process nested groups
     if (kn instanceof Konva.Group) {
       const children = kn.getChildren();
       const serializedChildren: ClipboardData['nodes'] = [];
@@ -351,7 +351,7 @@ export class NodeHotkeysPlugin extends Plugin {
   ): BaseNode | null {
     if (!this._core) return null;
 
-    // Удаляем zIndex из конфига, так как он будет установлен автоматически
+    // Remove zIndex from config, as it will be set automatically
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { zIndex, ...configWithoutZIndex } = data.config;
 
@@ -420,23 +420,23 @@ export class NodeHotkeysPlugin extends Plugin {
           if (data.config['offsetY'] !== undefined)
             groupKonvaNode.offsetY(data.config['offsetY'] as number);
 
-          // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: восстанавливаем ВСЕ дочерние элементы через NodeManager
-          // Это гарантирует, что к ним можно провалиться через двойной клик
+          // CRITICAL FIX: restore ALL child elements through NodeManager
+          // This ensures that they can be accessed through double-click
           if (data.children && data.children.length > 0) {
             for (const childData of data.children) {
-              // Создаём ЛЮБУЮ дочернюю ноду (группу или обычную) через _deserializeNode
-              // Это регистрирует её в NodeManager и делает доступной
+              // Create ANY child node (group or regular) through _deserializeNode
+              // This registers it in NodeManager and makes it available
               const childBaseNode = this._deserializeNode(childData, {
                 x: childData.position.x,
                 y: childData.position.y,
               });
               if (childBaseNode) {
                 const childKonvaNode = childBaseNode.getNode();
-                // Отключаем draggable для дочерних элементов
+                // Disable draggable for child elements
                 if (typeof childKonvaNode.draggable === 'function') {
                   childKonvaNode.draggable(false);
                 }
-                // Перемещаем из world в родительскую группу
+                // Move from world to parent group
                 childKonvaNode.moveTo(groupKonvaNode);
               }
             }
@@ -448,7 +448,7 @@ export class NodeHotkeysPlugin extends Plugin {
           return null;
       }
 
-      // Принудительно применяем атрибуты трансформации для ВСЕХ типов нод
+      // Apply transformation attributes for ALL node types
       const konvaNode = newNode.getNode() as unknown as Konva.Node;
       if (data.config['scaleX'] !== undefined) konvaNode.scaleX(data.config['scaleX'] as number);
       if (data.config['scaleY'] !== undefined) konvaNode.scaleY(data.config['scaleY'] as number);
@@ -472,7 +472,7 @@ export class NodeHotkeysPlugin extends Plugin {
     const stage = this._core.stage;
     const pointer = stage.getPointerPosition();
 
-    // Проверяем, что курсор на экране и в пределах canvas
+    // Check if cursor is on screen and within canvas
     if (pointer && this._isPointerOnScreen(pointer)) {
       const world = this._core.nodes.world;
       const worldTransform = world.getAbsoluteTransform().copy().invert();
@@ -480,7 +480,7 @@ export class NodeHotkeysPlugin extends Plugin {
       return { x: worldPos.x, y: worldPos.y };
     }
 
-    // Если курсора нет или он за пределами экрана - вставляем в центр экрана
+    // If cursor is not on screen or out of bounds - paste in the center of the screen
     return this._getScreenCenter();
   }
 
@@ -511,9 +511,9 @@ export class NodeHotkeysPlugin extends Plugin {
     if (!this._clipboard || this._clipboard.nodes.length === 0) {
       return { x: 0, y: 0 };
     }
-    // Если сохранён точный визуальный центр — используем его
+    // If exact visual center is saved, use it
     if (this._clipboard.center) return this._clipboard.center;
-    // Fallback: среднее по позициям
+    // Fallback: average of positions
     let sumX = 0;
     let sumY = 0;
     for (const node of this._clipboard.nodes) {
@@ -523,7 +523,7 @@ export class NodeHotkeysPlugin extends Plugin {
     return { x: sumX / this._clipboard.nodes.length, y: sumY / this._clipboard.nodes.length };
   }
 
-  // Рассчитывает визуальный bbox выделенных нод и возвращает его центр в мировых координатах
+  // Calculate visual bbox of selected nodes and return its center in world coordinates
   private _computeSelectionWorldCenter(nodes: BaseNode[]): { x: number; y: number } {
     if (!this._core || nodes.length === 0) return { x: 0, y: 0 };
     let minX = Number.POSITIVE_INFINITY;
@@ -533,7 +533,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     for (const n of nodes) {
       const kn = n.getNode() as unknown as Konva.Node;
-      // clientRect уже учитывает все трансформации (кроме stroke по умолчанию — нам не критично)
+      // clientRect already accounts for all transformations (except default stroke — not critical for us)
       const r = kn.getClientRect({ skipShadow: true, skipStroke: true });
       minX = Math.min(minX, r.x);
       minY = Math.min(minY, r.y);
@@ -545,7 +545,7 @@ export class NodeHotkeysPlugin extends Plugin {
       return { x: 0, y: 0 };
     }
 
-    // Центр bbox сейчас в координатах сцены (stage). Переводим в координаты мира (world).
+    // Center of bbox is now in stage coordinates. Convert to world coordinates.
     const cxStage = (minX + maxX) / 2;
     const cyStage = (minY + maxY) / 2;
     const world = this._core.nodes.world;
@@ -554,16 +554,16 @@ export class NodeHotkeysPlugin extends Plugin {
     return { x: ptWorld.x, y: ptWorld.y };
   }
 
-  // Повысить z-index выбранной ноды (инкрементировать на 1)
+  // Raise z-index of selected node (increment by 1)
   private _handleMoveUp(): void {
     const selected = this._getSelectedNodes();
     if (selected.length === 0) return;
 
-    // Перемещаем каждую выбранную ноду на один уровень вперёд
+    // Move each selected node one level forward
     for (const node of selected) {
       const konvaNode = node.getNode() as unknown as Konva.Node;
 
-      // Запрещаем изменение z-index для одиночной ноды внутри настоящей группы
+      // Skip changing z-index for single node inside a real group
       if (this._isNodeInsidePermanentGroup(konvaNode)) {
         continue;
       }
@@ -572,36 +572,36 @@ export class NodeHotkeysPlugin extends Plugin {
       konvaNode.moveUp();
       const newIndex = konvaNode.zIndex();
 
-      // Проверяем возможность изменения z-index (для нод внутри группы)
+      // Check if z-index change is possible (for nodes inside groups)
       this._syncGroupZIndex(konvaNode);
 
-      // Эмитим событие изменения z-index
+      // Emit z-index change event
       if (this._core && oldIndex !== newIndex) {
         this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
       }
     }
 
     if (this._core) {
-      // Принудительная перерисовка всего слоя
+      // Force redraw of the entire layer
       this._core.nodes.layer.draw();
 
-      // Также перерисовываем stage для обновления transformer
+      // Also redraw stage to update transformer
       this._core.stage.batchDraw();
     }
   }
 
-  // Понизить z-index выбранной ноды (декрементировать на 1)
+  // Lower z-index of selected node (decrement by 1)
   private _handleMoveDown(): void {
     const selected = this._getSelectedNodes();
     if (selected.length === 0) return;
 
-    // Перемещаем каждую выбранную ноду на один уровень назад (в обратном порядке, чтобы избежать конфликтов)
+    // Move each selected node one level backward (in reverse order to avoid conflicts)
     for (let i = selected.length - 1; i >= 0; i--) {
       const node = selected[i];
       if (!node) continue;
       const konvaNode = node.getNode() as unknown as Konva.Node;
 
-      // Запрещаем изменение z-index для одиночной ноды внутри настоящей группы
+      // Skip changing z-index for single node inside a real group
       if (this._isNodeInsidePermanentGroup(konvaNode)) {
         continue;
       }
@@ -610,29 +610,29 @@ export class NodeHotkeysPlugin extends Plugin {
       konvaNode.moveDown();
       const newIndex = konvaNode.zIndex();
 
-      // Проверяем возможность изменения z-index (для нод внутри группы)
+      // Check if z-index change is possible (for nodes inside groups)
       this._syncGroupZIndex(konvaNode);
 
-      // Эмитим событие изменения z-index
+      // Emit z-index change event
       if (this._core && oldIndex !== newIndex) {
         this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
       }
     }
 
     if (this._core) {
-      // Принудительная перерисовка всего слоя
+      // Force redraw of the entire layer
       this._core.nodes.layer.draw();
 
-      // Также перерисовываем stage для обновления transformer
+      // Also redraw stage to update transformer
       this._core.stage.batchDraw();
     }
   }
 
   /**
-   * Проверяет, находится ли нода внутри настоящей группы (не является самой группой)
+   * Checks if the node is inside a real group (not the group itself)
    */
   private _isNodeInsidePermanentGroup(konvaNode: Konva.Node): boolean {
-    // Если это сама группа — разрешаем изменение z-index
+    // If it's the group itself, allow z-index change
     if (konvaNode instanceof Konva.Group) {
       return false;
     }
@@ -640,30 +640,29 @@ export class NodeHotkeysPlugin extends Plugin {
     const parent = konvaNode.getParent();
     if (!parent) return false;
 
-    // Если родитель — группа (не world) — это настоящая группа
+    // If parent is a group (not world) - it's a real group
     return parent instanceof Konva.Group && parent.name() !== 'world';
   }
 
   /**
-   * ИСПРАВЛЕНИЕ: Проверяет возможность изменения z-index
-   * - Для группы — ничего не делаем (moveUp/moveDown уже применен к самой группе)
-   * - Для ноды внутри группы — ЗАПРЕЩАЕМ изменение z-index
+   * Checks if the node is inside a real group
+   * - For group itself — do nothing (moveUp/moveDown already applied to the group)
+   * - For node inside group — FORBIDDEN to change z-index
    */
   private _syncGroupZIndex(konvaNode: Konva.Node): void {
     const parent = konvaNode.getParent();
     if (!parent) return;
 
-    // Если это группа — НЕ трогаем детей!
-    // moveUp/moveDown уже применен к самой группе
-    // Дети сохраняют свой относительный порядок внутри группы
+    // If it's the group itself, do nothing (moveUp/moveDown already applied to the group)
+    // Children keep their relative order inside the group
     if (konvaNode instanceof Konva.Group) {
       return;
     }
 
-    // Если нода внутри группы — ЗАПРЕЩАЕМ изменение z-index
-    // Нужно менять z-index самой группы, а не отдельных нод
+    // If node inside group — FORBIDDEN to change z-index
+    // Need to change z-index of the group, not individual nodes
     if (parent instanceof Konva.Group && parent.name() !== 'world') {
-      // Изменение z-index запрещено для нод внутри группы
+      // z-index change forbidden for nodes inside group
       return;
     }
   }

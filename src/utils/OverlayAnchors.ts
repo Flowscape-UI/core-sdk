@@ -3,8 +3,8 @@ import Konva from 'konva';
 import type { CoreEngine } from '../core/CoreEngine';
 
 /**
- * Растянуть side-анкоры (top/right/bottom/left) на всю сторону ноды и скрыть их визуально,
- * оставив hit-area. Учитывает реальную геометрию при ротации (как в SelectionPlugin).
+ * Stretches side anchors (top/right/bottom/left) to the full side of the node and hides them visually,
+ * leaving hit-area. Takes real geometry into account when rotating (as in SelectionPlugin).
  */
 export function restyleSideAnchorsForTr(
   core: CoreEngine | undefined,

@@ -14,9 +14,9 @@ export interface MultiGroupControllerDeps {
 }
 
 /**
- * MultiGroupController — тонкий контроллер, инкапсулирующий работу с временной мульти‑группой.
- * Фактическая логика живёт в переданных зависимостях (SelectionPlugin),
- * благодаря чему мы не дублируем код рамки/оверлеев и поведения.
+ * MultiGroupController — thin controller encapsulating work with temporary multi-group.
+ * Actual logic lives in passed dependencies (SelectionPlugin),
+ * thanks to which we don't duplicate code for frames/overlays and behavior.
  */
 export class MultiGroupController {
   private deps: MultiGroupControllerDeps;

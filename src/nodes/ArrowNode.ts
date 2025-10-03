@@ -32,7 +32,6 @@ export class ArrowNode extends BaseNode<Konva.Arrow> {
     super(arrow, options);
   }
 
-  // Getters
   public getPoints(): number[] {
     return this.konvaNode.points();
   }
@@ -52,7 +51,6 @@ export class ArrowNode extends BaseNode<Konva.Arrow> {
     return this.konvaNode.pointerAtEnding();
   }
 
-  // Setters (chainable)
   public setPoints(v: number[]): this {
     this.konvaNode.points(v);
     return this;
