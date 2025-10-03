@@ -34,12 +34,18 @@ interface KonvaNodeWithLOD extends Konva.Node {
 /**
  * LODManager - управляет уровнем детализации (Level of Detail) для оптимизации
  *
- * При сильном отдалении (малый масштаб) упрощает отрисовку нод:
- * - Отключает обводку (stroke)
- * - Отключает тени (shadow)
- * - Отключает perfect draw
+ * ВАЖНО: Это ДОПОЛНИТЕЛЬНАЯ оптимизация поверх Konva framework.
+ * Konva НЕ предоставляет автоматический LOD, поэтому эта реализация необходима.
  *
- * Это даёт дополнительный прирост производительности 20-30% при большом количестве нод.
+ * При сильном отдалении (малый масштаб) упрощает отрисовку нод:
+ * - Отключает обводку (stroke) через strokeEnabled(false)
+ * - Отключает тени (shadow) через shadowEnabled(false)
+ * - Отключает perfect draw через perfectDrawEnabled(false)
+ *
+ * Все методы используют встроенные API Konva, рекомендованные в официальной документации:
+ * https://konvajs.org/docs/performance/All_Performance_Tips.html
+ *
+ * Прирост производительности: 20-30% при большом количестве нод на малых масштабах.
  */
 export class LODManager {
   private _enabled: boolean;

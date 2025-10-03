@@ -4,7 +4,6 @@ import { NodeManager } from '../managers/NodeManager';
 import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
 import { VirtualizationManager } from '../managers/VirtualizationManager';
-import { BBoxCacheManager } from '../managers/BBoxCacheManager';
 import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
 import type { CoreEvents } from '../types/core.events.interface';
@@ -42,7 +41,6 @@ export class CoreEngine {
   public readonly nodes: NodeManager;
   public readonly camera: CameraManager;
   public readonly virtualization: VirtualizationManager;
-  public readonly bboxCache: BBoxCacheManager;
   public readonly plugins: Plugins;
 
   constructor(options: CoreEngineOptions) {
@@ -86,10 +84,6 @@ export class CoreEngine {
       this.nodes,
       options.virtualization,
     );
-    this.bboxCache = new BBoxCacheManager({
-      ttl: 100,
-      maxSize: 10000,
-    });
     this.plugins = new Plugins(this, options.plugins ?? []);
   }
 

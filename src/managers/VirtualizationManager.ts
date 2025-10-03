@@ -23,14 +23,20 @@ export interface VirtualizationOptions {
 /**
  * VirtualizationManager - управляет видимостью нод для оптимизации производительности
  *
+ * ВАЖНО: Это ДОПОЛНИТЕЛЬНАЯ оптимизация поверх Konva framework.
+ * Konva НЕ предоставляет автоматическую виртуализацию viewport, поэтому эта реализация необходима.
+ *
  * Основная идея: отрисовывать только те ноды, которые находятся в viewport (видимой области).
  * Это даёт огромный прирост производительности при большом количестве нод.
  *
- * Оптимизации:
- * 1. visible: false - нода не отрисовывается
- * 2. listening: false - нода не обрабатывает события
+ * Оптимизации (используют встроенные API Konva):
+ * 1. visible: false - нода не отрисовывается (рекомендация Konva)
+ * 2. listening: false - нода не обрабатывает события (рекомендация Konva)
  * 3. Буферная зона - рендерим немного больше viewport для плавности
  * 4. Throttling - ограничиваем частоту обновлений
+ * 5. getClientRect() - Konva автоматически кэширует результаты внутренне
+ *
+ * Документация Konva: https://konvajs.org/docs/performance/All_Performance_Tips.html
  */
 export class VirtualizationManager {
   private _enabled: boolean;
@@ -48,13 +54,6 @@ export class VirtualizationManager {
   private _hiddenNodes = new Set<string>();
 
   private _updateScheduled = false;
-
-  // Кэш bounding boxes для оптимизации
-  private _bboxCache = new Map<
-    string,
-    { x: number; y: number; width: number; height: number; timestamp: number }
-  >();
-  private _bboxCacheTTL = 100; // мс
 
   // LOD Manager для дополнительной оптимизации
   private _lod: LODManager | null = null;
@@ -101,8 +100,11 @@ export class VirtualizationManager {
   }
 
   /**
-   * Получает bounding box ноды с кэшированием
-   * ВАЖНО: Возвращает bbox в мировых координатах (относительно world)
+   * Получает bounding box ноды в мировых координатах (относительно world)
+   *
+   * ОПТИМИЗАЦИЯ: Konva автоматически кэширует результаты getClientRect() внутренне,
+   * поэтому дополнительный TTL-кэш не нужен. Konva инвалидирует свой кэш при изменении
+   * трансформаций, что более надежно чем наш TTL-подход.
    */
   private _getNodeBBox(node: BaseNode): {
     x: number;
@@ -110,31 +112,17 @@ export class VirtualizationManager {
     width: number;
     height: number;
   } {
-    const cached = this._bboxCache.get(node.id);
-    const now = Date.now();
-
-    // Используем кэш, если он свежий
-    if (cached && now - cached.timestamp < this._bboxCacheTTL) {
-      return cached;
-    }
-
-    // Вычисляем новый bbox
     const konvaNode = node.getNode();
 
-    // ИСПРАВЛЕНИЕ: Используем getClientRect с relativeTo для получения
-    // координат относительно world (а не абсолютных координат stage)
+    // Konva автоматически кэширует getClientRect() и инвалидирует при изменениях
     const clientRect = konvaNode.getClientRect({ relativeTo: this._world });
 
-    const bbox = {
+    return {
       x: clientRect.x,
       y: clientRect.y,
       width: clientRect.width,
       height: clientRect.height,
-      timestamp: now,
     };
-
-    this._bboxCache.set(node.id, bbox);
-    return bbox;
   }
 
   /**
@@ -234,7 +222,6 @@ export class VirtualizationManager {
     this._nodeManager.eventBus.on('node:removed', (node: BaseNode) => {
       this._visibleNodes.delete(node.id);
       this._hiddenNodes.delete(node.id);
-      this._bboxCache.delete(node.id);
     });
   }
 
@@ -312,13 +299,6 @@ export class VirtualizationManager {
   }
 
   /**
-   * Очищает кэш bounding boxes
-   */
-  public clearCache(): void {
-    this._bboxCache.clear();
-  }
-
-  /**
    * Устанавливает размер буферной зоны
    */
   public setBufferZone(pixels: number): void {
@@ -374,7 +354,6 @@ export class VirtualizationManager {
    */
   public destroy(): void {
     this.disable();
-    this._bboxCache.clear();
     this._visibleNodes.clear();
     this._hiddenNodes.clear();
 
