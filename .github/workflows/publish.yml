@@ -50,22 +50,9 @@ jobs:
       - name: Build library
         run: bun run build
 
-      - name: Configure Git
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Bump version (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          npm version ${{ github.event.inputs.version }} -m "chore: release v%s"
-          git push --follow-tags
-
-      - name: Bump version (auto patch on push)
-        if: github.event_name == 'push'
-        run: |
-          npm version patch -m "chore: release v%s"
-          git push --follow-tags
+      - name: Get current version
+        id: get-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -78,21 +65,24 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Get package version
-        id: package-version
-        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Create Git Tag
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${{ steps.get-version.outputs.version }}" -m "Release v${{ steps.get-version.outputs.version }}"
+          git push origin "v${{ steps.get-version.outputs.version }}"
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.package-version.outputs.version }}
-          release_name: Release v${{ steps.package-version.outputs.version }}
+          tag_name: v${{ steps.get-version.outputs.version }}
+          release_name: Release v${{ steps.get-version.outputs.version }}
           body: |
-            ## 🚀 Release v${{ steps.package-version.outputs.version }}
+            ## 🚀 Release v${{ steps.get-version.outputs.version }}
 
-            Published to npm: [@flowscape-ui/core-sdk@${{ steps.package-version.outputs.version }}](https://www.npmjs.com/package/@flowscape-ui/core-sdk/v/${{ steps.package-version.outputs.version }})
+            Published to npm: [@flowscape-ui/core-sdk@${{ steps.get-version.outputs.version }}](https://www.npmjs.com/package/@flowscape-ui/core-sdk/v/${{ steps.get-version.outputs.version }})
 
             ### Changes
             See [CHANGELOG.md](./CHANGELOG.md) for details.
