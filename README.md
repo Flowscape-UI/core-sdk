@@ -5,7 +5,7 @@
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![Buy Me a Coffee](https://img.shields.io/badge/Donate-Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/flowscape)
 
-[📖 Documentation](https://flowscape-ui.github.io/core-sdk-docs) • [💡 Examples](https://flowscape-ui.github.io/core-sdk-docs/docs/guides/interactive-demo) • [📝 Changelog](#)
+[📖 Documentation](https://flowscape-ui.github.io/core-sdk-docs) • [💡 Examples](https://flowscape-ui.github.io/core-sdk-doc/docs/guides/interactive-demo) • [📝 Changelog](#)
 
 ---
 
@@ -337,13 +337,13 @@ bun run lint:fix      # Auto-fix
 
 ## 📖 Documentation
 
-Full documentation is available at [flowscape-ui.github.io/core-sdk-docs](https://flowscape-ui.github.io/core-sdk-docs)
+Full documentation is available at [flowscape-ui.github.io/core-sdk-doc](https://flowscape-ui.github.io/core-sdk-doc)
 
-- [Getting Started](https://flowscape-ui.github.io/core-sdk-docs/docs/getting-started/installation)
-- [Core Concepts](https://flowscape-ui.github.io/core-sdk-docs/docs/core-concepts/architecture)
-- [Plugins](https://flowscape-ui.github.io/core-sdk-docs/docs/plugins/overview)
-- [API Reference](https://flowscape-ui.github.io/core-sdk-docs/docs/api/reference)
-- [Interactive Demo](https://flowscape-ui.github.io/core-sdk-docs/docs/guides/interactive-demo)
+- [Getting Started](https://flowscape-ui.github.io/core-sdk-doc/docs/getting-started/installation)
+- [Core Concepts](https://flowscape-ui.github.io/core-sdk-doc/docs/core-concepts/architecture)
+- [Plugins](https://flowscape-ui.github.io/core-sdk-docs/doc/plugins/overview)
+- [API Reference](https://flowscape-ui.github.io/core-sdk-doc/docs/api/reference)
+- [Interactive Demo](https://flowscape-ui.github.io/core-sdk-doc/docs/guides/interactive-demo)
 
 ---
 
