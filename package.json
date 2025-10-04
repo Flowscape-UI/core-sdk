@@ -1,6 +1,6 @@
 {
   "name": "@flowscape-ui/core-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Framework-agnostic 2D canvas engine built on Konva",
   "keywords": [
     "core",

@@ -6,10 +6,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
-
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/flowscape)
 [Documentation](https://github.com/Flowscape-UI/core-sdk#readme) • [Examples](https://github.com/Flowscape-UI/core-sdk/tree/main/playground) • [Changelog](./CHANGELOG.md)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 
 </div>
 
@@ -139,16 +138,60 @@ const core = new CoreEngine({
 
 ### Built-in Plugins
 
-| Plugin                | Description                              |
-| --------------------- | ---------------------------------------- |
-| `GridPlugin`          | Adaptive grid with automatic scaling     |
-| `SelectionPlugin`     | Selection, transformation, drag & drop   |
-| `NodeHotkeysPlugin`   | Ctrl+C/V/X, Delete, Ctrl+[/] for z-index |
-| `CameraHotkeysPlugin` | Ctrl+wheel for zoom, arrows for pan      |
-| `RulerPlugin`         | Rulers with measurement units            |
-| `RulerGuidesPlugin`   | Guide lines (drag from rulers)           |
-| `AreaSelectionPlugin` | Area selection with frame (Shift+Drag)   |
-| `LogoPlugin`          | Watermark/logo on canvas                 |
+| Plugin                 | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `GridPlugin`           | Adaptive grid with automatic scaling             |
+| `SelectionPlugin`      | Selection, transformation, drag & drop, grouping |
+| `NodeHotkeysPlugin`    | Copy/paste/cut nodes, delete, z-index management |
+| `CameraHotkeysPlugin`  | Zoom and pan controls with keyboard              |
+| `RulerPlugin`          | Rulers with measurement units                    |
+| `RulerGuidesPlugin`    | Draggable guide lines from rulers                |
+| `RulerHighlightPlugin` | Ruler highlighting on hover                      |
+| `RulerManagerPlugin`   | Toggle rulers and manage guides                  |
+| `AreaSelectionPlugin`  | Area selection with frame (Shift+Drag)           |
+| `LogoPlugin`           | Watermark/logo on canvas                         |
+
+### ⌨️ Keyboard Shortcuts
+
+#### Node Operations (NodeHotkeysPlugin)
+
+| Shortcut               | Action                   |
+| ---------------------- | ------------------------ |
+| `Ctrl+C`               | Copy selected nodes      |
+| `Ctrl+X`               | Cut selected nodes       |
+| `Ctrl+V`               | Paste nodes              |
+| `Delete` / `Backspace` | Delete selected nodes    |
+| `Ctrl+]`               | Move node up (z-index)   |
+| `Ctrl+[`               | Move node down (z-index) |
+
+#### Grouping (SelectionPlugin)
+
+| Shortcut       | Action                            |
+| -------------- | --------------------------------- |
+| `Ctrl+G`       | Group selected nodes              |
+| `Ctrl+Shift+G` | Ungroup selected group            |
+| `Shift+Click`  | Add/remove node to/from selection |
+| `Shift`        | Lock aspect ratio during resize   |
+
+#### Camera Controls (CameraHotkeysPlugin)
+
+| Shortcut            | Action             |
+| ------------------- | ------------------ |
+| `Ctrl+Wheel`        | Zoom in/out        |
+| `+` / `=`           | Zoom in            |
+| `-`                 | Zoom out           |
+| `Arrow Keys`        | Pan camera         |
+| `Space+Drag`        | Pan camera (mouse) |
+| `Middle Mouse+Drag` | Pan camera         |
+| `Right Mouse+Drag`  | Pan camera         |
+
+#### Ruler Controls (RulerManagerPlugin)
+
+| Shortcut               | Action                   |
+| ---------------------- | ------------------------ |
+| `Shift+R`              | Toggle rulers visibility |
+| `Delete` / `Backspace` | Delete active guide      |
+| `Drag from ruler`      | Create guide line        |
 
 ## 📚 Usage Examples
 
@@ -281,11 +324,6 @@ bun run lint:fix      # Auto-fix
 ## 📖 Documentation
 
 Coming soon
-
-### Branching Strategy
-
-- `dev` — active development
-- `main` — stable version, auto-publish to npm
 
 ## 📄 License
 
