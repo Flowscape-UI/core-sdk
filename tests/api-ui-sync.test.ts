@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { CoreEngine } from '../src/core/CoreEngine';
-import { SelectionPlugin } from '../src/plugins/SelectionPlugin';
+import { AreaSelectionPlugin } from '../src/plugins/AreaSelectionPlugin';
 import { NodeHotkeysPlugin } from '../src/plugins/NodeHotkeysPlugin';
+import { SelectionPlugin } from '../src/plugins/SelectionPlugin';
 
 /**
  * Интеграционный тест для проверки синхронизации API и UI
@@ -286,6 +287,51 @@ describe('Синхронизация API и UI', () => {
 
       // Должны остаться только ноды, которые были внутри группы
       expect(core.nodes.list().length).toBe(3);
+    });
+  });
+
+  describe('Area selection (lasso)', () => {
+    it('lasso should not change z-index or parents while dragging', () => {
+      // Подключаем плагин area selection поверх уже инициализированного core
+      const areaSelectionPlugin = new AreaSelectionPlugin();
+      core.plugins.addPlugins([areaSelectionPlugin]);
+
+      const node1 = core.nodes.addShape({ x: 50, y: 50, width: 50, height: 50 });
+      const node2 = core.nodes.addShape({ x: 150, y: 150, width: 50, height: 50 });
+
+      const world = core.nodes.world;
+      const konva1 = node1.getNode() as any;
+      const konva2 = node2.getNode() as any;
+
+      const initialParent1 = konva1.getParent();
+      const initialParent2 = konva2.getParent();
+      const initialIndex1 = konva1.zIndex();
+      const initialIndex2 = konva2.zIndex();
+
+      expect(initialParent1).toBe(world);
+      expect(initialParent2).toBe(world);
+
+      // Эмулируем drag лассо: mousedown -> mousemove
+      core.stage.setPointersPositions({ clientX: 40, clientY: 40 } as any);
+      core.stage.fire('mousedown', { evt: { button: 0 } as any } as any);
+
+      core.stage.setPointersPositions({ clientX: 300, clientY: 300 } as any);
+      core.stage.fire('mousemove', { evt: {} as any } as any);
+
+      const tempMultiGroupDuringDrag = (selectionPlugin as any)._tempMultiGroup;
+      expect(tempMultiGroupDuringDrag).toBeFalsy();
+
+      expect(konva1.getParent()).toBe(world);
+      expect(konva2.getParent()).toBe(world);
+      expect(konva1.zIndex()).toBe(initialIndex1);
+      expect(konva2.zIndex()).toBe(initialIndex2);
+
+      // Завершаем выделение — теперь временная группа должна появиться
+      core.stage.setPointersPositions({ clientX: 300, clientY: 300 } as any);
+      core.stage.fire('mouseup', { evt: { button: 0 } as any } as any);
+
+      const tempMultiGroupAfter = (selectionPlugin as any)._tempMultiGroup;
+      expect(tempMultiGroupAfter).toBeTruthy();
     });
   });
 });

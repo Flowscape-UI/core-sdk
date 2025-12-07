@@ -1,18 +1,19 @@
 import {
+  AreaSelectionPlugin,
+  CameraHotkeysPlugin,
   CoreEngine,
   GridPlugin,
+  HistoryPlugin,
   LogoPlugin,
-  SelectionPlugin,
-  CameraHotkeysPlugin,
-  AreaSelectionPlugin,
   NodeHotkeysPlugin,
-  RulerPlugin,
   RulerGuidesPlugin,
   RulerHighlightPlugin,
   RulerManagerPlugin,
+  RulerPlugin,
+  SelectionPlugin,
 } from '@flowscape-ui/core-sdk';
-import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
+import logoUrl from './images/logo.png';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -62,6 +63,8 @@ const rulerManagerPlugin = new RulerManagerPlugin({
 
 const areaSelection = new AreaSelectionPlugin();
 
+const historyPlugin = new HistoryPlugin();
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
   plugins: [
@@ -75,6 +78,7 @@ const core = new CoreEngine({
     rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     rulerManagerPlugin, // Управление видимостью по Shift+R
+    historyPlugin, // Undo/Redo: Ctrl+Z / Ctrl+Shift+Z
   ],
 });
 

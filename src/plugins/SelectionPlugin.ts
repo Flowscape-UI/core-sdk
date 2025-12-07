@@ -2,12 +2,12 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { DebounceHelper } from '../utils/DebounceHelper';
 import { MultiGroupController } from '../utils/MultiGroupController';
 import { restyleSideAnchorsForTr as restyleSideAnchorsUtil } from '../utils/OverlayAnchors';
-import { makeRotateHandle } from '../utils/RotateHandleFactory';
 import { OverlayFrameManager } from '../utils/OverlayFrameManager';
+import { makeRotateHandle } from '../utils/RotateHandleFactory';
 import { ThrottleHelper } from '../utils/ThrottleHelper';
-import { DebounceHelper } from '../utils/DebounceHelper';
 
 import { Plugin } from './Plugin';
 
@@ -1054,6 +1054,39 @@ export class SelectionPlugin extends Plugin {
       });
       grp.on('dragmove.tempMulti', forceUpdate);
       grp.on('transform.tempMulti', forceUpdate);
+      grp.on('transformstart.tempMulti', () => {
+        // Сохраняем before-состояние для всех нод (через HistoryPlugin batch)
+        // HistoryPlugin автоматически обработает это через transformstart на layer
+      });
+      grp.on('transformend.tempMulti', () => {
+        // Emit node:transformed for each node
+        // Calculate what local coords will be when node returns to world
+        if (this._core) {
+          const world = this._core.nodes.world;
+          const worldInvTransform = world.getAbsoluteTransform().copy().invert();
+          for (const baseNode of this._tempMultiSet) {
+            const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+            // Get absolute transform and convert to world-local coordinates
+            const absTransform = konvaNode.getAbsoluteTransform().copy();
+            const localTransform = worldInvTransform.copy().multiply(absTransform);
+            const d = localTransform.decompose();
+            const changes: {
+              x?: number;
+              y?: number;
+              rotation?: number;
+              scaleX?: number;
+              scaleY?: number;
+            } = {
+              x: d.x,
+              y: d.y,
+              rotation: d.rotation,
+              scaleX: d.scaleX,
+              scaleY: d.scaleY,
+            };
+            this._core.eventBus.emit('node:transformed', baseNode, changes);
+          }
+        }
+      });
       grp.on('dragend.tempMulti', () => {
         stage.draggable(prevStageDraggable);
         this._draggingNode = null;
@@ -1061,6 +1094,33 @@ export class SelectionPlugin extends Plugin {
         // Restore frame/label/handles after dragging
         this._tempOverlay?.restoreOverlaysAfterDrag();
         forceUpdate();
+        // Emit node:transformed for each node
+        // Calculate what local coords will be when node returns to world
+        if (this._core) {
+          const world = this._core.nodes.world;
+          const worldInvTransform = world.getAbsoluteTransform().copy().invert();
+          for (const baseNode of this._tempMultiSet) {
+            const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+            // Get absolute transform and convert to world-local coordinates
+            const absTransform = konvaNode.getAbsoluteTransform().copy();
+            const localTransform = worldInvTransform.copy().multiply(absTransform);
+            const d = localTransform.decompose();
+            const changes: {
+              x?: number;
+              y?: number;
+              rotation?: number;
+              scaleX?: number;
+              scaleY?: number;
+            } = {
+              x: d.x,
+              y: d.y,
+              rotation: d.rotation,
+              scaleX: d.scaleX,
+              scaleY: d.scaleY,
+            };
+            this._core.eventBus.emit('node:transformed', baseNode, changes);
+          }
+        }
       });
 
       // Event: temporary multi-selection created
@@ -1079,6 +1139,7 @@ export class SelectionPlugin extends Plugin {
   private _destroyTempMulti() {
     if (!this._core) return;
     if (!this._tempMultiGroup && this._tempMultiSet.size === 0) return;
+
     // Detach unified overlay manager (removes transformer/label/rotate/hit)
     if (this._tempOverlay) {
       this._tempOverlay.detach();
@@ -1155,6 +1216,7 @@ export class SelectionPlugin extends Plugin {
       this._tempMultiGroup.destroy();
       this._tempMultiGroup = null;
     }
+
     this._tempPlacement.clear();
     this._tempMultiSet.clear();
 
@@ -1354,6 +1416,9 @@ export class SelectionPlugin extends Plugin {
     const children = [...node.getChildren()];
     const world = this._core.nodes.world;
 
+    // Collect BaseNode references for ungrouped children (for event)
+    const ungroupedBaseNodes: BaseNode[] = [];
+
     for (const kn of children) {
       // Save the full absolute transform of the child (position + scale + rotation)
       const absBefore = kn.getAbsoluteTransform().copy();
@@ -1391,6 +1456,14 @@ export class SelectionPlugin extends Plugin {
       ) {
         (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
       }
+
+      // Find BaseNode for this Konva node
+      for (const bn of this._core.nodes.list()) {
+        if (bn.getNode() === kn) {
+          ungroupedBaseNodes.push(bn);
+          break;
+        }
+      }
     }
 
     const sel = this._selected;
@@ -1399,6 +1472,10 @@ export class SelectionPlugin extends Plugin {
     this._transformer = null;
     // Remove size label of the group on ungrouping
     this._destroySizeLabel();
+
+    // Event: group ungrouped (before removing the group)
+    this._core.eventBus.emit('group:ungrouped', sel, ungroupedBaseNodes);
+
     this._core.nodes.remove(sel);
     this._core.stage.batchDraw();
   }
@@ -1982,6 +2059,17 @@ export class SelectionPlugin extends Plugin {
           if (this._options.dragEnabled && typeof node.draggable === 'function') {
             node.draggable(true);
           }
+          // Emit node:transformed event for rotation
+          const changes: {
+            x?: number;
+            y?: number;
+            rotation?: number;
+          } = {
+            x: node.x(),
+            y: node.y(),
+            rotation: node.rotation(),
+          };
+          this._core?.eventBus.emit('node:transformed', this._selected, changes);
         }
         // Restore previous state of stage.draggable instead of unconditional true
         if (this._core && this._prevStageDraggableBeforeRotate !== null) {
@@ -2595,6 +2683,22 @@ export class SelectionPlugin extends Plugin {
       routeEnabled = false;
       routeActive = null;
       lastAltOnly = false;
+      // Emit node:transformed event for cornerRadius change
+      if (this._selected && this._core) {
+        const konvaNode = this._selected.getNode() as unknown as Konva.Node;
+        const changes: {
+          x?: number;
+          y?: number;
+          width?: number;
+          height?: number;
+        } = {
+          x: konvaNode.x(),
+          y: konvaNode.y(),
+        };
+        if (typeof konvaNode.width === 'function') changes.width = konvaNode.width();
+        if (typeof konvaNode.height === 'function') changes.height = konvaNode.height();
+        this._core.eventBus.emit('node:transformed', this._selected, changes);
+      }
     };
 
     tl.on('dragstart.corner-radius', (ev) => {

@@ -50,6 +50,12 @@ export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
 
 export { NodeHotkeysPlugin } from './plugins/NodeHotkeysPlugin';
 
+export { HistoryPlugin } from './plugins/HistoryPlugin';
+
+// Managers
+export { HistoryManager } from './managers/HistoryManager';
+export type { HistoryAction } from './managers/HistoryManager';
+
 // Utils
-export { ThrottleHelper } from './utils/ThrottleHelper';
 export { DebounceHelper } from './utils/DebounceHelper';
+export { ThrottleHelper } from './utils/ThrottleHelper';

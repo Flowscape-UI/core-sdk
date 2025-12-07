@@ -245,9 +245,22 @@ export class NodeHotkeysPlugin extends Plugin {
       }
     }
 
+    // Используем batch-режим для удаления нескольких нод
+    const historyPlugin = this._core.plugins.get('HistoryPlugin') as
+      | { startBatch: () => void; commitBatch: () => void }
+      | undefined;
+
+    if (nodes.length > 1 && historyPlugin) {
+      historyPlugin.startBatch();
+    }
+
     // Delete nodes
     for (const node of nodes) {
       this._core.nodes.remove(node);
+    }
+
+    if (nodes.length > 1 && historyPlugin) {
+      historyPlugin.commitBatch();
     }
   }
 
