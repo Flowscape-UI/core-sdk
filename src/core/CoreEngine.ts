@@ -1,12 +1,12 @@
 import Konva from 'konva';
 
-import { NodeManager } from '../managers/NodeManager';
-import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
+import { NodeManager } from '../managers/NodeManager';
 import { VirtualizationManager } from '../managers/VirtualizationManager';
-import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
+import { Plugins } from '../plugins/Plugins';
 import type { CoreEvents } from '../types/core.events.interface';
+import { EventBus } from '../utils/EventBus';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -84,7 +84,13 @@ export class CoreEngine {
       this.nodes,
       options.virtualization,
     );
-    this.plugins = new Plugins(this, options.plugins ?? []);
+
+    // Инициализируем менеджер плагинов до их фактического подключения,
+    // чтобы внутри onAttach плагинов и их аддонов core.plugins уже существовал.
+    this.plugins = new Plugins(this);
+    if (options.plugins && options.plugins.length) {
+      this.plugins.addPlugins(options.plugins);
+    }
   }
 
   public get eventBus(): EventBus<CoreEvents> {

@@ -7,9 +7,9 @@ import {
   ImageHoverFilterAddon,
   LogoPlugin,
   NodeHotkeysPlugin,
-  RulerGuidesPlugin,
-  RulerHighlightPlugin,
-  RulerManagerPlugin,
+  RulerGuidesAddon,
+  RulerHighlightAddon,
+  RulerManagerAddon,
   RulerPlugin,
   SelectionPlugin,
   ShapeHoverHighlightAddon,
@@ -50,17 +50,33 @@ const gridPlugin = new GridPlugin({
 });
 
 const rulerPlugin = new RulerPlugin();
-const rulerGuidesPlugin = new RulerGuidesPlugin({
-  snapToGrid: true, // привязка к сетке
-  gridStep: 1, // шаг 1px для точного позиционирования
-});
-const rulerHighlightPlugin = new RulerHighlightPlugin({
-  highlightColor: '#2b83ff',
-  highlightOpacity: 0.3,
-});
-const rulerManagerPlugin = new RulerManagerPlugin({
-  enabled: true, // включить управление по Shift+R
-});
+// const rulerGuidesPlugin = new RulerGuidesPlugin({
+//   snapToGrid: true, // привязка к сетке
+//   gridStep: 1, // шаг 1px для точного позиционирования
+// });
+// const rulerHighlightPlugin = new RulerHighlightPlugin({
+//   highlightColor: '#2b83ff',
+//   highlightOpacity: 0.3,
+// });
+// const rulerManagerPlugin = new RulerManagerPlugin({
+//   enabled: true, // включить управление по Shift+R
+// });
+
+rulerPlugin.addons.add([
+  new RulerGuidesAddon({
+    snapToGrid: true,
+    gridStep: 1,
+  }),
+  new RulerHighlightAddon({
+    highlightColor: '#2b83ff',
+    highlightOpacity: 0.3,
+  }),
+  new RulerManagerAddon({
+    enabled: true,
+  }),
+]);
+
+console.log(rulerPlugin.addons.list(), 'list?');
 
 const areaSelection = new AreaSelectionPlugin();
 
@@ -76,9 +92,9 @@ const core = new CoreEngine({
     areaSelection,
     nodeHotkeys,
     rulerPlugin,
-    rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerManagerPlugin, // Управление видимостью по Shift+R
+    // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerManagerPlugin, // Управление видимостью по Shift+R
     historyPlugin, // Undo/Redo: Ctrl+Z / Ctrl+Shift+Z
   ],
 });
@@ -296,5 +312,6 @@ group.addChild(polygon.getNode());
 setTimeout(() => {
   img.setSrc(Image);
   core.eventBus.off('node:removed', onNodeRemoved);
+  // rulerPlugin.addons.clear();
   // img.addons.clear();
 }, 5000);

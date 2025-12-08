@@ -63,5 +63,9 @@ export { ThrottleHelper } from './utils/ThrottleHelper';
 
 export { ImageHoverFilterAddon } from './addons/ImageHoverFilterAddon';
 export { NodeAddon } from './addons/NodeAddon';
+export { PluginAddon } from './addons/PluginAddon';
+export { RulerGuidesAddon } from './addons/RulerGuidesAddon';
+export { RulerHighlightAddon } from './addons/RulerHighlightAddon';
+export { RulerManagerAddon } from './addons/RulerManagerAddon';
 export { ShapeHoverHighlightAddon } from './addons/ShapeHoverHighlightAddon';
 export { TextAutoTrimAddon } from './addons/TextAutoTrimAddon';
