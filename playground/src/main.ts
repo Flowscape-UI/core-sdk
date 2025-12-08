@@ -4,6 +4,7 @@ import {
   CoreEngine,
   GridPlugin,
   HistoryPlugin,
+  ImageHoverFilterAddon,
   LogoPlugin,
   NodeHotkeysPlugin,
   RulerGuidesPlugin,
@@ -11,6 +12,8 @@ import {
   RulerManagerPlugin,
   RulerPlugin,
   SelectionPlugin,
+  ShapeHoverHighlightAddon,
+  TextAutoTrimAddon,
 } from '@flowscape-ui/core-sdk';
 import Image from './images/img.jpg';
 import logoUrl from './images/logo.png';
@@ -25,15 +28,13 @@ const logoPlugin = new LogoPlugin({
 const hotkeys = new CameraHotkeysPlugin();
 
 const nodeHotkeys = new NodeHotkeysPlugin();
-console.log('2223232333');
+
 const selection = new SelectionPlugin({
   // selectablePredicate: (node) => {
   //   const cls = node.getClassName();
   //   return cls === 'Text';
   // },
 });
-
-console.log('work????');
 
 // selection.setOptions({
 //   selectablePredicate: (node) => {
@@ -88,20 +89,23 @@ const onNodeRemoved = (node: unknown) => {
 
 core.eventBus.once('node:removed', onNodeRemoved);
 
-core.nodes.addText({
-  x: 200,
-  y: 150,
-  text: 'Hello, Flowscape!',
-  fontSize: 120,
-  fill: '#ffcc00',
-  align: 'left',
-});
+core.nodes
+  .addText({
+    x: 200,
+    y: 150,
+    text: 'Hello, Flowscape!',
+    fontSize: 120,
+    fill: '#ffcc00',
+    align: 'left',
+  })
+  .addons.add(new TextAutoTrimAddon());
 
 const img = core.nodes.addImage({
   x: 200,
   y: 500,
   src: logoUrl,
 });
+img.addons.add(new ImageHoverFilterAddon({ mode: 'sepia' }));
 
 core.nodes.addImage({
   x: 500,
@@ -183,15 +187,21 @@ core.nodes.addCircle({
   strokeWidth: 3,
 });
 
-const rect = core.nodes.addShape({
-  x: 500,
-  y: 250,
-  width: 200,
-  height: 150,
-  fill: 'skyblue',
-  stroke: 'red',
-  strokeWidth: 14,
-});
+const rect = core.nodes
+  .addShape({
+    x: 500,
+    y: 250,
+    width: 200,
+    height: 150,
+    fill: 'skyblue',
+    stroke: 'red',
+    strokeWidth: 14,
+  })
+  .addons.add(
+    new ShapeHoverHighlightAddon({
+      mode: 'fill',
+    }),
+  );
 
 core.nodes.addArc({
   x: 600,
@@ -252,8 +262,6 @@ rect.setPosition({ x: 900, y: 500 });
 
 rect2.setPosition({ x: 1500, y: 550 });
 
-console.log(core.nodes.list(), '??');
-
 // console.log(rect2.setFill('green').setCornerRadius(120000).setSize({ width: 120, height: 120 }));
 
 // Создаём группу
@@ -288,4 +296,5 @@ group.addChild(polygon.getNode());
 setTimeout(() => {
   img.setSrc(Image);
   core.eventBus.off('node:removed', onNodeRemoved);
+  // img.addons.clear();
 }, 5000);

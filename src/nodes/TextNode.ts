@@ -343,6 +343,19 @@ export class TextNode extends BaseNode<Konva.Text> {
     const newText = cancelled ? this._oldText : this._textarea.value;
     this.konvaNode.text(newText);
 
+    // После изменения текста убеждаемся, что высота Konva.Text достаточно
+    // велика, чтобы показать весь контент (без обрезки по высоте).
+    if (!cancelled) {
+      const textarea = this._textarea;
+      const scale = this.konvaNode.getAbsoluteScale();
+      const factor = scale.x || scale.y || 1;
+      const neededHeight = textarea.scrollHeight / factor;
+      const currentHeight = this.konvaNode.height();
+      if (Number.isFinite(neededHeight) && neededHeight > currentHeight) {
+        this.konvaNode.height(neededHeight);
+      }
+    }
+
     // Останавливаем цикл синхронизации позиции textarea
     if (this._syncTextareaRafId !== null) {
       globalThis.cancelAnimationFrame(this._syncTextareaRafId);

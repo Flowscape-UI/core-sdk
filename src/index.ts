@@ -60,3 +60,8 @@ export type { HistoryAction } from './managers/HistoryManager';
 // Utils
 export { DebounceHelper } from './utils/DebounceHelper';
 export { ThrottleHelper } from './utils/ThrottleHelper';
+
+export { ImageHoverFilterAddon } from './addons/ImageHoverFilterAddon';
+export { NodeAddon } from './addons/NodeAddon';
+export { ShapeHoverHighlightAddon } from './addons/ShapeHoverHighlightAddon';
+export { TextAutoTrimAddon } from './addons/TextAutoTrimAddon';
