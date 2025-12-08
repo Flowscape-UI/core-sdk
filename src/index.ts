@@ -17,6 +17,7 @@ export { CameraHotkeysPlugin } from './plugins/CameraHotkeysPlugin';
 export { SelectionPlugin } from './plugins/SelectionPlugin';
 
 export { TextNode } from './nodes/TextNode';
+export type { TextChangeEvent, TextNodeOptions } from './nodes/TextNode';
 
 export { ImageNode } from './nodes/ImageNode';
 

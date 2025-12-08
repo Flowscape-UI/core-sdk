@@ -9,10 +9,35 @@ export interface TextNodeOptions extends BaseNodeOptions {
   fontStyle?: string;
   fill?: string;
   align?: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
   padding?: number;
+  lineHeight?: number;
+  /** Включить редактирование по двойному клику (по умолчанию true) */
+  editable?: boolean;
+}
+
+/** Событие изменения текста */
+export interface TextChangeEvent {
+  /** Предыдущий текст */
+  oldText: string;
+  /** Новый текст */
+  newText: string;
+  /** Было ли изменение отменено (Escape) */
+  cancelled: boolean;
 }
 
 export class TextNode extends BaseNode<Konva.Text> {
+  /** Включено ли редактирование по двойному клику */
+  private _editable: boolean;
+  /** Находится ли нода в режиме редактирования */
+  private _isEditing = false;
+  /** Текущий textarea элемент */
+  private _textarea: HTMLTextAreaElement | null = null;
+  /** Колбэки для событий редактирования */
+  private _onTextChangeCallbacks: ((event: TextChangeEvent) => void)[] = [];
+  private _onEditStartCallbacks: (() => void)[] = [];
+  private _onEditEndCallbacks: (() => void)[] = [];
+
   constructor(options: TextNodeOptions = {}) {
     const node = new Konva.Text({
       x: options.x ?? 0,
@@ -25,41 +50,28 @@ export class TextNode extends BaseNode<Konva.Text> {
       fontStyle: options.fontStyle ?? 'normal',
       fill: options.fill ?? '#ffffff',
       align: options.align ?? 'left',
+      verticalAlign: options.verticalAlign ?? 'top',
       padding: options.padding ?? 0,
+      lineHeight: options.lineHeight ?? 1,
     });
     super(node, options);
+
+    this._editable = options.editable ?? true;
+
+    // Привязываем обработчик двойного клика
+    if (this._editable) {
+      this._setupEditHandler();
+    }
+
+    // При трансформации сбрасываем scale и применяем к width
+    // Это предотвращает растягивание текста
+    this._setupTransformHandler();
   }
+
+  // --- Minimal public API ---
 
   public getText(): string {
     return this.konvaNode.text();
-  }
-
-  public getFontSize(): number {
-    return this.konvaNode.fontSize();
-  }
-
-  public getFontFamily(): string {
-    return this.konvaNode.fontFamily();
-  }
-
-  public getFontStyle(): string {
-    return this.konvaNode.fontStyle();
-  }
-
-  public getFill(): string | undefined {
-    return this.konvaNode.fill() as string | undefined;
-  }
-
-  public getAlign(): 'left' | 'center' | 'right' {
-    return this.konvaNode.align() as 'left' | 'center' | 'right';
-  }
-
-  public getPadding(): number {
-    return this.konvaNode.padding();
-  }
-
-  public getSize(): { width: number; height: number } {
-    return this.konvaNode.size();
   }
 
   public setText(text: string): this {
@@ -74,11 +86,6 @@ export class TextNode extends BaseNode<Konva.Text> {
 
   public setFontFamily(family: string): this {
     this.konvaNode.fontFamily(family);
-    return this;
-  }
-
-  public setFontStyle(style: string): this {
-    this.konvaNode.fontStyle(style);
     return this;
   }
 
@@ -100,5 +107,268 @@ export class TextNode extends BaseNode<Konva.Text> {
   public setSize({ width, height }: { width: number; height: number }): this {
     this.konvaNode.size({ width, height });
     return this;
+  }
+
+  public setLineHeight(lineHeight: number): this {
+    this.konvaNode.lineHeight(lineHeight);
+    return this;
+  }
+
+  public setVerticalAlign(align: 'top' | 'middle' | 'bottom'): this {
+    this.konvaNode.verticalAlign(align);
+    return this;
+  }
+
+  public isEditable(): boolean {
+    return this._editable;
+  }
+
+  public setEditable(editable: boolean): this {
+    if (this._editable === editable) return this;
+    this._editable = editable;
+    if (editable) {
+      this._setupEditHandler();
+    } else {
+      this.konvaNode.off('dblclick.textEdit dbltap.textEdit');
+      if (this._isEditing) this.cancelEdit();
+    }
+    return this;
+  }
+
+  public isEditing(): boolean {
+    return this._isEditing;
+  }
+
+  public startEdit(): void {
+    if (this._isEditing) return;
+    this._openTextarea();
+  }
+
+  public finishEdit(): void {
+    if (!this._isEditing || !this._textarea) return;
+    this._saveAndClose(false);
+  }
+
+  public cancelEdit(): void {
+    if (!this._isEditing || !this._textarea) return;
+    this._saveAndClose(true);
+  }
+
+  public onTextChange(cb: (event: TextChangeEvent) => void): this {
+    this._onTextChangeCallbacks.push(cb);
+    return this;
+  }
+
+  public offTextChange(cb: (event: TextChangeEvent) => void): this {
+    const i = this._onTextChangeCallbacks.indexOf(cb);
+    if (i !== -1) this._onTextChangeCallbacks.splice(i, 1);
+    return this;
+  }
+
+  public onEditStart(cb: () => void): this {
+    this._onEditStartCallbacks.push(cb);
+    return this;
+  }
+
+  public offEditStart(cb: () => void): this {
+    const i = this._onEditStartCallbacks.indexOf(cb);
+    if (i !== -1) this._onEditStartCallbacks.splice(i, 1);
+    return this;
+  }
+
+  public onEditEnd(cb: () => void): this {
+    this._onEditEndCallbacks.push(cb);
+    return this;
+  }
+
+  public offEditEnd(cb: () => void): this {
+    const i = this._onEditEndCallbacks.indexOf(cb);
+    if (i !== -1) this._onEditEndCallbacks.splice(i, 1);
+    return this;
+  }
+
+  private _setupEditHandler(): void {
+    this.konvaNode.on('dblclick.textEdit dbltap.textEdit', () => {
+      this._openTextarea();
+    });
+  }
+
+  /**
+   * При трансформации (resize) «запекаем» scaleX/scaleY в width/height,
+   * а затем сбрасываем scale обратно в 1.
+   *
+   * В итоге:
+   * - рамка может свободно менять ширину/высоту и по диагонали;
+   * - сам текст не растягивается, т.к. fontSize не меняется, а scale всегда 1.
+   */
+  private _setupTransformHandler(): void {
+    this.konvaNode.on('transform.textResize', () => {
+      const scaleX = this.konvaNode.scaleX();
+      const scaleY = this.konvaNode.scaleY();
+
+      // Применяем горизонтальный scale к ширине текстового блока
+      const newWidth = Math.max(1, this.konvaNode.width() * scaleX);
+      this.konvaNode.width(newWidth);
+
+      // Применяем вертикальный scale к высоте рамки
+      const currentHeight = this.konvaNode.height();
+      const newHeight = Math.max(1, currentHeight * scaleY);
+      this.konvaNode.height(newHeight);
+
+      // После «запекания» scale всегда возвращаем в 1, чтобы не искажать шрифт
+      this.konvaNode.scaleX(1);
+      this.konvaNode.scaleY(1);
+    });
+  }
+
+  private _oldText = '';
+  private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  private _clickHandler: ((e: Event) => void) | null = null;
+  private _syncTextareaRafId: number | null = null;
+
+  private _syncTextareaPosition(): void {
+    if (!this._isEditing || !this._textarea) return;
+    const stage = this.konvaNode.getStage();
+    if (!stage) return;
+
+    const pos = this.konvaNode.absolutePosition();
+    const box = stage.container().getBoundingClientRect();
+    const sc = this.konvaNode.getAbsoluteScale();
+
+    this._textarea.style.top = String(box.top + pos.y) + 'px';
+    this._textarea.style.left = String(box.left + pos.x) + 'px';
+    this._textarea.style.width =
+      String((this.konvaNode.width() - this.konvaNode.padding() * 2) * sc.x) + 'px';
+    this._textarea.style.fontSize = String(this.konvaNode.fontSize() * sc.x) + 'px';
+
+    this._syncTextareaRafId = globalThis.requestAnimationFrame(() => {
+      this._syncTextareaPosition();
+    });
+  }
+
+  private _openTextarea(): void {
+    if (this._isEditing) return;
+    const stage = this.konvaNode.getStage();
+    if (!stage) return;
+    this._isEditing = true;
+    this._oldText = this.konvaNode.text();
+    this.konvaNode.hide();
+    stage.batchDraw();
+
+    const pos = this.konvaNode.absolutePosition();
+    const box = stage.container().getBoundingClientRect();
+    const sc = this.konvaNode.getAbsoluteScale();
+
+    const ta = globalThis.document.createElement('textarea');
+    globalThis.document.body.appendChild(ta);
+    this._textarea = ta;
+
+    ta.value = this.konvaNode.text();
+    ta.style.position = 'absolute';
+    ta.style.top = String(box.top + pos.y) + 'px';
+    ta.style.left = String(box.left + pos.x) + 'px';
+    ta.style.width = String((this.konvaNode.width() - this.konvaNode.padding() * 2) * sc.x) + 'px';
+    ta.style.fontSize = String(this.konvaNode.fontSize() * sc.x) + 'px';
+    ta.style.border = 'none';
+    ta.style.padding = '0';
+    ta.style.margin = '0';
+    ta.style.overflow = 'hidden';
+    ta.style.background = 'none';
+    ta.style.outline = 'none';
+    ta.style.resize = 'none';
+    ta.style.lineHeight = String(this.konvaNode.lineHeight());
+    ta.style.fontFamily = this.konvaNode.fontFamily();
+    ta.style.transformOrigin = 'left top';
+    ta.style.textAlign = this.konvaNode.align();
+    const fillColor = this.konvaNode.fill();
+    ta.style.color = typeof fillColor === 'string' ? fillColor : '#000000';
+
+    const fs = this.konvaNode.fontStyle();
+    ta.style.fontStyle = fs.includes('italic') ? 'italic' : 'normal';
+    ta.style.fontWeight = fs.includes('bold') ? 'bold' : 'normal';
+
+    const rot = this.konvaNode.rotation();
+    if (rot) ta.style.transform = 'rotateZ(' + String(rot) + 'deg)';
+
+    ta.style.height = 'auto';
+    ta.style.height = String(ta.scrollHeight + 3) + 'px';
+    ta.focus();
+    ta.select();
+
+    // Постоянно синхронизируем позицию textarea с нодой (камера, зум, перетаскивание мира)
+    this._syncTextareaRafId = globalThis.requestAnimationFrame(() => {
+      this._syncTextareaPosition();
+    });
+
+    for (const c of this._onEditStartCallbacks) c();
+
+    this._keyHandler = (e: KeyboardEvent): void => {
+      // Ctrl+Enter / Cmd+Enter — завершить редактирование и сохранить
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        this._saveAndClose(false);
+        return;
+      }
+      // Escape — отменить изменения
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._saveAndClose(true);
+        return;
+      }
+      globalThis.requestAnimationFrame(() => {
+        if (this._textarea) {
+          this._textarea.style.height = 'auto';
+          this._textarea.style.height =
+            String(this._textarea.scrollHeight + this.konvaNode.fontSize()) + 'px';
+        }
+      });
+    };
+
+    this._clickHandler = (e: Event): void => {
+      if (e.target !== ta) this._saveAndClose(false);
+    };
+
+    ta.addEventListener('keydown', this._keyHandler);
+    globalThis.setTimeout(() => {
+      if (this._clickHandler) {
+        globalThis.addEventListener('click', this._clickHandler);
+        globalThis.addEventListener('touchstart', this._clickHandler);
+      }
+    });
+  }
+
+  private _saveAndClose(cancelled: boolean): void {
+    if (!this._textarea) return;
+
+    const newText = cancelled ? this._oldText : this._textarea.value;
+    this.konvaNode.text(newText);
+
+    // Останавливаем цикл синхронизации позиции textarea
+    if (this._syncTextareaRafId !== null) {
+      globalThis.cancelAnimationFrame(this._syncTextareaRafId);
+      this._syncTextareaRafId = null;
+    }
+
+    if (this._keyHandler) {
+      this._textarea.removeEventListener('keydown', this._keyHandler);
+    }
+    if (this._clickHandler) {
+      globalThis.removeEventListener('click', this._clickHandler);
+      globalThis.removeEventListener('touchstart', this._clickHandler);
+    }
+
+    this._textarea.remove();
+    this._textarea = null;
+    this._keyHandler = null;
+    this._clickHandler = null;
+
+    this.konvaNode.show();
+    this.konvaNode.getStage()?.batchDraw();
+    this._isEditing = false;
+
+    for (const c of this._onTextChangeCallbacks) {
+      c({ oldText: this._oldText, newText, cancelled });
+    }
+    for (const c of this._onEditEndCallbacks) c();
   }
 }

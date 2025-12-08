@@ -94,8 +94,7 @@ core.nodes.addText({
   text: 'Hello, Flowscape!',
   fontSize: 120,
   fill: '#ffcc00',
-  align: 'center',
-  padding: 10,
+  align: 'left',
 });
 
 const img = core.nodes.addImage({

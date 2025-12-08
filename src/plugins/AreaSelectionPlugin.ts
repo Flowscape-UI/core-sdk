@@ -1,8 +1,8 @@
 import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
-import { GroupNode } from '../nodes/GroupNode';
 import type { BaseNode } from '../nodes/BaseNode';
+import { GroupNode } from '../nodes/GroupNode';
 
 import { Plugin } from './Plugin';
 import { SelectionPlugin } from './SelectionPlugin';

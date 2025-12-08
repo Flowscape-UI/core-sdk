@@ -2,6 +2,7 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { TextNode } from '../nodes/TextNode';
 
 import { Plugin } from './Plugin';
 import { SelectionPlugin } from './SelectionPlugin';
@@ -57,7 +58,9 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Lazy get SelectionPlugin on first use (robust against minification via instanceof)
     if (!this._selectionPlugin) {
-      const plugin = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
+      const plugin = this._core.plugins
+        .list()
+        .find((p): p is SelectionPlugin => p instanceof SelectionPlugin);
       if (plugin) {
         this._selectionPlugin = plugin;
       }
@@ -72,6 +75,16 @@ export class NodeHotkeysPlugin extends Plugin {
 
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
+
+    // Enter — начать редактирование, если выделена одна текстовая нода
+    if (!ctrl && !shift && e.code === 'Enter') {
+      const selected = this._getSelectedNodes();
+      if (selected.length === 1 && selected[0] instanceof TextNode) {
+        e.preventDefault();
+        selected[0].startEdit();
+        return;
+      }
+    }
 
     // Ctrl+C - Copy
     if (ctrl && e.code === 'KeyC') {
