@@ -216,6 +216,7 @@ const rect = core.nodes
   .addons.add(
     new ShapeHoverHighlightAddon({
       mode: 'fill',
+      fill: 'green',
     }),
   );
 

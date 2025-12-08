@@ -106,6 +106,7 @@ export class SelectionPlugin extends Plugin {
   // Temporary multi-group (Shift+Click)
   private _tempMultiSet = new Set<BaseNode>();
   private _tempMultiGroup: Konva.Group | null = null;
+  private _tempWorldOrder: Konva.Node[] | null = null;
   private _tempMultiTr: Konva.Transformer | null = null;
   private _tempOverlay: OverlayFrameManager | null = null;
   private _tempRotateHandlesGroup: Konva.Group | null = null;
@@ -991,6 +992,7 @@ export class SelectionPlugin extends Plugin {
   private _ensureTempMulti(nodes: BaseNode[]) {
     if (!this._core) return;
     const world = this._core.nodes.world;
+    this._tempWorldOrder ??= [...world.getChildren()];
     // Fill set for correct size check on commit (important for lasso)
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
@@ -1032,6 +1034,16 @@ export class SelectionPlugin extends Plugin {
           const anyGrp = grp as unknown as { startDrag?: () => void };
           if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
         });
+      }
+
+      // Place temporary multi-group near the original selection in z-order
+      const placements = Array.from(this._tempPlacement.values());
+      const indicesInWorld = placements
+        .filter((info) => info.parent === world)
+        .map((info) => info.indexInParent);
+      if (indicesInWorld.length > 0) {
+        const minIndex = Math.min(...indicesInWorld);
+        grp.zIndex(minIndex);
       }
       // Unified overlay manager for temporary group
       this._tempOverlay ??= new OverlayFrameManager(this._core);
@@ -1183,8 +1195,7 @@ export class SelectionPlugin extends Plugin {
             y: d.scaleY,
           });
         }
-        // Restore order and draggable
-        if (info) {
+        if (info && info.parent !== this._core.nodes.world) {
           // FIX: restore position via moveUp/moveDown
           const currentIndex = kn.zIndex();
           const targetIndex = info.indexInParent;
@@ -1203,18 +1214,49 @@ export class SelectionPlugin extends Plugin {
               }
             }
           }
+        }
 
-          if (
-            typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
-              'function' &&
-            info.prevDraggable !== null
-          ) {
-            (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(info.prevDraggable);
-          }
+        if (
+          info &&
+          typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+            'function' &&
+          info.prevDraggable !== null
+        ) {
+          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(info.prevDraggable);
         }
       }
       this._tempMultiGroup.destroy();
       this._tempMultiGroup = null;
+    }
+
+    if (this._tempWorldOrder) {
+      const world = this._core.nodes.world;
+      const currentChildren = world.getChildren() as Konva.Node[];
+      const desiredOrder = new Map<Konva.Node, number>();
+      let order = 0;
+
+      for (const node of this._tempWorldOrder) {
+        if (currentChildren.includes(node)) {
+          desiredOrder.set(node, order++);
+        }
+      }
+
+      for (const node of currentChildren) {
+        if (!desiredOrder.has(node)) {
+          desiredOrder.set(node, order++);
+        }
+      }
+
+      const sorted = [...currentChildren].sort((a, b) => {
+        const ao = desiredOrder.get(a) ?? 0;
+        const bo = desiredOrder.get(b) ?? 0;
+        return ao - bo;
+      });
+      for (let i = 0; i < sorted.length; i++) {
+        const node = sorted[i]!;
+        node.zIndex(i);
+      }
+      this._tempWorldOrder = null;
     }
 
     this._tempPlacement.clear();

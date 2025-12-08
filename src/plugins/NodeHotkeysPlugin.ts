@@ -114,6 +114,20 @@ export class NodeHotkeysPlugin extends Plugin {
       return;
     }
 
+    // Ctrl+Shift+] - Move to top
+    if (ctrl && shift && e.code === 'BracketRight') {
+      e.preventDefault();
+      this._handleMoveToTop();
+      return;
+    }
+
+    // Ctrl+Shift+[ - Move to bottom
+    if (ctrl && shift && e.code === 'BracketLeft') {
+      e.preventDefault();
+      this._handleMoveToBottom();
+      return;
+    }
+
     // Ctrl+] or Ctrl+Shift+= - Raise z-index (moveUp)
     if (ctrl && (e.code === 'BracketRight' || (shift && e.code === 'Equal'))) {
       e.preventDefault();
@@ -669,6 +683,74 @@ export class NodeHotkeysPlugin extends Plugin {
     }
   }
 
+  private _handleMoveToTop(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    const sorted = [...selected].sort((a, b) => {
+      const knA = a.getNode() as unknown as Konva.Node;
+      const knB = b.getNode() as unknown as Konva.Node;
+      return knA.zIndex() - knB.zIndex();
+    });
+
+    for (const node of sorted) {
+      const konvaNode = node.getNode() as unknown as Konva.Node;
+
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveToTop();
+      const newIndex = konvaNode.zIndex();
+
+      this._syncGroupZIndex(konvaNode);
+
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      this._core.nodes.layer.draw();
+      this._core.stage.batchDraw();
+    }
+  }
+
+  private _handleMoveToBottom(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    const sorted = [...selected].sort((a, b) => {
+      const knA = a.getNode() as unknown as Konva.Node;
+      const knB = b.getNode() as unknown as Konva.Node;
+      return knB.zIndex() - knA.zIndex();
+    });
+
+    for (const node of sorted) {
+      const konvaNode = node.getNode() as unknown as Konva.Node;
+
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveToBottom();
+      const newIndex = konvaNode.zIndex();
+
+      this._syncGroupZIndex(konvaNode);
+
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      this._core.nodes.layer.draw();
+      this._core.stage.batchDraw();
+    }
+  }
+
   /**
    * Checks if the node is inside a real group (not the group itself)
    */
@@ -681,8 +763,18 @@ export class NodeHotkeysPlugin extends Plugin {
     const parent = konvaNode.getParent();
     if (!parent) return false;
 
-    // If parent is a group (not world) - it's a real group
-    return parent instanceof Konva.Group && parent.name() !== 'world';
+    // If parent is not a group at all — definitely not a permanent group
+    if (!(parent instanceof Konva.Group)) return false;
+
+    // Top-level nodes live directly under core.nodes.world.
+    // For them we DO allow z-index changes.
+    if (this._core && parent === this._core.nodes.world) {
+      return false;
+    }
+
+    // Any other Konva.Group parent is considered a real group,
+    // for which child z-index changes are forbidden.
+    return true;
   }
 
   /**
