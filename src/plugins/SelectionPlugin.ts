@@ -4,7 +4,11 @@ import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
 import { MultiGroupController } from '../utils/MultiGroupController';
-import { restyleSideAnchorsForTr as restyleSideAnchorsUtil } from '../utils/OverlayAnchors';
+import {
+  getLocalRectForNode,
+  getResizeReferencePoint,
+  restyleSideAnchorsForTr as restyleSideAnchorsUtil,
+} from '../utils/OverlayAnchors';
 import { OverlayFrameManager } from '../utils/OverlayFrameManager';
 import { makeRotateHandle } from '../utils/RotateHandleFactory';
 import { ThrottleHelper } from '../utils/ThrottleHelper';
@@ -1809,70 +1813,26 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesGroup?.visible(false);
       this._hideRadiusLabel();
 
-      // Save the absolute position of the opposite corner for fixing origin
-      // ONLY for corner anchors (for all node types, including groups)
+      // Save the absolute position of a reference point on the opposite corner/edge
       const node = this._selected?.getNode() as unknown as Konva.Node | undefined;
-      const activeAnchor =
+      const rawAnchor =
         typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
-      const isCornerAnchor =
-        activeAnchor === 'top-left' ||
-        activeAnchor === 'top-right' ||
-        activeAnchor === 'bottom-left' ||
-        activeAnchor === 'bottom-right';
+      const activeAnchor = rawAnchor ?? '';
 
-      // Apply fixing for corner anchors (including groups)
-      if (node && isCornerAnchor) {
-        // For groups use clientRect, for single nodes — width/height
-        const isGroup = node instanceof Konva.Group;
-        let width: number;
-        let height: number;
-        let localX = 0;
-        let localY = 0;
-
-        if (isGroup) {
-          // For groups use clientRect, for single nodes — width/height
-          const clientRect = node.getClientRect({
-            skipTransform: true,
-            skipShadow: true,
-            skipStroke: false,
-          });
-          width = clientRect.width;
-          height = clientRect.height;
-          localX = clientRect.x;
-          localY = clientRect.y;
-        } else {
-          // For single nodes use width/height
-          width = node.width();
-          height = node.height();
-        }
-
-        const absTransform = node.getAbsoluteTransform();
-
-        // Determine the local coordinates of the opposite corner
-        let oppositeX = 0;
-        let oppositeY = 0;
-
-        if (activeAnchor === 'top-left') {
-          oppositeX = localX + width;
-          oppositeY = localY + height;
-        } else if (activeAnchor === 'top-right') {
-          oppositeX = localX;
-          oppositeY = localY + height;
-        } else if (activeAnchor === 'bottom-right') {
-          oppositeX = localX;
-          oppositeY = localY;
-        } else {
-          // bottom-left
-          oppositeX = localX + width;
-          oppositeY = localY;
-        }
-
-        // Convert to absolute coordinates
-        this._transformOppositeCorner = absTransform.point({ x: oppositeX, y: oppositeY });
-      } else {
-        // For side anchors do not fix the angle
+      if (!node) {
         this._transformOppositeCorner = null;
+        return;
       }
+
+      const rect = getLocalRectForNode(node);
+      const refPoint = getResizeReferencePoint(activeAnchor, rect);
+      if (!refPoint) {
+        this._transformOppositeCorner = null;
+        return;
+      }
+
+      const absTransform = node.getAbsoluteTransform();
+      this._transformOppositeCorner = absTransform.point({ x: refPoint.x, y: refPoint.y });
     });
     transformer.on('transform.keepratio', updateKeepRatio);
 
@@ -1882,56 +1842,19 @@ export class SelectionPlugin extends Plugin {
       if (n) {
         this._bakeRectScale(n);
 
-        // Correct the node position to keep the opposite angle in place
+        // Correct the node position to keep the reference point (corner/edge center) in place
         if (this._transformOppositeCorner) {
-          const activeAnchor =
+          const rawAnchor =
             typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
+          const activeAnchor = rawAnchor ?? '';
           const absTransform = n.getAbsoluteTransform();
 
-          // For groups use clientRect, for single nodes use width/height
-          const isGroup = n instanceof Konva.Group;
-          let width: number;
-          let height: number;
-          let localX = 0;
-          let localY = 0;
+          const rect = getLocalRectForNode(n);
+          const refPoint = getResizeReferencePoint(activeAnchor, rect);
+          if (!refPoint) return;
 
-          if (isGroup) {
-            // For groups use clientRect, for single nodes use width/height
-            const clientRect = n.getClientRect({
-              skipTransform: true,
-              skipShadow: true,
-              skipStroke: false,
-            });
-            width = clientRect.width;
-            height = clientRect.height;
-            localX = clientRect.x;
-            localY = clientRect.y;
-          } else {
-            // For single nodes use width/height
-            width = n.width();
-            height = n.height();
-          }
-
-          // Determine the local coordinates of the opposite corner
-          let oppositeX = 0;
-          let oppositeY = 0;
-
-          if (activeAnchor === 'top-left') {
-            oppositeX = localX + width;
-            oppositeY = localY + height;
-          } else if (activeAnchor === 'top-right') {
-            oppositeX = localX;
-            oppositeY = localY + height;
-          } else if (activeAnchor === 'bottom-right') {
-            oppositeX = localX;
-            oppositeY = localY;
-          } else if (activeAnchor === 'bottom-left') {
-            oppositeX = localX + width;
-            oppositeY = localY;
-          }
-
-          // Current absolute position of the opposite corner
-          const currentOpposite = absTransform.point({ x: oppositeX, y: oppositeY });
+          // Current absolute position of the reference point
+          const currentOpposite = absTransform.point({ x: refPoint.x, y: refPoint.y });
 
           // Calculate the offset
           const dx = this._transformOppositeCorner.x - currentOpposite.x;

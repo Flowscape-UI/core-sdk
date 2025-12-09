@@ -39,6 +39,8 @@ export { GroupNode } from './nodes/GroupNode';
 
 export { GridPlugin } from './plugins/GridPlugin';
 
+export { VisualGuidesPlugin } from './plugins/VisualGuidesPlugin';
+
 export { RulerPlugin } from './plugins/RulerPlugin';
 
 export { RulerGuidesPlugin } from './plugins/RulerGuidesPlugin';

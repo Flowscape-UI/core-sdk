@@ -14,6 +14,7 @@ import {
   SelectionPlugin,
   ShapeHoverHighlightAddon,
   TextAutoTrimAddon,
+  VisualGuidesPlugin,
 } from '@flowscape-ui/core-sdk';
 import Image from './images/img.jpg';
 import logoUrl from './images/logo.png';
@@ -82,6 +83,12 @@ const areaSelection = new AreaSelectionPlugin();
 
 const historyPlugin = new HistoryPlugin();
 
+const visualGuidesPlugin = new VisualGuidesPlugin({
+  thresholdPx: 8,
+  // guidelineColor: 'red',
+  // guidelineDash: [0, 0],
+});
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
   plugins: [
@@ -92,6 +99,7 @@ const core = new CoreEngine({
     areaSelection,
     nodeHotkeys,
     rulerPlugin,
+    visualGuidesPlugin,
     // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     // rulerManagerPlugin, // Управление видимостью по Shift+R
@@ -137,6 +145,15 @@ core.nodes.addEllipse({
   fill: '#66ccff',
   stroke: '#003366',
   strokeWidth: 2,
+});
+
+core.nodes.addShape({
+  x: 1200,
+  y: 800,
+  width: 1200,
+  height: 2000,
+  fill: 'grey',
+  strokeWidth: 0,
 });
 
 core.nodes.addEllipse({
@@ -270,7 +287,8 @@ const rect2 = core.nodes.addShape({
   width: 200,
   height: 200,
   fill: 'skyblue',
-  stroke: 'red',
+  strokeWidth: 0,
+  // stroke: 'red',
 });
 
 rect.setFill('orange');
@@ -314,5 +332,4 @@ setTimeout(() => {
   img.setSrc(Image);
   core.eventBus.off('node:removed', onNodeRemoved);
   // rulerPlugin.addons.clear();
-  // img.addons.clear();
 }, 5000);
