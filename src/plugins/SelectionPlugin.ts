@@ -107,28 +107,14 @@ export class SelectionPlugin extends Plugin {
   private _onGlobalKeyDown: ((e: KeyboardEvent) => void) | null = null;
   private _onGlobalKeyUp: ((e: KeyboardEvent) => void) | null = null;
 
-  // Temporary multi-group (Shift+Click)
+  // Temporary multi-group (Shift+Click) - overlay-only approach
   private _tempMultiSet = new Set<BaseNode>();
+  // Overlay-only: list of nodes in temporary multi-selection (no reparenting)
+  private _tempMultiNodes: Konva.Node[] = [];
+  // Store initial absolute transforms for matrix-based transformations
+  private _tempMultiInitialTransforms: Map<Konva.Node, Konva.Transform> = new Map();
   private _tempMultiGroup: Konva.Group | null = null;
-  private _tempWorldOrder: Konva.Node[] | null = null;
-  private _tempMultiTr: Konva.Transformer | null = null;
   private _tempOverlay: OverlayFrameManager | null = null;
-  private _tempRotateHandlesGroup: Konva.Group | null = null;
-  private _tempRotateHandles: {
-    tl: Konva.Circle | null;
-    tr: Konva.Circle | null;
-    br: Konva.Circle | null;
-    bl: Konva.Circle | null;
-  } = { tl: null, tr: null, br: null, bl: null };
-  private _tempPlacement = new Map<
-    Konva.Node,
-    {
-      parent: Konva.Container;
-      indexInParent: number; // FIX: save position in children array
-      abs: { x: number; y: number };
-      prevDraggable: boolean | null;
-    }
-  >();
 
   public getMultiGroupController(): MultiGroupController {
     if (!this._core) throw new Error('Core is not attached');
@@ -159,8 +145,6 @@ export class SelectionPlugin extends Plugin {
     });
     return this._multiCtrl;
   }
-  private _tempMultiSizeLabel: Konva.Label | null = null;
-  private _tempMultiHitRect: Konva.Rect | null = null;
   private _multiCtrl: MultiGroupController | null = null;
 
   private _startAutoPanLoop() {
@@ -279,44 +263,7 @@ export class SelectionPlugin extends Plugin {
 
   protected onAttach(core: CoreEngine): void {
     this._core = core;
-    // Initialize temporary multi-group controller proxying private methods
-    this._multiCtrl = new MultiGroupController({
-      ensureTempMulti: (nodes) => {
-        this._ensureTempMulti(nodes);
-      },
-      destroyTempMulti: () => {
-        this._destroyTempMulti();
-      },
-      commitTempMultiToGroup: () => {
-        this._commitTempMultiToGroup();
-      },
-      isActive: () => !!this._tempMultiGroup,
-      isInsideTempByTarget: (target: Konva.Node) => {
-        if (!this._tempMultiGroup) return false;
-        let cur: Konva.Node | null = target;
-        while (cur) {
-          if (cur === this._tempMultiGroup) return true;
-          cur = cur.getParent();
-        }
-        return false;
-      },
-      forceUpdate: () => {
-        this._tempMultiTr?.forceUpdate();
-        this._updateTempMultiSizeLabel();
-        this._updateTempMultiHitRect();
-        this._updateTempRotateHandlesPosition();
-        this._scheduleBatchDraw();
-      },
-      onWorldChanged: () => {
-        // Coalesce as in main world handler
-        this._tempMultiTr?.forceUpdate();
-        this._updateTempMultiSizeLabel();
-        this._updateTempMultiHitRect();
-        this._updateTempRotateHandlesPosition();
-        this._scheduleBatchDraw();
-        this._destroyHoverTr();
-      },
-    });
+    // MultiGroupController will be lazily initialized in getMultiGroupController()
 
     // Attach handlers to stage (namespace .selection)
     const stage = core.stage;
@@ -379,11 +326,12 @@ export class SelectionPlugin extends Plugin {
         if (this._tempMultiSet.size === 1) {
           const iter = this._tempMultiSet.values();
           const step = iter.next();
-          const only = step.done ? null : step.value;
-          if (!only) return;
-          this._destroyTempMulti();
-          this._select(only);
-          this._scheduleBatchDraw();
+          const only: BaseNode | undefined = step.done ? undefined : step.value;
+          if (only) {
+            this._destroyTempMulti();
+            this._select(only);
+            this._scheduleBatchDraw();
+          }
           return;
         }
         this._ensureTempMulti(Array.from(this._tempMultiSet));
@@ -993,441 +941,361 @@ export class SelectionPlugin extends Plugin {
   }
 
   // ===== Helpers: temporary multi-group =====
+  /**
+   * Apply transformation from overlay group to actual nodes using matrix math.
+   * Each node's transform is updated to match the overlay group's transformation,
+   * while staying in its original parent.
+   */
+  private _applyOverlayTransformToNodes(
+    overlayGroup: Konva.Group,
+    overlayInitialTransform: Konva.Transform,
+  ): void {
+    if (!this._core) return;
+
+    // Compute delta: how overlay group transformed from initial state
+    const overlayCurrent = overlayGroup.getAbsoluteTransform().copy();
+    const overlayInitial = overlayInitialTransform.copy();
+    overlayInitial.invert();
+    const overlayDelta = overlayCurrent.multiply(overlayInitial);
+
+    // Apply delta to each node
+    for (const kn of this._tempMultiNodes) {
+      const initialTransform = this._tempMultiInitialTransforms.get(kn);
+      if (!initialTransform) continue;
+
+      // Compute new absolute transform: delta * initial (apply delta as global transform)
+      const newAbsTransform = overlayDelta.copy().multiply(initialTransform);
+
+      // Convert to parent-local coordinates
+      const parent = kn.getParent();
+      if (!parent) continue;
+
+      const parentAbs = parent.getAbsoluteTransform().copy();
+      parentAbs.invert();
+      const localTransform = parentAbs.multiply(newAbsTransform);
+      const decomposed = localTransform.decompose();
+
+      // Apply to node
+      if (typeof (kn as { position?: (p: Konva.Vector2d) => void }).position === 'function') {
+        (kn as { position: (p: Konva.Vector2d) => void }).position({
+          x: decomposed.x,
+          y: decomposed.y,
+        });
+      }
+      if (typeof (kn as { rotation?: (r: number) => void }).rotation === 'function') {
+        (kn as { rotation: (r: number) => void }).rotation(decomposed.rotation);
+      }
+      if (typeof (kn as { scale?: (s: Konva.Vector2d) => void }).scale === 'function') {
+        (kn as { scale: (s: Konva.Vector2d) => void }).scale({
+          x: decomposed.scaleX,
+          y: decomposed.scaleY,
+        });
+      }
+    }
+  }
+
+  /**
+   * Update overlay group bbox to match current positions of selected nodes.
+   * Must be called after drag/transform when nodes change position.
+   */
+  private _updateTempMultiOverlayBBox(): void {
+    if (!this._core || !this._tempMultiGroup) return;
+
+    // Get bbox in world-local coordinates
+    const bbox = this._computeUnionBBox(Array.from(this._tempMultiSet));
+    if (!bbox) return;
+
+    // Update overlay group position (bbox is already in world-local coords)
+    this._tempMultiGroup.position({ x: bbox.x, y: bbox.y });
+
+    // Update rect size
+    const rect = this._tempMultiGroup.findOne<Konva.Rect>('.temp-multi-overlay-rect');
+    if (rect) {
+      rect.size({ width: bbox.width, height: bbox.height });
+    }
+  }
+
+  /**
+   * Compute union bounding box for multiple nodes in world-local coordinates.
+   * Used for overlay-only temporary multi-group.
+   * Returns bbox that doesn't change when world transform (zoom/pan) changes.
+   */
+  private _computeUnionBBox(nodes: BaseNode[]): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null {
+    if (nodes.length === 0 || !this._core) return null;
+
+    const world = this._core.nodes.world;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const bn of nodes) {
+      const kn = bn.getNode() as unknown as Konva.Node;
+      // Get bbox in absolute (canvas) coordinates
+      const bboxAbs = kn.getClientRect({ skipShadow: true, skipStroke: false });
+
+      // Convert all 4 corners from absolute to world-local coordinates
+      const worldInv = world.getAbsoluteTransform().copy().invert();
+      const corners = [
+        worldInv.point({ x: bboxAbs.x, y: bboxAbs.y }),
+        worldInv.point({ x: bboxAbs.x + bboxAbs.width, y: bboxAbs.y }),
+        worldInv.point({ x: bboxAbs.x + bboxAbs.width, y: bboxAbs.y + bboxAbs.height }),
+        worldInv.point({ x: bboxAbs.x, y: bboxAbs.y + bboxAbs.height }),
+      ];
+
+      // Find min/max in world-local space
+      for (const corner of corners) {
+        minX = Math.min(minX, corner.x);
+        minY = Math.min(minY, corner.y);
+        maxX = Math.max(maxX, corner.x);
+        maxY = Math.max(maxY, corner.y);
+      }
+    }
+
+    if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY)) {
+      return null;
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
+
   private _ensureTempMulti(nodes: BaseNode[]) {
     if (!this._core) return;
     const world = this._core.nodes.world;
-    this._tempWorldOrder ??= [...world.getChildren()];
+    const layer = this._core.nodes.layer;
+
     // Fill set for correct size check on commit (important for lasso)
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
 
-    if (!this._tempMultiGroup) {
-      const grp = new Konva.Group({ name: 'temp-multi-group' });
-      world.add(grp);
-      this._tempMultiGroup = grp;
-      this._tempPlacement.clear();
+    // Compute list of Konva nodes
+    const konvaNodes = nodes.map((b) => b.getNode() as unknown as Konva.Node);
 
-      // First collect placement info for all nodes
-      const entries: {
-        kn: Konva.Node;
-        parent: Konva.Node;
-        indexInParent: number;
-        abs: Konva.Vector2d;
-        prevDraggable: boolean | null;
-      }[] = [];
-
-      for (const b of nodes) {
-        const kn = b.getNode() as unknown as Konva.Node;
-        const parent = kn.getParent();
-        if (!parent) continue;
-
-        const indexInParent = kn.zIndex();
-        const abs = kn.getAbsolutePosition();
-        const prevDraggable =
-          typeof (kn as unknown as { draggable?: (v?: boolean) => boolean }).draggable ===
-          'function'
-            ? (kn as unknown as { draggable: (v?: boolean) => boolean }).draggable()
-            : null;
-
-        this._tempPlacement.set(kn, { parent, indexInParent, abs, prevDraggable });
-        entries.push({ kn, parent, indexInParent, abs, prevDraggable });
-      }
-
-      // Sort by original indexInParent within each parent to preserve visual stacking order
-      entries.sort((a, b) => {
-        if (a.parent === b.parent) {
-          return a.indexInParent - b.indexInParent;
-        }
-        return 0;
-      });
-
-      // Now add children to the temp group in the sorted order
-      for (const { kn, abs, prevDraggable } of entries) {
-        grp.add(kn as unknown as Konva.Group | Konva.Shape);
-        kn.setAbsolutePosition(abs);
-
-        if (
-          typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
-        ) {
-          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(
-            prevDraggable ?? false,
-          );
-        }
-
-        // Block drag on children and redirect to group
-        kn.off('.tempMultiChild');
-        kn.on('dragstart.tempMultiChild', (ev: Konva.KonvaEventObject<DragEvent>) => {
-          ev.cancelBubble = true;
-          const anyKn = kn as unknown as { stopDrag?: () => void };
-          if (typeof anyKn.stopDrag === 'function') anyKn.stopDrag();
-        });
-        kn.on('mousedown.tempMultiChild', (ev: Konva.KonvaEventObject<MouseEvent>) => {
-          if (ev.evt.button !== 0) return;
-          ev.cancelBubble = true;
-          const anyGrp = grp as unknown as { startDrag?: () => void };
-          if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
-        });
-      }
-
-      // Place temporary multi-group ON TOP of the world so that selection does not
-      // visually lower any of the selected nodes relative to other content.
-      // Underlying world order is restored when _destroyTempMulti() runs.
-      grp.moveToTop();
-      // Unified overlay manager for temporary group
-      this._tempOverlay ??= new OverlayFrameManager(this._core);
-      this._tempOverlay.attach(grp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
-      // Behavior like a regular group: drag group, without scene panning
-      const stage = this._core.stage;
-      const prevStageDraggable = stage.draggable();
-      grp.draggable(true);
-      const forceUpdate = () => {
-        this._tempOverlay?.forceUpdate();
-        this._scheduleBatchDraw();
-      };
-      grp.on('dragstart.tempMulti', () => {
-        stage.draggable(false);
-        this._draggingNode = grp;
-        this._startAutoPanLoop();
-        // Hide frame/label/handles of temporary group during dragging
-        this._tempOverlay?.hideOverlaysForDrag();
-        forceUpdate();
-      });
-      grp.on('dragmove.tempMulti', forceUpdate);
-      grp.on('transform.tempMulti', forceUpdate);
-      grp.on('transformstart.tempMulti', () => {
-        // Сохраняем before-состояние для всех нод (через HistoryPlugin batch)
-        // HistoryPlugin автоматически обработает это через transformstart на layer
-      });
-      grp.on('transformend.tempMulti', () => {
-        // Emit node:transformed for each node
-        // Calculate what local coords will be when node returns to world
-        if (this._core) {
-          const world = this._core.nodes.world;
-          const worldInvTransform = world.getAbsoluteTransform().copy().invert();
-          for (const baseNode of this._tempMultiSet) {
-            const konvaNode = baseNode.getNode() as unknown as Konva.Node;
-            // Get absolute transform and convert to world-local coordinates
-            const absTransform = konvaNode.getAbsoluteTransform().copy();
-            const localTransform = worldInvTransform.copy().multiply(absTransform);
-            const d = localTransform.decompose();
-            const changes: {
-              x?: number;
-              y?: number;
-              rotation?: number;
-              scaleX?: number;
-              scaleY?: number;
-            } = {
-              x: d.x,
-              y: d.y,
-              rotation: d.rotation,
-              scaleX: d.scaleX,
-              scaleY: d.scaleY,
-            };
-            this._core.eventBus.emit('node:transformed', baseNode, changes);
-          }
-        }
-      });
-      grp.on('dragend.tempMulti', () => {
-        stage.draggable(prevStageDraggable);
-        this._draggingNode = null;
-        this._stopAutoPanLoop();
-        // Restore frame/label/handles after dragging
-        this._tempOverlay?.restoreOverlaysAfterDrag();
-        forceUpdate();
-        // Emit node:transformed for each node
-        // Calculate what local coords will be when node returns to world
-        if (this._core) {
-          const world = this._core.nodes.world;
-          const worldInvTransform = world.getAbsoluteTransform().copy().invert();
-          for (const baseNode of this._tempMultiSet) {
-            const konvaNode = baseNode.getNode() as unknown as Konva.Node;
-            // Get absolute transform and convert to world-local coordinates
-            const absTransform = konvaNode.getAbsoluteTransform().copy();
-            const localTransform = worldInvTransform.copy().multiply(absTransform);
-            const d = localTransform.decompose();
-            const changes: {
-              x?: number;
-              y?: number;
-              rotation?: number;
-              scaleX?: number;
-              scaleY?: number;
-            } = {
-              x: d.x,
-              y: d.y,
-              rotation: d.rotation,
-              scaleX: d.scaleX,
-              scaleY: d.scaleY,
-            };
-            this._core.eventBus.emit('node:transformed', baseNode, changes);
-          }
-        }
-      });
-
-      // Event: temporary multi-selection created
-      this._core.eventBus.emit('selection:multi:created', nodes);
-      return;
+    // Check if composition changed
+    if (this._tempMultiGroup && this._tempMultiNodes.length > 0) {
+      const same =
+        this._tempMultiNodes.length === konvaNodes.length &&
+        konvaNodes.every((n) => this._tempMultiNodes.includes(n));
+      if (same) return; // No change in composition
+      // Composition changed — destroy and recreate
+      this._destroyTempMulti();
     }
-    // Update composition
-    const curr = [...this._tempMultiGroup.getChildren()];
-    const want = nodes.map((b) => b.getNode() as unknown as Konva.Node);
-    const same = curr.length === want.length && want.every((n) => curr.includes(n as Konva.Group));
-    if (same) return;
-    this._destroyTempMulti();
-    this._ensureTempMulti(nodes);
+
+    // Compute union bounding box in world-local coordinates
+    const bbox = this._computeUnionBBox(nodes);
+    if (!bbox) return;
+
+    // Store nodes list (without reparenting)
+    this._tempMultiNodes = konvaNodes;
+
+    // Create overlay group with invisible rect (bbox is already in world-local coords)
+    const overlayGrp = new Konva.Group({
+      name: 'temp-multi-overlay',
+      x: bbox.x,
+      y: bbox.y,
+    });
+    world.add(overlayGrp);
+    this._tempMultiGroup = overlayGrp;
+
+    // Create invisible rect at (0,0) inside group with bbox dimensions
+    const rect = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: bbox.width,
+      height: bbox.height,
+      fill: 'rgba(0,0,0,0.001)', // almost invisible but participates in hit-test
+      listening: false,
+      name: 'temp-multi-overlay-rect',
+    });
+    overlayGrp.add(rect);
+
+    // Attach OverlayFrameManager to show visual frame/transformer
+    this._tempOverlay ??= new OverlayFrameManager(this._core);
+    this._tempOverlay.attach(overlayGrp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
+
+    // Enable dragging on overlay group
+    const stage = this._core.stage;
+    const prevStageDraggable = stage.draggable();
+    overlayGrp.draggable(true);
+
+    // Store initial transform of overlay group for matrix calculations
+    let overlayInitialTransform: Konva.Transform | null = null;
+
+    // Drag handlers
+    overlayGrp.on('dragstart.tempMulti', () => {
+      // Save initial transforms for all nodes
+      this._tempMultiInitialTransforms.clear();
+      for (const kn of this._tempMultiNodes) {
+        this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+      }
+      overlayInitialTransform = overlayGrp.getAbsoluteTransform().copy();
+
+      stage.draggable(false);
+      this._draggingNode = overlayGrp;
+      this._startAutoPanLoop();
+      this._tempOverlay?.hideOverlaysForDrag();
+    });
+
+    overlayGrp.on('dragmove.tempMulti', () => {
+      if (!overlayInitialTransform) return;
+      // Apply overlay transformation to all nodes
+      this._applyOverlayTransformToNodes(overlayGrp, overlayInitialTransform);
+      this._tempOverlay?.forceUpdate();
+      this._scheduleBatchDraw();
+    });
+
+    overlayGrp.on('dragend.tempMulti', () => {
+      stage.draggable(prevStageDraggable);
+      this._draggingNode = null;
+      this._stopAutoPanLoop();
+      this._tempOverlay?.restoreOverlaysAfterDrag();
+
+      // Emit node:transformed for each node
+      if (this._core) {
+        const world = this._core.nodes.world;
+        const worldInvTransform = world.getAbsoluteTransform().copy().invert();
+        for (const baseNode of this._tempMultiSet) {
+          const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+          const absTransform = konvaNode.getAbsoluteTransform().copy();
+          const localTransform = worldInvTransform.copy().multiply(absTransform);
+          const d = localTransform.decompose();
+          this._core.eventBus.emit('node:transformed', baseNode, {
+            x: d.x,
+            y: d.y,
+            rotation: d.rotation,
+            scaleX: d.scaleX,
+            scaleY: d.scaleY,
+          });
+        }
+      }
+
+      // Update overlay bbox to match new node positions
+      this._updateTempMultiOverlayBBox();
+
+      overlayInitialTransform = null;
+      this._tempMultiInitialTransforms.clear();
+      this._tempOverlay?.forceUpdate();
+      this._scheduleBatchDraw();
+    });
+
+    // Transform handlers
+    overlayGrp.on('transformstart.tempMulti', () => {
+      // Save initial transforms for all nodes
+      this._tempMultiInitialTransforms.clear();
+      for (const kn of this._tempMultiNodes) {
+        this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+      }
+      overlayInitialTransform = overlayGrp.getAbsoluteTransform().copy();
+    });
+
+    overlayGrp.on('transform.tempMulti', () => {
+      if (!overlayInitialTransform) return;
+      // Apply overlay transformation to all nodes
+      this._applyOverlayTransformToNodes(overlayGrp, overlayInitialTransform);
+      this._tempOverlay?.forceUpdate();
+      this._scheduleBatchDraw();
+    });
+
+    overlayGrp.on('transformend.tempMulti', () => {
+      // Emit node:transformed for each node
+      if (this._core) {
+        const world = this._core.nodes.world;
+        const worldInvTransform = world.getAbsoluteTransform().copy().invert();
+        for (const baseNode of this._tempMultiSet) {
+          const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+          const absTransform = konvaNode.getAbsoluteTransform().copy();
+          const localTransform = worldInvTransform.copy().multiply(absTransform);
+          const d = localTransform.decompose();
+          this._core.eventBus.emit('node:transformed', baseNode, {
+            x: d.x,
+            y: d.y,
+            rotation: d.rotation,
+            scaleX: d.scaleX,
+            scaleY: d.scaleY,
+          });
+        }
+      }
+
+      // Update overlay bbox to match new node positions
+      this._updateTempMultiOverlayBBox();
+
+      overlayInitialTransform = null;
+      this._tempMultiInitialTransforms.clear();
+      this._tempOverlay?.forceUpdate();
+      this._scheduleBatchDraw();
+    });
+
+    layer.batchDraw();
+
+    // Event: temporary multi-selection created
+    this._core.eventBus.emit('selection:multi:created', nodes);
   }
 
   private _destroyTempMulti() {
     if (!this._core) return;
     if (!this._tempMultiGroup && this._tempMultiSet.size === 0) return;
 
-    // Detach unified overlay manager (removes transformer/label/rotate/hit)
+    // Detach overlay manager (removes transformer/label/rotate/hit)
     if (this._tempOverlay) {
       this._tempOverlay.detach();
       this._tempOverlay = null;
     }
+
+    // Destroy overlay group (no children to reparent back)
     if (this._tempMultiGroup) {
       this._tempMultiGroup.off('.tempMulti');
-      const children = [...this._tempMultiGroup.getChildren()];
-      for (const kn of children) {
-        // Remove child intercepts
-        kn.off('.tempMultiChild');
-        const info = this._tempPlacement.get(kn);
-        // Store child's absolute transform (position/scale/rotation)
-        const absBefore = kn.getAbsoluteTransform().copy();
-        // Destination parent: saved one or world
-        const dstParent = info?.parent ?? this._core.nodes.world;
-        // Move to destination parent
-        kn.moveTo(dstParent);
-        // Compute local transform equivalent to the previous absolute transform
-        const parentAbs = dstParent.getAbsoluteTransform().copy();
-        parentAbs.invert();
-        const local = parentAbs.multiply(absBefore);
-        const d = local.decompose();
-        // Apply local x/y/rotation/scale to preserve the visual result
-        if (
-          typeof (kn as unknown as { position?: (p: Konva.Vector2d) => void }).position ===
-          'function'
-        ) {
-          (kn as unknown as { position: (p: Konva.Vector2d) => void }).position({ x: d.x, y: d.y });
-        } else {
-          kn.setAbsolutePosition({ x: d.x, y: d.y });
-        }
-        if (typeof (kn as unknown as { rotation?: (r: number) => void }).rotation === 'function') {
-          (kn as unknown as { rotation: (r: number) => void }).rotation(d.rotation);
-        }
-        if (
-          typeof (kn as unknown as { scale?: (p: Konva.Vector2d) => void }).scale === 'function'
-        ) {
-          (kn as unknown as { scale: (p: Konva.Vector2d) => void }).scale({
-            x: d.scaleX,
-            y: d.scaleY,
-          });
-        }
-        if (info && info.parent !== this._core.nodes.world) {
-          // FIX: restore position via moveUp/moveDown
-          const currentIndex = kn.zIndex();
-          const targetIndex = info.indexInParent;
-
-          if (currentIndex !== targetIndex) {
-            const diff = targetIndex - currentIndex;
-            if (diff > 0) {
-              // Need to move up
-              for (let i = 0; i < diff && kn.zIndex() < info.parent.children.length - 1; i++) {
-                kn.moveUp();
-              }
-            } else if (diff < 0) {
-              // Need to move down
-              for (let i = 0; i < Math.abs(diff) && kn.zIndex() > 0; i++) {
-                kn.moveDown();
-              }
-            }
-          }
-        }
-
-        if (
-          info &&
-          typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
-            'function' &&
-          info.prevDraggable !== null
-        ) {
-          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(info.prevDraggable);
-        }
-      }
       this._tempMultiGroup.destroy();
       this._tempMultiGroup = null;
     }
 
-    if (this._tempWorldOrder) {
-      const world = this._core.nodes.world;
-      const currentChildren = world.getChildren() as Konva.Node[];
-      const desiredOrder = new Map<Konva.Node, number>();
-      let order = 0;
-
-      for (const node of this._tempWorldOrder) {
-        if (currentChildren.includes(node)) {
-          desiredOrder.set(node, order++);
-        }
-      }
-
-      for (const node of currentChildren) {
-        if (!desiredOrder.has(node)) {
-          desiredOrder.set(node, order++);
-        }
-      }
-
-      const sorted = [...currentChildren].sort((a, b) => {
-        const ao = desiredOrder.get(a) ?? 0;
-        const bo = desiredOrder.get(b) ?? 0;
-        return ao - bo;
-      });
-      for (let i = 0; i < sorted.length; i++) {
-        const node = sorted[i]!;
-        node.zIndex(i);
-      }
-      this._tempWorldOrder = null;
-    }
-
-    this._tempPlacement.clear();
+    // Clear state
+    this._tempMultiNodes = [];
+    this._tempMultiInitialTransforms.clear();
     this._tempMultiSet.clear();
+
+    this._core.nodes.layer.batchDraw();
 
     // Event: temporary multi-selection destroyed
     this._core.eventBus.emit('selection:multi:destroyed');
-  }
-
-  private _updateTempRotateHandlesPosition() {
-    if (!this._core || !this._tempMultiGroup || !this._tempRotateHandlesGroup) return;
-    const grp = this._tempMultiGroup;
-    const local = grp.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
-    const width = local.width;
-    const height = local.height;
-    if (width <= 0 || height <= 0) return;
-    const tr = grp.getAbsoluteTransform().copy();
-    const mapAbs = (pt: { x: number; y: number }) => tr.point(pt);
-    const offset = 12;
-    const centerAbs = mapAbs({ x: local.x + width / 2, y: local.y + height / 2 });
-    const c0 = mapAbs({ x: local.x, y: local.y });
-    const c1 = mapAbs({ x: local.x + width, y: local.y });
-    const c2 = mapAbs({ x: local.x + width, y: local.y + height });
-    const c3 = mapAbs({ x: local.x, y: local.y + height });
-    const dir = (c: { x: number; y: number }) => {
-      const vx = c.x - centerAbs.x;
-      const vy = c.y - centerAbs.y;
-      const len = Math.hypot(vx, vy) || 1;
-      return { x: vx / len, y: vy / len };
-    };
-    const d0 = dir(c0),
-      d1 = dir(c1),
-      d2 = dir(c2),
-      d3 = dir(c3);
-    const p0 = { x: c0.x + d0.x * offset, y: c0.y + d0.y * offset };
-    const p1 = { x: c1.x + d1.x * offset, y: c1.y + d1.y * offset };
-    const p2 = { x: c2.x + d2.x * offset, y: c2.y + d2.y * offset };
-    const p3 = { x: c3.x + d3.x * offset, y: c3.y + d3.y * offset };
-    if (this._tempRotateHandles.tl) this._tempRotateHandles.tl.absolutePosition(p0);
-    if (this._tempRotateHandles.tr) this._tempRotateHandles.tr.absolutePosition(p1);
-    if (this._tempRotateHandles.br) this._tempRotateHandles.br.absolutePosition(p2);
-    if (this._tempRotateHandles.bl) this._tempRotateHandles.bl.absolutePosition(p3);
-    this._tempRotateHandlesGroup.moveToTop();
-  }
-
-  private _updateTempMultiSizeLabel() {
-    if (!this._core || !this._tempMultiGroup || !this._tempMultiSizeLabel) return;
-    const world = this._core.nodes.world;
-    // Visual bbox WITHOUT stroke (and thus without selection frame)
-    const bbox = this._tempMultiGroup.getClientRect({ skipShadow: true, skipStroke: true });
-    const logicalW = bbox.width / Math.max(1e-6, world.scaleX());
-    const logicalH = bbox.height / Math.max(1e-6, world.scaleY());
-    const w = Math.max(0, Math.round(logicalW));
-    const h = Math.max(0, Math.round(logicalH));
-    const text = this._tempMultiSizeLabel.getText();
-    text.text(String(w) + ' × ' + String(h));
-    const offset = 8;
-    const bottomX = bbox.x + bbox.width / 2;
-    const bottomY = bbox.y + bbox.height + offset;
-    const labelRect = this._tempMultiSizeLabel.getClientRect({
-      skipTransform: true,
-      skipShadow: true,
-      skipStroke: true,
-    });
-    const labelW = labelRect.width;
-    this._tempMultiSizeLabel.setAttrs({ x: bottomX - labelW / 2, y: bottomY });
-    this._tempMultiSizeLabel.moveToTop();
-  }
-
-  // Update/create an invisible hit zone matching the group's bbox (for dragging in empty areas)
-  private _updateTempMultiHitRect() {
-    if (!this._core || !this._tempMultiGroup) return;
-    const layer = this._core.nodes.layer;
-    // Group's local bbox (no transform) so the rect aligns correctly at any rotation/scale
-    const local = this._tempMultiGroup.getClientRect({
-      skipTransform: true,
-      skipShadow: true,
-      skipStroke: true,
-    });
-    const topLeft = { x: local.x, y: local.y };
-    const w = local.width;
-    const h = local.height;
-    if (!this._tempMultiHitRect) {
-      const rect = new Konva.Rect({
-        name: 'temp-multi-hit',
-        x: topLeft.x,
-        y: topLeft.y,
-        width: w,
-        height: h,
-        fill: 'rgba(0,0,0,0.001)', // almost invisible but participates in hit-test
-        listening: true,
-        perfectDrawEnabled: false,
-      });
-      // Allow group drag on mousedown in empty area
-      rect.on('mousedown.tempMultiHit', (ev: Konva.KonvaEventObject<MouseEvent>) => {
-        if (ev.evt.button !== 0) return;
-        ev.cancelBubble = true;
-        const anyGrp = this._tempMultiGroup as unknown as { startDrag?: () => void };
-        if (typeof anyGrp.startDrag === 'function') anyGrp.startDrag();
-      });
-      // Add to the group and keep at the back
-      this._tempMultiGroup.add(rect);
-      rect.moveToBottom();
-      this._tempMultiHitRect = rect;
-      layer.batchDraw();
-      return;
-    }
-    // Update geometry of the existing rectangle
-    this._tempMultiHitRect.position(topLeft);
-    this._tempMultiHitRect.size({ width: w, height: h });
-    this._tempMultiHitRect.moveToBottom();
   }
 
   private _commitTempMultiToGroup() {
     if (!this._core) return;
     if (!this._tempMultiGroup || this._tempMultiSet.size < 2) return;
     const nm = this._core.nodes;
-    const pos = this._tempMultiGroup.getAbsolutePosition();
-    const newGroup = nm.addGroup({ x: pos.x, y: pos.y, draggable: true });
+
+    // Compute union bbox for positioning the new group
+    const bbox = this._computeUnionBBox(Array.from(this._tempMultiSet));
+    if (!bbox) return;
+
+    const newGroup = nm.addGroup({ x: bbox.x, y: bbox.y, draggable: true });
     const g = newGroup.getNode();
-    const children = [...this._tempMultiGroup.getChildren()];
     const groupedBaseNodes: BaseNode[] = [];
 
-    // FIX: Sort nodes by their current z-index in the world BEFORE adding to the group
-    // This preserves their relative render order
-    const sortedChildren = children.sort((a, b) => {
+    // Sort nodes by their current z-index to preserve relative render order
+    const sortedNodes = [...this._tempMultiNodes].sort((a, b) => {
       return a.zIndex() - b.zIndex();
     });
 
     // Find the maximum z-index to position the group itself in the world
-    const maxZIndex = Math.max(...sortedChildren.map((kn) => kn.zIndex()));
+    const maxZIndex = Math.max(...sortedNodes.map((kn) => kn.zIndex()));
 
-    for (const kn of sortedChildren) {
-      // Remove temporary group intercepts from children
-      kn.off('.tempMultiChild');
+    for (const kn of sortedNodes) {
       const abs = kn.getAbsolutePosition();
       g.add(kn as unknown as Konva.Group | Konva.Shape);
       kn.setAbsolutePosition(abs);
 
-      // FIX: Do NOT set z-index on children!
-      // Konva will automatically set order when added to the group
-      // Add order (sortedChildren) = render order
-
+      // Disable draggable on children (group handles drag now)
       if (
         typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
       )
@@ -1440,13 +1308,11 @@ export class SelectionPlugin extends Plugin {
       if (base) groupedBaseNodes.push(base);
     }
 
-    // FIX: Position the group itself in the world with the correct z-index
-    // Use moveUp/moveDown instead of setting zIndex(value) directly
+    // Position the group itself in the world with the correct z-index
     const world = this._core.nodes.world;
     const currentGroupIndex = g.zIndex();
     const targetIndex = maxZIndex;
 
-    // Move the group to the maximum children's z-index position
     if (currentGroupIndex < targetIndex) {
       const diff = targetIndex - currentGroupIndex;
       for (let i = 0; i < diff && g.zIndex() < world.children.length - 1; i++) {
@@ -1454,22 +1320,20 @@ export class SelectionPlugin extends Plugin {
       }
     }
 
-    if (this._tempMultiTr) {
-      this._tempMultiTr.destroy();
-      this._tempMultiTr = null;
-    }
-    // Detach the unified overlay manager for the temporary group to prevent UI elements from remaining
+    // Detach overlay manager
     if (this._tempOverlay) {
       this._tempOverlay.detach();
       this._tempOverlay = null;
     }
-    // Remove .tempMulti handlers from the temporary group before destruction
+    // Destroy overlay group
     this._tempMultiGroup.off('.tempMulti');
     this._tempMultiGroup.destroy();
     this._tempMultiGroup = null;
-    this._tempPlacement.clear();
+    // Clear state
+    this._tempMultiNodes = [];
     this._tempMultiSet.clear();
-    // Explicitly enable draggable for the created group (in case downstream logic changes options)
+
+    // Explicitly enable draggable for the created group
     if (typeof g.draggable === 'function') g.draggable(true);
 
     // Event: group created
@@ -1898,8 +1762,6 @@ export class SelectionPlugin extends Plugin {
       this._restyleSideAnchors();
       // OPTIMIZATION: use debounced UI update
       this._scheduleUIUpdate();
-      // Temporary group: update rotation handles position
-      this._updateTempRotateHandlesPosition();
       this._core?.nodes.layer.batchDraw();
     });
     transformer.on('transformend.corner-sync', () => {
