@@ -1006,11 +1006,21 @@ export class SelectionPlugin extends Plugin {
       world.add(grp);
       this._tempMultiGroup = grp;
       this._tempPlacement.clear();
+
+      // First collect placement info for all nodes
+      const entries: {
+        kn: Konva.Node;
+        parent: Konva.Node;
+        indexInParent: number;
+        abs: Konva.Vector2d;
+        prevDraggable: boolean | null;
+      }[] = [];
+
       for (const b of nodes) {
         const kn = b.getNode() as unknown as Konva.Node;
         const parent = kn.getParent();
         if (!parent) continue;
-        // FIX: save position in parent's children array
+
         const indexInParent = kn.zIndex();
         const abs = kn.getAbsolutePosition();
         const prevDraggable =
@@ -1018,13 +1028,32 @@ export class SelectionPlugin extends Plugin {
           'function'
             ? (kn as unknown as { draggable: (v?: boolean) => boolean }).draggable()
             : null;
+
         this._tempPlacement.set(kn, { parent, indexInParent, abs, prevDraggable });
+        entries.push({ kn, parent, indexInParent, abs, prevDraggable });
+      }
+
+      // Sort by original indexInParent within each parent to preserve visual stacking order
+      entries.sort((a, b) => {
+        if (a.parent === b.parent) {
+          return a.indexInParent - b.indexInParent;
+        }
+        return 0;
+      });
+
+      // Now add children to the temp group in the sorted order
+      for (const { kn, abs, prevDraggable } of entries) {
         grp.add(kn as unknown as Konva.Group | Konva.Shape);
         kn.setAbsolutePosition(abs);
+
         if (
           typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
-        )
-          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(false);
+        ) {
+          (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(
+            prevDraggable ?? false,
+          );
+        }
+
         // Block drag on children and redirect to group
         kn.off('.tempMultiChild');
         kn.on('dragstart.tempMultiChild', (ev: Konva.KonvaEventObject<DragEvent>) => {
@@ -1040,15 +1069,10 @@ export class SelectionPlugin extends Plugin {
         });
       }
 
-      // Place temporary multi-group near the original selection in z-order
-      const placements = Array.from(this._tempPlacement.values());
-      const indicesInWorld = placements
-        .filter((info) => info.parent === world)
-        .map((info) => info.indexInParent);
-      if (indicesInWorld.length > 0) {
-        const minIndex = Math.min(...indicesInWorld);
-        grp.zIndex(minIndex);
-      }
+      // Place temporary multi-group ON TOP of the world so that selection does not
+      // visually lower any of the selected nodes relative to other content.
+      // Underlying world order is restored when _destroyTempMulti() runs.
+      grp.moveToTop();
       // Unified overlay manager for temporary group
       this._tempOverlay ??= new OverlayFrameManager(this._core);
       this._tempOverlay.attach(grp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });

@@ -37,6 +37,9 @@ export class TextNode extends BaseNode<Konva.Text> {
   private _onTextChangeCallbacks: ((event: TextChangeEvent) => void)[] = [];
   private _onEditStartCallbacks: (() => void)[] = [];
   private _onEditEndCallbacks: (() => void)[] = [];
+  /** Флаг: ожидание повторного двойного клика для входа в редактирование внутри группы */
+  private _pendingGroupEditDblClick = false;
+  private _groupEditClickResetAttached = false;
 
   constructor(options: TextNodeOptions = {}) {
     const node = new Konva.Text({
@@ -189,6 +192,47 @@ export class TextNode extends BaseNode<Konva.Text> {
 
   private _setupEditHandler(): void {
     this.konvaNode.on('dblclick.textEdit dbltap.textEdit', () => {
+      // Для нод внутри реальной или временной группы меняем семантику двойного клика:
+      // первый двойной клик подготавливает выделение (SelectionPlugin обрабатывает клики сам),
+      // повторный двойной клик уже включает режим редактирования.
+
+      const parent = this.konvaNode.getParent();
+      const grand = parent ? parent.getParent() : null;
+      const inGroupOrTemp = parent instanceof Konva.Group && grand instanceof Konva.Group;
+
+      if (!inGroupOrTemp) {
+        // Одиночная текстовая нода: поведение без изменений
+        this._openTextarea();
+        return;
+      }
+
+      if (!this._groupEditClickResetAttached) {
+        const stage = this.konvaNode.getStage();
+        if (stage) {
+          this._groupEditClickResetAttached = true;
+          stage.on(
+            'mousedown.textEditGroupReset',
+            (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+              const target = e.target as Konva.Node;
+              if (target === this.konvaNode) return;
+              this._pendingGroupEditDblClick = false;
+            },
+          );
+        }
+      }
+
+      // Нода внутри группы (реальной или временной)
+      if (this._isEditing) return;
+
+      if (!this._pendingGroupEditDblClick) {
+        // Первый двойной клик: только подготовка (нода уже будет выделена SelectionPlugin'ом
+        // за счёт одиночных кликов), без входа в режим редактирования.
+        this._pendingGroupEditDblClick = true;
+        return;
+      }
+
+      // Повторный двойной клик по той же ноде внутри группы — открываем редактирование
+      this._pendingGroupEditDblClick = false;
       this._openTextarea();
     });
   }
@@ -378,6 +422,8 @@ export class TextNode extends BaseNode<Konva.Text> {
     this.konvaNode.show();
     this.konvaNode.getStage()?.batchDraw();
     this._isEditing = false;
+    // Сброс ожидания повторного двойного клика внутри группы после завершения редактирования
+    this._pendingGroupEditDblClick = false;
 
     for (const c of this._onTextChangeCallbacks) {
       c({ oldText: this._oldText, newText, cancelled });

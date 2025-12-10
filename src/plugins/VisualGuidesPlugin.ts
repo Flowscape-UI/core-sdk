@@ -58,7 +58,7 @@ export class VisualGuidesPlugin extends Plugin {
       guidelineColor = '#8e3e2c',
       guidelineWidth = 1,
       guidelineDash = [0, 0],
-      thresholdPx = 20,
+      thresholdPx = 8,
     } = options;
 
     this._options = {

@@ -84,7 +84,7 @@ const areaSelection = new AreaSelectionPlugin();
 const historyPlugin = new HistoryPlugin();
 
 const visualGuidesPlugin = new VisualGuidesPlugin({
-  thresholdPx: 8,
+  // thresholdPx: 10,
   // guidelineColor: 'red',
   // guidelineDash: [0, 0],
 });
