@@ -292,6 +292,7 @@ export class SelectionPlugin extends Plugin {
       // Shift+Click or Ctrl+Click: create temporary group (multi-selection)
       if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
         const base = this._findBaseNodeByTarget(target);
+
         if (!base) return;
 
         // If node is in a group, ignore (group protection)
@@ -2138,7 +2139,7 @@ export class SelectionPlugin extends Plugin {
 
   // ===================== Corner Radius Handles =====================
   private _isCornerRadiusSupported(konvaNode: Konva.Node): konvaNode is Konva.Rect {
-    return konvaNode instanceof Konva.Rect;
+    return (konvaNode instanceof Konva.Rect || konvaNode instanceof Konva.Image);
   }
 
   private _getCornerRadiusArray(konvaNode: Konva.Rect): [number, number, number, number] {

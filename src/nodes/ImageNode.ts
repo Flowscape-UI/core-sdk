@@ -63,6 +63,16 @@ export class ImageNode extends BaseNode<Konva.Image> {
     return this;
   }
 
+  public setCornerRadius(radius: number | number[]): this {
+    this.konvaNode.cornerRadius(radius);
+    return this;
+  }
+
+  public getCornerRadius(): number {
+    return this.konvaNode.cornerRadius() as number;
+  }
+
+  
   // ===== Static helpers =====
   private _loadHTMLImage(
     url: string,
