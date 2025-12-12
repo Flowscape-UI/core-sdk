@@ -32,6 +32,7 @@ export class AreaSelectionPlugin extends Plugin {
   private _transformer: Konva.Transformer | null = null;
   // Modelasso forms temporary group, so single clicks are not needed
   private _selecting = false;
+  private _lastPickedBaseNodes: BaseNode[] = [];
 
   private _options: Required<AreaSelectionPluginOptions>;
 
@@ -97,9 +98,9 @@ export class AreaSelectionPlugin extends Plugin {
       }
 
       // If click is inside permanent group bbox, disable marquee selection
-      if (this._pointerInsidePermanentGroupBBox(p)) {
-        return;
-      }
+      // if (this._pointerInsidePermanentGroupBBox(p)) {
+      //   return;
+      // }
 
       this._selecting = true;
       this._start = { x: p.x, y: p.y };
@@ -107,6 +108,7 @@ export class AreaSelectionPlugin extends Plugin {
       this._rect.position({ x: p.x, y: p.y });
       this._rect.size({ width: 0, height: 0 });
       this._layer?.batchDraw();
+      this._lastPickedBaseNodes = [];
     });
 
     stage.on('mousemove.area', () => {
@@ -141,6 +143,7 @@ export class AreaSelectionPlugin extends Plugin {
       const allNodes: BaseNode[] = this._core?.nodes.list() ?? [];
       const pickedSet = new Set<BaseNode>();
       for (const bn of allNodes) {
+        if (bn instanceof GroupNode) continue;
         const node = bn.getNode() as unknown as Konva.Node;
         const layer = node.getLayer();
         if (layer !== this._core?.nodes.layer) continue;
@@ -151,6 +154,7 @@ export class AreaSelectionPlugin extends Plugin {
         }
       }
       const pickedBase: BaseNode[] = Array.from(pickedSet);
+      this._lastPickedBaseNodes = pickedBase;
       const sel = this._getSelectionPlugin();
       if (sel) {
         const ctrl = sel.getMultiGroupController();
@@ -224,29 +228,35 @@ export class AreaSelectionPlugin extends Plugin {
     this._layer?.batchDraw();
 
     // Find nodes intersecting with bbox (in client coordinates)
-    const nodes: BaseNode[] = this._core.nodes.list();
-    const picked: Konva.Node[] = [];
-    for (const n of nodes) {
-      const node = n.getNode() as unknown as Konva.Node;
-      // Только те, что реально в слое нод
-      const layer = node.getLayer();
-      if (layer !== this._core.nodes.layer) continue;
-      const r = node.getClientRect({ skipShadow: true, skipStroke: false });
-      if (this._rectsIntersect(bbox, r)) picked.push(node);
-    }
+    let baseNodes: BaseNode[] = [];
+    if (this._lastPickedBaseNodes.length > 0) {
+      baseNodes = [...this._lastPickedBaseNodes];
+    } else {
+      const nodes: BaseNode[] = this._core.nodes.list();
+      const picked: Konva.Node[] = [];
+      for (const n of nodes) {
+        const node = n.getNode() as unknown as Konva.Node;
+        // Только те, что реально в слое нод
+        const layer = node.getLayer();
+        if (layer !== this._core.nodes.layer) continue;
+        const r = node.getClientRect({ skipShadow: true, skipStroke: false });
+        if (this._rectsIntersect(bbox, r)) picked.push(node);
+      }
 
-    // Form a set of nodes and apply as a temporary group (as Shift‑multi selection)
-    const sel = this._getSelectionPlugin();
-    if (sel) {
+      // Form a set of nodes and apply as a temporary group (as Shift‑multi selection)
       const list: BaseNode[] = this._core.nodes.list();
       const baseSet = new Set<BaseNode>();
       for (const kn of picked) {
         const bn = list.find((n) => n.getNode() === (kn as unknown as Konva.Node)) ?? null;
         const owner = this._findOwningGroupBaseNode(kn as unknown as Konva.Node);
         if (owner) baseSet.add(owner);
-        else if (bn) baseSet.add(bn);
+        else if (bn && !(bn instanceof GroupNode)) baseSet.add(bn);
       }
-      const baseNodes = Array.from(baseSet);
+      baseNodes = Array.from(baseSet);
+    }
+
+    const sel = this._getSelectionPlugin();
+    if (sel) {
       if (baseNodes.length > 0) {
         sel.getMultiGroupController().ensure(baseNodes);
         this._core.stage.batchDraw();
@@ -254,6 +264,7 @@ export class AreaSelectionPlugin extends Plugin {
         sel.getMultiGroupController().destroy();
       }
     }
+    this._lastPickedBaseNodes = [];
   }
 
   private _clearSelection() {
@@ -294,12 +305,13 @@ export class AreaSelectionPlugin extends Plugin {
     // Collect all permanent groups (GroupNode) and compare their Konva.Node
     const groupBaseNodes = list.filter((bn) => bn instanceof GroupNode);
     let cur: Konva.Node | null = node;
+    let lastOwner: BaseNode | null = null;
     while (cur) {
       const owner = groupBaseNodes.find((gbn) => gbn.getNode() === cur) ?? null;
-      if (owner) return owner;
+      if (owner) lastOwner = owner;
       cur = cur.getParent();
     }
-    return null;
+    return lastOwner;
   }
   private _isAncestor(ancestor: Konva.Node, node: Konva.Node): boolean {
     let cur: Konva.Node | null = node;
@@ -329,17 +341,17 @@ export class AreaSelectionPlugin extends Plugin {
   }
 
   // true, if pointer inside visual bbox any permanent group (GroupNode from NodeManager)
-  private _pointerInsidePermanentGroupBBox(p: { x: number; y: number }): boolean {
-    if (!this._core) return false;
-    const list: BaseNode[] = this._core.nodes.list();
-    for (const bn of list) {
-      if (!(bn instanceof GroupNode)) continue;
-      const node = bn.getNode();
-      const bbox = node.getClientRect({ skipShadow: true, skipStroke: true });
-      const inside =
-        p.x >= bbox.x && p.x <= bbox.x + bbox.width && p.y >= bbox.y && p.y <= bbox.y + bbox.height;
-      if (inside) return true;
-    }
-    return false;
-  }
+  // private _pointerInsidePermanentGroupBBox(p: { x: number; y: number }): boolean {
+  //   if (!this._core) return false;
+  //   const list: BaseNode[] = this._core.nodes.list();
+  //   for (const bn of list) {
+  //     if (!(bn instanceof GroupNode)) continue;
+  //     const node = bn.getNode();
+  //     const bbox = node.getClientRect({ skipShadow: true, skipStroke: true });
+  //     const inside =
+  //       p.x >= bbox.x && p.x <= bbox.x + bbox.width && p.y >= bbox.y && p.y <= bbox.y + bbox.height;
+  //     if (inside) return true;
+  //   }
+  //   return false;
+  // }
 }
