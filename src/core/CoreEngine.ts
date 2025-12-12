@@ -88,7 +88,7 @@ export class CoreEngine {
     // Инициализируем менеджер плагинов до их фактического подключения,
     // чтобы внутри onAttach плагинов и их аддонов core.plugins уже существовал.
     this.plugins = new Plugins(this);
-    if (options.plugins && options.plugins.length) {
+    if (options.plugins?.length) {
       this.plugins.addPlugins(options.plugins);
     }
   }

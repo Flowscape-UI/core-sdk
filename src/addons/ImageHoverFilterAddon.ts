@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import { ImageNode } from '../nodes/ImageNode';
+
 import { NodeAddon } from './NodeAddon';
 
 export type ImageHoverFilterMode = 'sepia' | 'warm' | 'cool';

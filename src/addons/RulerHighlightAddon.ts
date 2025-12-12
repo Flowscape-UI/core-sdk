@@ -10,7 +10,7 @@ import { PluginAddon } from './PluginAddon';
  */
 export class RulerHighlightAddon extends PluginAddon<RulerPlugin> {
   private readonly _options: RulerHighlightPluginOptions;
-  private _instance?: RulerHighlightPlugin;
+  private _instance: RulerHighlightPlugin | null = null;
   private _owned = false;
 
   constructor(options: RulerHighlightPluginOptions = {}) {
@@ -44,7 +44,7 @@ export class RulerHighlightAddon extends PluginAddon<RulerPlugin> {
       core.plugins.removePlugins([this._instance]);
     }
 
-    this._instance = undefined;
+    this._instance = null;
     this._owned = false;
   }
 }

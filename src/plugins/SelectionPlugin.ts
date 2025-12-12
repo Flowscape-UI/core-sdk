@@ -1,4 +1,5 @@
 import Konva from 'konva';
+
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
@@ -11,6 +12,7 @@ import {
 import { OverlayFrameManager } from '../utils/OverlayFrameManager';
 import { makeRotateHandle } from '../utils/RotateHandleFactory';
 import { ThrottleHelper } from '../utils/ThrottleHelper';
+
 import { Plugin } from './Plugin';
 
 // Konva node with draggable() getter/setter support
@@ -110,7 +112,7 @@ export class SelectionPlugin extends Plugin {
   // Overlay-only: list of nodes in temporary multi-selection (no reparenting)
   private _tempMultiNodes: Konva.Node[] = [];
   // Store initial absolute transforms for matrix-based transformations
-  private _tempMultiInitialTransforms: Map<Konva.Node, Konva.Transform> = new Map();
+  private _tempMultiInitialTransforms = new Map<Konva.Node, Konva.Transform>();
   private _tempMultiGroup: Konva.Group | null = null;
   private _tempOverlay: OverlayFrameManager | null = null;
 

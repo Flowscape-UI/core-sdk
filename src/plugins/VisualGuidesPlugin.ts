@@ -272,7 +272,7 @@ export class VisualGuidesPlugin extends Plugin {
     for (const lg of guides) {
       if (lg.orientation === 'V') {
         absPos.x = lg.lineGuide + lg.offset;
-      } else if (lg.orientation === 'H') {
+      } else {
         absPos.y = lg.lineGuide + lg.offset;
       }
     }
@@ -418,8 +418,8 @@ export class VisualGuidesPlugin extends Plugin {
   private _drawRayMarkerWithLabel(
     x: number,
     y: number,
-    distance: number,
-    dir: 'left' | 'right' | 'up' | 'down',
+    _distance: number,
+    _dir: 'left' | 'right' | 'up' | 'down',
   ): void {
     if (!this._layer) return;
 
@@ -774,23 +774,27 @@ export class VisualGuidesPlugin extends Plugin {
     const guides: GuideDescriptor[] = [];
 
     if (resultV.length > 0) {
-      const minV = [...resultV].sort((a, b) => a.diff - b.diff)[0];
-      guides.push({
-        lineGuide: minV.lineGuide,
-        offset: minV.offset,
-        orientation: 'V',
-        snap: minV.snap,
-      });
+      const [minV] = [...resultV].sort((a, b) => a.diff - b.diff);
+      if (minV) {
+        guides.push({
+          lineGuide: minV.lineGuide,
+          offset: minV.offset,
+          orientation: 'V',
+          snap: minV.snap,
+        });
+      }
     }
 
     if (resultH.length > 0) {
-      const minH = [...resultH].sort((a, b) => a.diff - b.diff)[0];
-      guides.push({
-        lineGuide: minH.lineGuide,
-        offset: minH.offset,
-        orientation: 'H',
-        snap: minH.snap,
-      });
+      const [minH] = [...resultH].sort((a, b) => a.diff - b.diff);
+      if (minH) {
+        guides.push({
+          lineGuide: minH.lineGuide,
+          offset: minH.offset,
+          orientation: 'H',
+          snap: minH.snap,
+        });
+      }
     }
 
     return guides;
@@ -912,7 +916,7 @@ export class VisualGuidesPlugin extends Plugin {
     for (const lg of guides) {
       if (lg.orientation === 'V') {
         absPos.x = lg.lineGuide + lg.offset;
-      } else if (lg.orientation === 'H') {
+      } else {
         absPos.y = lg.lineGuide + lg.offset;
       }
     }

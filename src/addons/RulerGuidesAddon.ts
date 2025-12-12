@@ -10,7 +10,7 @@ import { PluginAddon } from './PluginAddon';
  */
 export class RulerGuidesAddon extends PluginAddon<RulerPlugin> {
   private readonly _options: RulerGuidesPluginOptions;
-  private _instance?: RulerGuidesPlugin;
+  private _instance: RulerGuidesPlugin | null = null;
   private _owned = false;
 
   constructor(options: RulerGuidesPluginOptions = {}) {
@@ -45,7 +45,7 @@ export class RulerGuidesAddon extends PluginAddon<RulerPlugin> {
       core.plugins.removePlugins([this._instance]);
     }
 
-    this._instance = undefined;
+    this._instance = null;
     this._owned = false;
   }
 }
