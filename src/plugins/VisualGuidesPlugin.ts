@@ -229,7 +229,7 @@ export class VisualGuidesPlugin extends Plugin {
     if (!this._core || !this._layer) return;
 
     // During rotation via SelectionPlugin's rotate handles, do not show guides
-    if (this._isRotatingNow(e.target as Konva.Node)) {
+    if (this._isVisualLinesShouldCleared(e.target as Konva.Node)) {
       this._clearGuides();
       return;
     }
@@ -796,37 +796,37 @@ export class VisualGuidesPlugin extends Plugin {
     return guides;
   }
 
-  private _drawGuides(guides: GuideDescriptor[]): void {
-    if (!this._layer) return;
+  // private _drawGuides(guides: GuideDescriptor[]): void {
+  //   if (!this._layer) return;
 
-    for (const lg of guides) {
-      if (lg.orientation === 'H') {
-        const line = new Konva.Line({
-          points: [-6000, 0, 6000, 0],
-          stroke: this._options.guidelineColor,
-          strokeWidth: this._options.guidelineWidth,
-          name: 'snap-guid-line',
-          dash: this._options.guidelineDash,
-          listening: false,
-        });
-        this._layer.add(line);
-        line.absolutePosition({ x: 0, y: lg.lineGuide });
-      } else if (lg.orientation === 'V') {
-        const line = new Konva.Line({
-          points: [0, -6000, 0, 6000],
-          stroke: this._options.guidelineColor,
-          strokeWidth: this._options.guidelineWidth,
-          name: 'snap-guid-line',
-          dash: this._options.guidelineDash,
-          listening: false,
-        });
-        this._layer.add(line);
-        line.absolutePosition({ x: lg.lineGuide, y: 0 });
-      }
-    }
+  //   for (const lg of guides) {
+  //     if (lg.orientation === 'H') {
+  //       const line = new Konva.Line({
+  //         points: [-6000, 0, 6000, 0],
+  //         stroke: this._options.guidelineColor,
+  //         strokeWidth: this._options.guidelineWidth,
+  //         name: 'snap-guid-line',
+  //         dash: this._options.guidelineDash,
+  //         listening: false,
+  //       });
+  //       this._layer.add(line);
+  //       line.absolutePosition({ x: 0, y: lg.lineGuide });
+  //     } else if (lg.orientation === 'V') {
+  //       const line = new Konva.Line({
+  //         points: [0, -6000, 0, 6000],
+  //         stroke: this._options.guidelineColor,
+  //         strokeWidth: this._options.guidelineWidth,
+  //         name: 'snap-guid-line',
+  //         dash: this._options.guidelineDash,
+  //         listening: false,
+  //       });
+  //       this._layer.add(line);
+  //       line.absolutePosition({ x: lg.lineGuide, y: 0 });
+  //     }
+  //   }
 
-    this._layer.batchDraw();
-  }
+  //   this._layer.batchDraw();
+  // }
 
   // ===== Resize support via Transformer events (visual guides only) =====
 
@@ -884,7 +884,10 @@ export class VisualGuidesPlugin extends Plugin {
 
     // Do not draw guides during rotation (node, real group, or temp group):
     // either when rotater anchor is active, or when event originates from rotate-handles tree.
-    if (activeAnchor === 'rotater' || this._isRotatingNow(tr as unknown as Konva.Node)) {
+    if (
+      activeAnchor === 'rotater' ||
+      this._isVisualLinesShouldCleared(tr as unknown as Konva.Node)
+    ) {
       this._clearGuides();
       return;
     }
@@ -1095,16 +1098,22 @@ export class VisualGuidesPlugin extends Plugin {
     return rays;
   }
 
-  private _isRotatingNow(target: Konva.Node | null): boolean {
+  private _isVisualLinesShouldCleared(target: Konva.Node | null): boolean {
     // Treat any drag/transform coming from rotate handles (for single node, real group or temp group)
-    // as rotation. Rotate handles live in a group named 'rotate-handles-group' and have names
-    // like 'rotate-tl', 'rotate-tr', etc.
+    // or corner-radius handles as an operation where guides must be hidden. Rotate handles live in a
+    // group named 'rotate-handles-group' and have names like 'rotate-tl', 'rotate-tr', etc. Corner
+    // radius handles live inside 'corner-radius-handles-group' with names like 'corner-radius-tl'.
 
     let node: Konva.Node | null = target;
     while (node) {
       const anyNode = node as unknown as { name?: () => string };
       const name = typeof anyNode.name === 'function' ? anyNode.name() : '';
-      if (name.startsWith('rotate-') || name === 'rotate-handles-group') {
+      if (
+        name.startsWith('rotate-') ||
+        name === 'rotate-handles-group' ||
+        name.startsWith('corner-radius-') ||
+        name === 'corner-radius-handles-group'
+      ) {
         return true;
       }
       node = node.getParent();
