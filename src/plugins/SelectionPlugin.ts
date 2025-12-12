@@ -296,7 +296,7 @@ export class SelectionPlugin extends Plugin {
         if (!base) return;
 
         // If node is in a group, ignore (group protection)
-        const nodeKonva = base.getNode();
+        const nodeKonva = base.getKonvaNode();
         const parent = nodeKonva.getParent();
         if (parent && parent instanceof Konva.Group && parent !== this._core.nodes.world) {
           // Node in group - don't add to multi-selection
@@ -359,7 +359,7 @@ export class SelectionPlugin extends Plugin {
 
       if (!this._selected) return;
 
-      const selectedNode = this._selected.getNode();
+      const selectedNode = this._selected.getKonvaNode();
       if (
         selectedNode instanceof Konva.Group &&
         typeof selectedNode.isAncestorOf === 'function' &&
@@ -372,7 +372,7 @@ export class SelectionPlugin extends Plugin {
         let nextLevel: BaseNode | null = null;
 
         for (const n of this._core.nodes.list()) {
-          const node = n.getNode() as unknown as Konva.Node;
+          const node = n.getKonvaNode() as unknown as Konva.Node;
 
           // Check that node is descendant of selectedNode
           if (
@@ -386,7 +386,7 @@ export class SelectionPlugin extends Plugin {
               let isClosest = true;
               for (const other of this._core.nodes.list()) {
                 if (other === n) continue;
-                const otherNode = other.getNode() as unknown as Konva.Node;
+                const otherNode = other.getKonvaNode() as unknown as Konva.Node;
                 if (
                   typeof selectedNode.isAncestorOf === 'function' &&
                   selectedNode.isAncestorOf(otherNode) &&
@@ -408,11 +408,11 @@ export class SelectionPlugin extends Plugin {
         }
 
         // If no intermediate group found, search for target node itself
-        nextLevel ??= this._core.nodes.list().find((n) => n.getNode() === e.target) ?? null;
+        nextLevel ??= this._core.nodes.list().find((n) => n.getKonvaNode() === e.target) ?? null;
 
         if (nextLevel) {
           this._select(nextLevel);
-          const node = nextLevel.getNode();
+          const node = nextLevel.getKonvaNode();
           // Enable dragging for selected node
           if (typeof node.draggable === 'function') node.draggable(true);
           // Temporarily disable dragging for parent group
@@ -581,7 +581,7 @@ export class SelectionPlugin extends Plugin {
       if (this._selected) {
         const pos = stage.getPointerPosition();
         if (pos) {
-          const selKonva = this._selected.getNode() as unknown as Konva.Node;
+          const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
           const bbox = selKonva.getClientRect({ skipShadow: true, skipStroke: false });
           const inside =
             pos.x >= bbox.x &&
@@ -654,7 +654,7 @@ export class SelectionPlugin extends Plugin {
 
     // If there's selection and click came inside already selected node — drag it
     if (this._selected) {
-      const selKonva = this._selected.getNode() as unknown as Konva.Node;
+      const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
         let cur: Konva.Node | null = b;
         while (cur) {
@@ -670,7 +670,7 @@ export class SelectionPlugin extends Plugin {
     }
 
     // Start dragging immediately, without visual selection until drag ends
-    const konvaNode = baseNode.getNode();
+    const konvaNode = baseNode.getKonvaNode();
     if (konvaNode instanceof Konva.Group) {
       this._disableGroupChildrenDragging(konvaNode);
     }
@@ -745,7 +745,7 @@ export class SelectionPlugin extends Plugin {
     this._clearSelection();
 
     // Save and enable draggable for the selected node (if enabled)
-    const konvaNode = node.getNode();
+    const konvaNode = node.getKonvaNode();
     this._prevDraggable = konvaNode.draggable();
     if (this._options.dragEnabled && typeof konvaNode.draggable === 'function') {
       konvaNode.draggable(true);
@@ -900,7 +900,7 @@ export class SelectionPlugin extends Plugin {
     if (!this._selected) return;
 
     const selectedNode = this._selected;
-    const node = this._selected.getNode();
+    const node = this._selected.getKonvaNode();
 
     // Restore previous draggable state
     if (typeof node.draggable === 'function' && this._prevDraggable !== null) {
@@ -1042,7 +1042,7 @@ export class SelectionPlugin extends Plugin {
     let maxY = -Infinity;
 
     for (const bn of nodes) {
-      const kn = bn.getNode() as unknown as Konva.Node;
+      const kn = bn.getKonvaNode() as unknown as Konva.Node;
       // Get bbox in absolute (canvas) coordinates
       const bboxAbs = kn.getClientRect({ skipShadow: true, skipStroke: false });
 
@@ -1086,7 +1086,7 @@ export class SelectionPlugin extends Plugin {
     for (const b of nodes) this._tempMultiSet.add(b);
 
     // Compute list of Konva nodes
-    const konvaNodes = nodes.map((b) => b.getNode() as unknown as Konva.Node);
+    const konvaNodes = nodes.map((b) => b.getKonvaNode() as unknown as Konva.Node);
 
     // Check if composition changed
     if (this._tempMultiGroup && this._tempMultiNodes.length > 0) {
@@ -1172,7 +1172,7 @@ export class SelectionPlugin extends Plugin {
         const world = this._core.nodes.world;
         const worldInvTransform = world.getAbsoluteTransform().copy().invert();
         for (const baseNode of this._tempMultiSet) {
-          const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+          const konvaNode = baseNode.getKonvaNode() as unknown as Konva.Node;
           const absTransform = konvaNode.getAbsoluteTransform().copy();
           const localTransform = worldInvTransform.copy().multiply(absTransform);
           const d = localTransform.decompose();
@@ -1219,7 +1219,7 @@ export class SelectionPlugin extends Plugin {
         const world = this._core.nodes.world;
         const worldInvTransform = world.getAbsoluteTransform().copy().invert();
         for (const baseNode of this._tempMultiSet) {
-          const konvaNode = baseNode.getNode() as unknown as Konva.Node;
+          const konvaNode = baseNode.getKonvaNode() as unknown as Konva.Node;
           const absTransform = konvaNode.getAbsoluteTransform().copy();
           const localTransform = worldInvTransform.copy().multiply(absTransform);
           const d = localTransform.decompose();
@@ -1286,7 +1286,7 @@ export class SelectionPlugin extends Plugin {
     if (!bbox) return;
 
     const newGroup = nm.addGroup({ x: bbox.x, y: bbox.y, draggable: true });
-    const g = newGroup.getNode();
+    const g = newGroup.getKonvaNode() as unknown as Konva.Group;
     const groupedBaseNodes: BaseNode[] = [];
 
     // Sort nodes by their current z-index to preserve relative render order
@@ -1311,7 +1311,7 @@ export class SelectionPlugin extends Plugin {
       // Collect BaseNodes corresponding to the Konva nodes
       const base = this._core.nodes
         .list()
-        .find((b) => b.getNode() === (kn as unknown as Konva.Node));
+        .find((b) => b.getKonvaNode() === (kn as unknown as Konva.Node));
       if (base) groupedBaseNodes.push(base);
     }
 
@@ -1344,15 +1344,15 @@ export class SelectionPlugin extends Plugin {
     if (typeof g.draggable === 'function') g.draggable(true);
 
     // Event: group created
-    this._core.eventBus.emit('group:created', newGroup, groupedBaseNodes);
-    this._select(newGroup);
+    this._core.eventBus.emit('group:created', newGroup as unknown as BaseNode, groupedBaseNodes);
+    this._select(newGroup as unknown as BaseNode);
     this._core.stage.batchDraw();
   }
 
   private _tryUngroupSelectedGroup() {
     if (!this._core) return;
     if (!this._selected) return;
-    const node = this._selected.getNode();
+    const node = this._selected.getKonvaNode();
     if (!(node instanceof Konva.Group)) return;
     const children = [...node.getChildren()];
     const world = this._core.nodes.world;
@@ -1400,7 +1400,7 @@ export class SelectionPlugin extends Plugin {
 
       // Find BaseNode for this Konva node
       for (const bn of this._core.nodes.list()) {
-        if (bn.getNode() === kn) {
+        if (bn.getKonvaNode() === kn) {
           ungroupedBaseNodes.push(bn);
           break;
         }
@@ -1506,7 +1506,7 @@ export class SelectionPlugin extends Plugin {
     // - by default, the nearest registered group;
     // - if none, the nearest registered ancestor (including the target itself);
     // - HOWEVER: if there is a selected node in this same group and hover over another node from the group — highlight this node specifically.
-    const registeredArr = this._core.nodes.list().map((n) => n.getNode() as unknown as Konva.Node);
+    const registeredArr = this._core.nodes.list().map((n) => n.getKonvaNode() as unknown as Konva.Node);
     const registered = new Set<Konva.Node>(registeredArr);
 
     const findNearestRegistered = (start: Konva.Node): Konva.Node | null => {
@@ -1545,9 +1545,9 @@ export class SelectionPlugin extends Plugin {
       !ctrlPressed &&
       this._selected &&
       targetOwnerNode &&
-      !(this._selected.getNode() instanceof Konva.Group)
+      !(this._selected.getKonvaNode() instanceof Konva.Group)
     ) {
-      const selectedNode = this._selected.getNode() as unknown as Konva.Node;
+      const selectedNode = this._selected.getKonvaNode() as unknown as Konva.Node;
       const inSameGroup = (nodeA: Konva.Node, nodeB: Konva.Node, group: Konva.Node | null) => {
         if (!group) return false;
         const isDesc = (root: Konva.Node, child: Konva.Node): boolean => {
@@ -1582,7 +1582,7 @@ export class SelectionPlugin extends Plugin {
 
     // If we hover over the already selected node/branch — do not duplicate the frame
     if (this._selected) {
-      const selectedNode = this._selected.getNode() as unknown as Konva.Node;
+      const selectedNode = this._selected.getKonvaNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
         // true, if a is an ancestor of b
         let cur: Konva.Node | null = b;
@@ -1656,7 +1656,7 @@ export class SelectionPlugin extends Plugin {
       ],
     });
     layer.add(transformer);
-    transformer.nodes([this._selected.getNode() as unknown as Konva.Node]);
+    transformer.nodes([this._selected.getKonvaNode() as unknown as Konva.Node]);
     // Global size constraint: do not allow collapsing to 0 and fix the opposite angle
     transformer.boundBoxFunc((_, newBox) => {
       const MIN = 1; // px
@@ -1709,7 +1709,7 @@ export class SelectionPlugin extends Plugin {
       this._hideRadiusLabel();
 
       // Save the absolute position of a reference point on the opposite corner/edge
-      const node = this._selected?.getNode() as unknown as Konva.Node | undefined;
+      const node = this._selected?.getKonvaNode() as unknown as Konva.Node | undefined;
       const rawAnchor =
         typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
       const activeAnchor = rawAnchor ?? '';
@@ -1733,7 +1733,7 @@ export class SelectionPlugin extends Plugin {
 
     transformer.on('transform.corner-sync', () => {
       // «Incorporate» non-uniform scaling into width/height for Rect,
-      const n = this._selected?.getNode() as unknown as Konva.Node | undefined;
+      const n = this._selected?.getKonvaNode() as unknown as Konva.Node | undefined;
       if (n) {
         this._bakeRectScale(n);
 
@@ -1781,7 +1781,7 @@ export class SelectionPlugin extends Plugin {
       this._core?.nodes.layer.batchDraw();
     });
     // Listen to attribute changes of the selected node, if size/position changes programmatically
-    const selNode = this._selected.getNode() as unknown as Konva.Node;
+    const selNode = this._selected.getKonvaNode() as unknown as Konva.Node;
     // Remove previous handlers if any, then attach new ones with namespace
     selNode.off('.overlay-sync');
     const syncOverlays = () => {
@@ -1800,7 +1800,7 @@ export class SelectionPlugin extends Plugin {
   // Restyle side-anchors (top/right/bottom/left) to fill the side of the selected node
   private _restyleSideAnchors() {
     if (!this._core || !this._selected || !this._transformer) return;
-    const node = this._selected.getNode() as unknown as Konva.Node;
+    const node = this._selected.getKonvaNode() as unknown as Konva.Node;
     restyleSideAnchorsUtil(this._core, this._transformer, node);
   }
 
@@ -1827,7 +1827,7 @@ export class SelectionPlugin extends Plugin {
     const bindRotate = (h: Konva.Circle) => {
       h.on('dragstart.rotate', () => {
         if (!this._selected) return;
-        const node = this._selected.getNode() as unknown as Konva.Node;
+        const node = this._selected.getKonvaNode() as unknown as Konva.Node;
         const dec = node.getAbsoluteTransform().decompose();
         const center = this._getNodeCenterAbs(node);
         this._rotateCenterAbsStart = center;
@@ -1844,7 +1844,7 @@ export class SelectionPlugin extends Plugin {
       });
       h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
         if (!this._core || !this._selected || !this._rotateDragState) return;
-        const node = this._selected.getNode() as unknown as Konva.Node;
+        const node = this._selected.getKonvaNode() as unknown as Konva.Node;
         // Use fixed center if available to prevent drift
         const centerRef = this._rotateCenterAbsStart ?? this._getNodeCenterAbs(node);
         const pointer = this._core.stage.getPointerPosition() ?? h.getAbsolutePosition();
@@ -1913,7 +1913,7 @@ export class SelectionPlugin extends Plugin {
         this._rotateCenterAbsStart = null;
         // Restore scene pan, draggable node — according to settings
         if (this._selected) {
-          const node = this._selected.getNode() as unknown as Konva.Node;
+          const node = this._selected.getKonvaNode() as unknown as Konva.Node;
           if (this._options.dragEnabled && typeof node.draggable === 'function') {
             node.draggable(true);
           }
@@ -2006,7 +2006,7 @@ export class SelectionPlugin extends Plugin {
 
   private _updateRotateHandlesPosition() {
     if (!this._core || !this._selected || !this._rotateHandlesGroup) return;
-    const node = this._selected.getNode() as unknown as Konva.Node;
+    const node = this._selected.getKonvaNode() as unknown as Konva.Node;
     const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
     const width = local.width;
     const height = local.height;
@@ -2090,7 +2090,7 @@ export class SelectionPlugin extends Plugin {
 
   private _updateSizeLabel() {
     if (!this._core || !this._selected || !this._sizeLabel) return;
-    const node = this._selected.getNode();
+    const node = this._selected.getKonvaNode();
     const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
     const localRect = node.getClientRect({
       skipTransform: true,
@@ -2145,7 +2145,7 @@ export class SelectionPlugin extends Plugin {
 
   // ===================== Corner Radius Handles =====================
   private _isCornerRadiusSupported(konvaNode: Konva.Node): konvaNode is Konva.Rect {
-    return (konvaNode instanceof Konva.Rect || konvaNode instanceof Konva.Image);
+    return konvaNode instanceof Konva.Rect || konvaNode instanceof Konva.Image;
   }
 
   private _getCornerRadiusArray(konvaNode: Konva.Rect): [number, number, number, number] {
@@ -2169,7 +2169,7 @@ export class SelectionPlugin extends Plugin {
 
   private _setupCornerRadiusHandles(showCornerPerimeters = false) {
     if (!this._core || !this._selected) return;
-    const node = this._selected.getNode() as unknown as Konva.Node;
+    const node = this._selected.getKonvaNode() as unknown as Konva.Node;
     if (!this._isCornerRadiusSupported(node)) return;
 
     const layer = this._core.nodes.layer;
@@ -2543,7 +2543,7 @@ export class SelectionPlugin extends Plugin {
       lastAltOnly = false;
       // Emit node:transformed event for cornerRadius change
       if (this._selected && this._core) {
-        const konvaNode = this._selected.getNode() as unknown as Konva.Node;
+        const konvaNode = this._selected.getKonvaNode() as unknown as Konva.Node;
         const changes: {
           x?: number;
           y?: number;
@@ -2616,12 +2616,12 @@ export class SelectionPlugin extends Plugin {
 
     const onDown = () => {
       if (!this._selected) return;
-      const n = this._selected.getNode() as unknown as Konva.Node;
+      const n = this._selected.getKonvaNode() as unknown as Konva.Node;
       n.draggable(false);
     };
     const onUp = () => {
       if (!this._selected) return;
-      const n = this._selected.getNode() as unknown as Konva.Node;
+      const n = this._selected.getKonvaNode() as unknown as Konva.Node;
       if (this._options.dragEnabled) n.draggable(true);
     };
     tl.on('mousedown.corner-radius touchstart.corner-radius', onDown);
@@ -2720,7 +2720,7 @@ export class SelectionPlugin extends Plugin {
     if (this._core) this._core.stage.container().style.cursor = 'default';
     this._destroyRadiusLabel();
     if (this._selected) {
-      const n = this._selected.getNode() as unknown as Konva.Node;
+      const n = this._selected.getKonvaNode() as unknown as Konva.Node;
       n.off('.overlay-sync');
     }
   }
@@ -2744,7 +2744,7 @@ export class SelectionPlugin extends Plugin {
 
   private _updateCornerRadiusHandlesPosition() {
     if (!this._core || !this._selected || !this._cornerHandlesGroup) return;
-    const nodeRaw = this._selected.getNode() as unknown as Konva.Node;
+    const nodeRaw = this._selected.getKonvaNode() as unknown as Konva.Node;
     if (!this._isCornerRadiusSupported(nodeRaw)) return;
     const node = nodeRaw;
 
@@ -2817,7 +2817,7 @@ export class SelectionPlugin extends Plugin {
     const currentZoom = world.scaleX();
     const stage = this._core.stage;
     const layer = this._core.nodes.layer;
-    const node = this._selected.getNode() as unknown as Konva.Node;
+    const node = this._selected.getKonvaNode() as unknown as Konva.Node;
 
     const pointer = stage.getPointerPosition();
     if (!pointer) {
@@ -2905,7 +2905,7 @@ export class SelectionPlugin extends Plugin {
 
   private _showRadiusLabelForCorner(cornerIndex: 0 | 1 | 2 | 3) {
     if (!this._core || !this._selected) return;
-    const nodeRaw = this._selected.getNode() as unknown as Konva.Node;
+    const nodeRaw = this._selected.getKonvaNode() as unknown as Konva.Node;
     if (!this._isCornerRadiusSupported(nodeRaw)) return;
     const node = nodeRaw;
     const radii = this._getCornerRadiusArray(node);
@@ -2938,7 +2938,7 @@ export class SelectionPlugin extends Plugin {
   private _findBaseNodeByTarget(target: Konva.Node): BaseNode | null {
     if (!this._core) return null;
     if (this._selected) {
-      const selectedKonva = this._selected.getNode() as unknown as Konva.Node;
+      const selectedKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
       if (selectedKonva === target) return this._selected;
       if (typeof selectedKonva.isAncestorOf === 'function' && selectedKonva.isAncestorOf(target)) {
         return this._selected;
@@ -2946,12 +2946,12 @@ export class SelectionPlugin extends Plugin {
     }
     let topMostAncestor: BaseNode | null = null;
     for (const n of this._core.nodes.list()) {
-      const node = n.getNode() as unknown as Konva.Node;
+      const node = n.getKonvaNode() as unknown as Konva.Node;
       if (typeof node.isAncestorOf === 'function' && node.isAncestorOf(target)) {
         let isTopMost = true;
         for (const other of this._core.nodes.list()) {
           if (other === n) continue;
-          const otherNode = other.getNode() as unknown as Konva.Node;
+          const otherNode = other.getKonvaNode() as unknown as Konva.Node;
           if (typeof otherNode.isAncestorOf === 'function' && otherNode.isAncestorOf(node)) {
             isTopMost = false;
             break;
@@ -2965,7 +2965,7 @@ export class SelectionPlugin extends Plugin {
     if (topMostAncestor) return topMostAncestor;
 
     for (const n of this._core.nodes.list()) {
-      if (n.getNode() === target) return n;
+      if (n.getKonvaNode() === target) return n;
     }
     return null;
   }

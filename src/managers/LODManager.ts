@@ -105,7 +105,7 @@ export class LODManager {
     }
 
     // Apply simplifications
-    const konvaNode = node.getNode() as KonvaNodeWithLOD;
+    const konvaNode = node.getKonvaNode() as KonvaNodeWithLOD;
     const previousLevel = this._appliedNodes.get(node.id);
 
     // Apply only if level changed
@@ -141,7 +141,7 @@ export class LODManager {
    */
 
   private _restoreNode(node: BaseNode): void {
-    const konvaNode = node.getNode() as KonvaNodeWithLOD;
+    const konvaNode = node.getKonvaNode() as KonvaNodeWithLOD;
     const original = konvaNode._originalLOD;
 
     if (!original) return;

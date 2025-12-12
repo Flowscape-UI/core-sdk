@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import { NodeAddons } from '../addons/NodeAddons';
+import type { NodeHandle } from '../types/public/node-handles';
 
 export interface BaseNodeOptions {
   id?: string;
@@ -10,7 +11,7 @@ export interface BaseNodeOptions {
   height?: number;
 }
 
-export abstract class BaseNode<T extends Konva.Node = Konva.Node> {
+export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements NodeHandle<T> {
   protected konvaNode: T;
   public readonly id: string;
   /** Локальные аддоны, привязанные к этой ноде */
@@ -26,12 +27,17 @@ export abstract class BaseNode<T extends Konva.Node = Konva.Node> {
     if (options.height) this.konvaNode.height(options.height);
   }
 
-  public getNode(): T {
+  /**
+   * Публичный доступ к низкоуровневому Konva-объекту.
+   * Используйте этот метод вместо импорта `konva` напрямую.
+   */
+  public getKonvaNode(): T {
     return this.konvaNode;
   }
 
   public setPosition({ x, y }: { x: number; y: number }) {
     this.konvaNode.position({ x, y });
+    return this;
   }
 
   public getPosition() {

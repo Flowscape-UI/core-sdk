@@ -38,7 +38,7 @@ export class ShapeHoverHighlightAddon extends NodeAddon<ShapeNode> {
   protected onAttach(node: ShapeNode): void {
     if (this.nodes.has(node)) return;
 
-    const konvaRect = node.getNode();
+    const konvaRect = node.getKonvaNode();
 
     const state: ShapeHoverState = {
       mouseEnterHandler: () => undefined,
@@ -98,7 +98,7 @@ export class ShapeHoverHighlightAddon extends NodeAddon<ShapeNode> {
     const state = this.nodes.get(node);
     if (!state) return;
 
-    const konvaRect = node.getNode();
+    const konvaRect = node.getKonvaNode();
 
     konvaRect.off('mouseenter.shapeHoverHighlightAddon', state.mouseEnterHandler);
     konvaRect.off('mouseleave.shapeHoverHighlightAddon', state.mouseLeaveHandler);

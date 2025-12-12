@@ -22,8 +22,8 @@ export class GroupNode extends BaseNode<Konva.Group> {
 
   public addChild(child: Konva.Node | BaseNode): this {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const raw: Konva.Node = (child as BaseNode).getNode
-      ? ((child as BaseNode).getNode() as unknown as Konva.Node)
+    const raw: Konva.Node = (child as BaseNode).getKonvaNode
+      ? ((child as BaseNode).getKonvaNode() as unknown as Konva.Node)
       : (child as Konva.Node);
     // Group.add ожидает Group | Shape, приведём тип к совместимому юниону
     this.konvaNode.add(raw as unknown as Konva.Group | Konva.Shape);
@@ -33,8 +33,8 @@ export class GroupNode extends BaseNode<Konva.Group> {
 
   public removeChild(child: Konva.Node | BaseNode): this {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    const raw: Konva.Node = (child as BaseNode).getNode
-      ? (child as BaseNode).getNode()
+    const raw: Konva.Node = (child as BaseNode).getKonvaNode
+      ? (child as BaseNode).getKonvaNode()
       : (child as Konva.Node);
     raw.remove();
     this.konvaNode.getLayer()?.batchDraw();

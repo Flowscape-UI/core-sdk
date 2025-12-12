@@ -144,7 +144,7 @@ export class AreaSelectionPlugin extends Plugin {
       const pickedSet = new Set<BaseNode>();
       for (const bn of allNodes) {
         if (bn instanceof GroupNode) continue;
-        const node = bn.getNode() as unknown as Konva.Node;
+        const node = bn.getKonvaNode() as unknown as Konva.Node;
         const layer = node.getLayer();
         if (layer !== this._core?.nodes.layer) continue;
         const r = node.getClientRect({ skipShadow: true, skipStroke: false });
@@ -235,7 +235,7 @@ export class AreaSelectionPlugin extends Plugin {
       const nodes: BaseNode[] = this._core.nodes.list();
       const picked: Konva.Node[] = [];
       for (const n of nodes) {
-        const node = n.getNode() as unknown as Konva.Node;
+        const node = n.getKonvaNode() as unknown as Konva.Node;
         // Только те, что реально в слое нод
         const layer = node.getLayer();
         if (layer !== this._core.nodes.layer) continue;
@@ -247,7 +247,7 @@ export class AreaSelectionPlugin extends Plugin {
       const list: BaseNode[] = this._core.nodes.list();
       const baseSet = new Set<BaseNode>();
       for (const kn of picked) {
-        const bn = list.find((n) => n.getNode() === (kn as unknown as Konva.Node)) ?? null;
+        const bn = list.find((n) => n.getKonvaNode() === (kn as unknown as Konva.Node)) ?? null;
         const owner = this._findOwningGroupBaseNode(kn as unknown as Konva.Node);
         if (owner) baseSet.add(owner);
         else if (bn && !(bn instanceof GroupNode)) baseSet.add(bn);
@@ -307,7 +307,7 @@ export class AreaSelectionPlugin extends Plugin {
     let cur: Konva.Node | null = node;
     let lastOwner: BaseNode | null = null;
     while (cur) {
-      const owner = groupBaseNodes.find((gbn) => gbn.getNode() === cur) ?? null;
+      const owner = groupBaseNodes.find((gbn) => gbn.getKonvaNode() === cur) ?? null;
       if (owner) lastOwner = owner;
       cur = cur.getParent();
     }
@@ -329,7 +329,7 @@ export class AreaSelectionPlugin extends Plugin {
     if (!n) return false;
     // Permanent group is a registered in NodeManager GroupNode
     if (!this._core) return false;
-    return this._core.nodes.list().some((bn) => bn instanceof GroupNode && bn.getNode() === n);
+    return this._core.nodes.list().some((bn) => bn instanceof GroupNode && bn.getKonvaNode() === n);
   }
 
   private _currentGroupNode(): Konva.Group | null {
@@ -346,7 +346,7 @@ export class AreaSelectionPlugin extends Plugin {
   //   const list: BaseNode[] = this._core.nodes.list();
   //   for (const bn of list) {
   //     if (!(bn instanceof GroupNode)) continue;
-  //     const node = bn.getNode();
+  //     const node = bn.getKonvaNode();
   //     const bbox = node.getClientRect({ skipShadow: true, skipStroke: true });
   //     const inside =
   //       p.x >= bbox.x && p.x <= bbox.x + bbox.width && p.y >= bbox.y && p.y <= bbox.y + bbox.height;

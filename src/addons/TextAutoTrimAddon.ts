@@ -19,7 +19,7 @@ export class TextAutoTrimAddon extends NodeAddon<TextNode> {
       if (normalized === event.newText) return;
 
       node.setText(normalized);
-      node.getNode().getLayer()?.batchDraw();
+      node.getKonvaNode().getLayer()?.batchDraw();
     };
 
     node.onTextChange(handler);

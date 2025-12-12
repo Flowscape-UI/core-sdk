@@ -48,7 +48,7 @@ export class ImageHoverFilterAddon extends NodeAddon<ImageNode> {
   protected onAttach(node: ImageNode): void {
     if (this.nodes.has(node)) return;
 
-    const image = node.getNode();
+    const image = node.getKonvaNode();
     const currentFiltersRaw = image.filters();
     const currentFilters = Array.isArray(currentFiltersRaw)
       ? (currentFiltersRaw as AnyFilter[])
@@ -181,7 +181,7 @@ export class ImageHoverFilterAddon extends NodeAddon<ImageNode> {
     const state = this.nodes.get(node);
     if (!state) return;
 
-    const image = node.getNode();
+    const image = node.getKonvaNode();
 
     image.off('mouseenter.imageHoverFilterAddon', state.mouseEnterHandler);
     image.off('mouseleave.imageHoverFilterAddon', state.mouseLeaveHandler);

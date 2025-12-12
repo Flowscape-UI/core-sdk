@@ -291,8 +291,6 @@ const rect2 = core.nodes.addShape({
   // stroke: 'red',
 });
 
-rect.setFill('orange');
-
 rect.setPosition({ x: 900, y: 500 });
 
 rect2.setPosition({ x: 1500, y: 550 });
@@ -325,8 +323,10 @@ const polygon = core.nodes.addRegularPolygon({
   strokeWidth: 2,
 });
 
-group.addChild(gCircle.getNode());
-group.addChild(polygon.getNode());
+console.log(polygon.getKonvaNode());
+
+group.addChild(gCircle.getKonvaNode());
+group.addChild(polygon.getKonvaNode());
 
 setTimeout(() => {
   img.setSrc(Image);

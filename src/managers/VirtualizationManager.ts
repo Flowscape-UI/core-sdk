@@ -112,7 +112,7 @@ export class VirtualizationManager {
     width: number;
     height: number;
   } {
-    const konvaNode = node.getNode();
+    const konvaNode = node.getKonvaNode();
 
     // Konva automatically caches getClientRect() and invalidates on transformations
     const clientRect = konvaNode.getClientRect({ relativeTo: this._world });
@@ -157,7 +157,7 @@ export class VirtualizationManager {
 
     for (const node of nodes) {
       const isVisible = this._isNodeVisible(node);
-      const konvaNode = node.getNode();
+      const konvaNode = node.getKonvaNode();
 
       if (isVisible) {
         newVisibleNodes.add(node.id);
@@ -262,7 +262,7 @@ export class VirtualizationManager {
     for (const nodeId of this._hiddenNodes) {
       const node = this._nodeManager.findById(nodeId);
       if (node) {
-        const konvaNode = node.getNode();
+        const konvaNode = node.getKonvaNode();
         konvaNode.visible(true);
         konvaNode.listening(true);
       }

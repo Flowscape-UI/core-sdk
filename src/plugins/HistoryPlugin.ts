@@ -3,6 +3,7 @@ import Konva from 'konva';
 import type { CoreEngine } from '../core/CoreEngine';
 import { HistoryManager, type HistoryAction } from '../managers/HistoryManager';
 import type { BaseNode } from '../nodes/BaseNode';
+import type { NodeHandle } from '../types/public/node-handles';
 
 import { Plugin } from './Plugin';
 
@@ -422,7 +423,7 @@ export class HistoryPlugin extends Plugin {
         if (state && typeof state === 'object' && 'zIndex' in state) {
           const node = this._core.nodes.findById(action.nodeId);
           if (node) {
-            const konvaNode = node.getNode() as unknown as Konva.Node;
+            const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
             konvaNode.zIndex((state as { zIndex: number }).zIndex);
           }
         }
@@ -458,7 +459,7 @@ export class HistoryPlugin extends Plugin {
    * Применить состояние трансформации к ноде
    */
   private _applyTransformState(node: BaseNode, state: Record<string, unknown>): void {
-    const konvaNode = node.getNode() as unknown as Konva.Node;
+    const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
 
     this._debug('applyTransformState', {
       nodeId: node.id,
@@ -566,49 +567,49 @@ export class HistoryPlugin extends Plugin {
     void _zIndex;
 
     try {
-      let newNode: BaseNode | null = null;
+      let newNode: NodeHandle | null = null;
 
       switch (nodeType) {
         case 'shape':
-          newNode = this._core.nodes.addShape(configWithoutId);
+          newNode = this._core.nodes.addShape(configWithoutId) as unknown as BaseNode;
           break;
         case 'text':
-          newNode = this._core.nodes.addText(configWithoutId);
+          newNode = this._core.nodes.addText(configWithoutId) as unknown as BaseNode;
           break;
         case 'circle':
-          newNode = this._core.nodes.addCircle(configWithoutId);
+          newNode = this._core.nodes.addCircle(configWithoutId) as unknown as BaseNode;
           break;
         case 'ellipse':
-          newNode = this._core.nodes.addEllipse(configWithoutId);
+          newNode = this._core.nodes.addEllipse(configWithoutId) as unknown as BaseNode;
           break;
         case 'arc':
-          newNode = this._core.nodes.addArc(configWithoutId);
+          newNode = this._core.nodes.addArc(configWithoutId) as unknown as BaseNode;
           break;
         case 'star':
-          newNode = this._core.nodes.addStar(configWithoutId);
+          newNode = this._core.nodes.addStar(configWithoutId) as unknown as BaseNode;
           break;
         case 'arrow':
-          newNode = this._core.nodes.addArrow(configWithoutId);
+          newNode = this._core.nodes.addArrow(configWithoutId) as unknown as BaseNode;
           break;
         case 'ring':
-          newNode = this._core.nodes.addRing(configWithoutId);
+          newNode = this._core.nodes.addRing(configWithoutId) as unknown as BaseNode;
           break;
         case 'regularPolygon':
         case 'regularpolygon':
-          newNode = this._core.nodes.addRegularPolygon(configWithoutId);
+          newNode = this._core.nodes.addRegularPolygon(configWithoutId) as unknown as BaseNode;
           break;
         case 'image':
-          newNode = this._core.nodes.addImage(configWithoutId);
+          newNode = this._core.nodes.addImage(configWithoutId) as unknown as BaseNode;
           break;
         case 'group': {
-          newNode = this._core.nodes.addGroup(configWithoutId);
+          newNode = this._core.nodes.addGroup(configWithoutId) as unknown as BaseNode;
           // Восстанавливаем детей группы
           if (state.children && state.children.length > 0) {
-            const groupKonva = newNode.getNode() as unknown as Konva.Group;
+            const groupKonva = newNode.getKonvaNode() as unknown as Konva.Group;
             for (const childState of state.children) {
               const childNode = this._recreateNode(childState);
               if (childNode) {
-                const childKonva = childNode.getNode();
+                const childKonva = childNode.getKonvaNode();
                 childKonva.moveTo(groupKonva);
               }
             }
@@ -624,8 +625,8 @@ export class HistoryPlugin extends Plugin {
       if (state.parentId) {
         const parentNode = this._core.nodes.findById(state.parentId);
         if (parentNode) {
-          const parentKonva = parentNode.getNode() as unknown as Konva.Group;
-          const nodeKonva = newNode.getNode() as unknown as Konva.Node;
+          const parentKonva = parentNode.getKonvaNode() as unknown as Konva.Group;
+          const nodeKonva = newNode.getKonvaNode() as unknown as Konva.Node;
           nodeKonva.moveTo(parentKonva);
           this._debug('recreateNode - moved to parent', {
             nodeId: newNode.id,
@@ -635,7 +636,7 @@ export class HistoryPlugin extends Plugin {
       }
 
       this._debug('recreateNode', { nodeType, nodeId: newNode.id, parentId: state.parentId });
-      return newNode;
+      return newNode as unknown as BaseNode;
     } catch (error) {
       this._debug('recreateNode error', error);
       return null;
@@ -830,7 +831,7 @@ export class HistoryPlugin extends Plugin {
    * Полная сериализация ноды для истории
    */
   private _serializeNode(node: BaseNode): SerializedNodeState {
-    const konvaNode = node.getNode() as unknown as Konva.Node;
+    const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
     const attrs = konvaNode.getAttrs();
     const nodeType = this._getNodeType(konvaNode);
 
@@ -875,7 +876,7 @@ export class HistoryPlugin extends Plugin {
    * Использует абсолютные координаты для корректной работы с временными группами
    */
   private _captureTransformState(node: BaseNode): Record<string, unknown> {
-    const konvaNode = node.getNode() as unknown as Konva.Node;
+    const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
 
     // Используем абсолютную трансформацию для корректной работы с группами
     const absTransform = konvaNode.getAbsoluteTransform().decompose();
@@ -927,7 +928,7 @@ export class HistoryPlugin extends Plugin {
       scaleY?: number;
     },
   ): Record<string, unknown> {
-    const konvaNode = node.getNode() as unknown as Konva.Node;
+    const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
 
     // Используем координаты из changes если они есть, иначе берём текущие
     const x = changes.x ?? konvaNode.x();
@@ -996,7 +997,7 @@ export class HistoryPlugin extends Plugin {
 
     // Прямой поиск
     for (const node of this._core.nodes.list()) {
-      if (node.getNode() === konvaNode) {
+      if (node.getKonvaNode() === konvaNode) {
         return node;
       }
     }
@@ -1005,7 +1006,7 @@ export class HistoryPlugin extends Plugin {
     let parent = konvaNode.getParent();
     while (parent) {
       for (const node of this._core.nodes.list()) {
-        if (node.getNode() === parent) {
+        if (node.getKonvaNode() === parent) {
           return node;
         }
       }

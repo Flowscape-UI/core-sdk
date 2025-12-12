@@ -561,7 +561,7 @@ export class VisualGuidesPlugin extends Plugin {
 
     const nodes = this._core.nodes.list();
     for (const bn of nodes) {
-      const kn = bn.getNode() as unknown as Konva.Node;
+      const kn = bn.getKonvaNode() as unknown as Konva.Node;
 
       // Skip the node being dragged and its ancestors/descendants
       if (kn === skipShape) continue;
@@ -658,7 +658,7 @@ export class VisualGuidesPlugin extends Plugin {
 
     const nodes = this._core.nodes.list();
     for (const bn of nodes) {
-      const kn = bn.getNode() as unknown as Konva.Node;
+      const kn = bn.getKonvaNode() as unknown as Konva.Node;
 
       // Skip the node being dragged and its ancestors/descendants
       if (kn === skipShape) continue;
