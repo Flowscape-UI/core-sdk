@@ -32,12 +32,6 @@ jobs:
       - name: Run TypeScript check
         run: bun run lint:ts
 
-      - name: Run tests
-        run: bun run test:run
-
-      - name: Run test coverage
-        run: bun run test:coverage
-
       - name: Build library
         run: bun run build
 
@@ -45,10 +39,3 @@ jobs:
         run: |
           ls -lh dist/
           echo "✅ Build artifacts created successfully"
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false

@@ -96,18 +96,30 @@ const camera = new CameraHotkeysPlugin({
 Rulers with measurement units and guide lines.
 
 ```typescript
-import { RulerPlugin, RulerGuidesAddon, RulerHighlightAddon } from '@flowscape-ui/core-sdk';
+import { RulerPlugin } from '@flowscape-ui/core-sdk';
 
-const ruler = new RulerPlugin();
-ruler.addons.add([new RulerGuidesAddon(), new RulerHighlightAddon()]);
+const ruler = new RulerPlugin({
+  enabled: true,
+  size: 30,
+  backgroundColor: '#f9fafb',
+  textColor: '#6b7280',
+});
 ```
 
 **Features:**
 
 - Horizontal and vertical rulers
-- Draggable guide lines
 - Measurement units
-- Snap to grid
+- Customizable appearance
+- Works with camera zoom and pan
+
+**Addons:**
+
+The RulerPlugin supports several addons for extended functionality:
+
+- `RulerGuidesAddon` — Draggable guide lines from rulers
+- `RulerHighlightAddon` — Highlight ruler on hover
+- `RulerManagerAddon` — Toggle rulers with Shift+R
 
 ## AreaSelectionPlugin
 

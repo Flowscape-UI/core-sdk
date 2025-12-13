@@ -6,9 +6,11 @@
 
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/flowscape)
-[Documentation](https://github.com/Flowscape-UI/core-sdk#readme) • [Examples](https://github.com/Flowscape-UI/core-sdk/tree/main/playground) • [Changelog](./CHANGELOG.md)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
+
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+[![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+[![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
 
 </div>
 
@@ -18,12 +20,15 @@
 
 - 🎯 **Framework-agnostic** — works with React, Vue, Svelte, Angular or vanilla JS
 - 🧩 **Plugin system** — extensible architecture with ready-to-use plugins
-- 📐 **Complete toolset** — grid, rulers, guides, area selection
-- ⌨️ **Hotkeys** — Ctrl+C/V/X, Delete, Ctrl+G for grouping
+- 📐 **Complete toolset** — grid, rulers, guides, area selection, alignment guides
+- ⌨️ **Hotkeys** — Ctrl+C/V/X, Delete, Ctrl+G for grouping, Ctrl+Z/Shift+Z for undo/redo
 - 🎨 **Rich shapes** — rectangles, circles, text, images, arrows, stars
 - 🔄 **Transformations** — rotation, scaling, movement with aspect ratio lock
+- ✏️ **Inline editing** — double-click text nodes to edit directly on canvas
+- 🕐 **History system** — full undo/redo support with Ctrl+Z
 - 📦 **TypeScript-first** — full typing out of the box
-- 🚀 **Optimized** — tree-shaking, ESM + CJS, source maps
+- 🚀 **High performance** — handles 1000+ nodes without FPS drops
+- 🎨 **Addons API** — extend any component with custom functionality
 
 ## 📦 Installation
 
@@ -81,9 +86,9 @@ text.getNode().moveTo(group.getNode());
 
 ## 🔒 Public API Policy
 
-- Все поддерживаемые сущности экспортируются только через корневой пакет `@flowscape-ui/core-sdk`.
-- Файл `src/public-api.ts` содержит полный список стабильных экспортов; всё, что находится вне этого файла, считается внутренним API и может меняться без уведомления.
-- Не импортируйте файлы напрямую по пути `@flowscape-ui/core-sdk/src/...` — такие импорты не поддерживаются и могут привести к поломке при обновлениях.
+- All supported entities are exported only through the root package `@flowscape-ui/core-sdk`.
+- The `src/public-api.ts` file contains the complete list of stable exports; anything outside this file is considered internal API and may change without notice.
+- Do not import files directly via `@flowscape-ui/core-sdk/src/...` — such imports are not supported and may break during updates.
 
 ## 🏗️ Architecture
 
@@ -155,20 +160,24 @@ const core = new CoreEngine({
 | `RulerHighlightPlugin` | Ruler highlighting on hover                      |
 | `RulerManagerPlugin`   | Toggle rulers and manage guides                  |
 | `AreaSelectionPlugin`  | Area selection with frame (Shift+Drag)           |
+| `VisualGuidesPlugin`   | Smart alignment guides during movement/resize    |
+| `HistoryPlugin`        | Undo/redo functionality with Ctrl+Z              |
 | `LogoPlugin`           | Watermark/logo on canvas                         |
 
 ### ⌨️ Keyboard Shortcuts
 
 #### Node Operations (NodeHotkeysPlugin)
 
-| Shortcut               | Action                   |
-| ---------------------- | ------------------------ |
-| `Ctrl+C`               | Copy selected nodes      |
-| `Ctrl+X`               | Cut selected nodes       |
-| `Ctrl+V`               | Paste nodes              |
-| `Delete` / `Backspace` | Delete selected nodes    |
-| `Ctrl+]`               | Move node up (z-index)   |
-| `Ctrl+[`               | Move node down (z-index) |
+| Shortcut               | Action                       |
+| ---------------------- | ---------------------------- |
+| `Ctrl+C`               | Copy selected nodes          |
+| `Ctrl+X`               | Cut selected nodes           |
+| `Ctrl+V`               | Paste nodes                  |
+| `Delete` / `Backspace` | Delete selected nodes        |
+| `Ctrl+]`               | Move node forward (z-index)  |
+| `Ctrl+[`               | Move node backward (z-index) |
+| `Ctrl+Shift+]`         | Bring to front               |
+| `Ctrl+Shift+[`         | Send to back                 |
 
 #### Grouping (SelectionPlugin)
 
@@ -178,6 +187,13 @@ const core = new CoreEngine({
 | `Ctrl+Shift+G` | Ungroup selected group            |
 | `Shift+Click`  | Add/remove node to/from selection |
 | `Shift`        | Lock aspect ratio during resize   |
+
+#### History (HistoryPlugin)
+
+| Shortcut       | Action |
+| -------------- | ------ |
+| `Ctrl+Z`       | Undo   |
+| `Ctrl+Shift+Z` | Redo   |
 
 #### Camera Controls (CameraHotkeysPlugin)
 
@@ -329,7 +345,19 @@ bun run lint:fix      # Auto-fix
 
 ## 📖 Documentation
 
-Coming soon
+Full interactive documentation is available at [flowscape-ui.github.io/core-sdk](https://flowscape-ui.github.io/core-sdk/)
+
+### What's New in 1.0.3
+
+- ✨ **History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
+- 📏 **Alignment Guides** — Smart guides appear during movement and resizing
+- ✏️ **Inline Text Editing** — Double-click text nodes to edit directly
+- 🔧 **Addons API** — Attach custom functionality to any component
+- 📐 **Canvas Auto-Resize** — Automatically adjusts to window size changes
+- ⚡ **Performance** — Optimized to handle 1000+ nodes smoothly
+- 🎨 **New Layer Shortcuts** — Ctrl+Shift+[ / ] for send to back/bring to front
+- 📦 **Full TypeScript** — Complete type coverage across all components
+- 🎮 **Storybook Demo** — Interactive playground to test all features
 
 ## 📄 License
 
