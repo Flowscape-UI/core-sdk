@@ -1,18 +1,23 @@
 import {
+  AreaSelectionPlugin,
+  CameraHotkeysPlugin,
   CoreEngine,
   GridPlugin,
+  HistoryPlugin,
+  ImageHoverFilterAddon,
   LogoPlugin,
-  SelectionPlugin,
-  CameraHotkeysPlugin,
-  AreaSelectionPlugin,
   NodeHotkeysPlugin,
+  RulerGuidesAddon,
+  RulerHighlightAddon,
+  RulerManagerAddon,
   RulerPlugin,
-  RulerGuidesPlugin,
-  RulerHighlightPlugin,
-  RulerManagerPlugin,
+  SelectionPlugin,
+  ShapeHoverHighlightAddon,
+  TextAutoTrimAddon,
+  VisualGuidesPlugin,
 } from '@flowscape-ui/core-sdk';
-import logoUrl from './images/logo.png';
 import Image from './images/img.jpg';
+import logoUrl from './images/logo.png';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -24,15 +29,13 @@ const logoPlugin = new LogoPlugin({
 const hotkeys = new CameraHotkeysPlugin();
 
 const nodeHotkeys = new NodeHotkeysPlugin();
-console.log('2223232333');
+
 const selection = new SelectionPlugin({
   // selectablePredicate: (node) => {
   //   const cls = node.getClassName();
   //   return cls === 'Text';
   // },
 });
-
-console.log('work????');
 
 // selection.setOptions({
 //   selectablePredicate: (node) => {
@@ -48,19 +51,41 @@ const gridPlugin = new GridPlugin({
 });
 
 const rulerPlugin = new RulerPlugin();
-const rulerGuidesPlugin = new RulerGuidesPlugin({
-  snapToGrid: true, // привязка к сетке
-  gridStep: 1, // шаг 1px для точного позиционирования
-});
-const rulerHighlightPlugin = new RulerHighlightPlugin({
-  highlightColor: '#2b83ff',
-  highlightOpacity: 0.3,
-});
-const rulerManagerPlugin = new RulerManagerPlugin({
-  enabled: true, // включить управление по Shift+R
-});
+// const rulerGuidesPlugin = new RulerGuidesPlugin({
+//   snapToGrid: true, // привязка к сетке
+//   gridStep: 1, // шаг 1px для точного позиционирования
+// });
+// const rulerHighlightPlugin = new RulerHighlightPlugin({
+//   highlightColor: '#2b83ff',
+//   highlightOpacity: 0.3,
+// });
+// const rulerManagerPlugin = new RulerManagerPlugin({
+//   enabled: true, // включить управление по Shift+R
+// });
+
+rulerPlugin.addons.add([
+  new RulerGuidesAddon({
+    snapToGrid: true,
+    gridStep: 1,
+  }),
+  new RulerHighlightAddon({
+    highlightColor: '#2b83ff',
+    highlightOpacity: 0.3,
+  }),
+  new RulerManagerAddon({
+    enabled: true,
+  }),
+]);
 
 const areaSelection = new AreaSelectionPlugin();
+
+const historyPlugin = new HistoryPlugin();
+
+const visualGuidesPlugin = new VisualGuidesPlugin({
+  // thresholdPx: 10,
+  // guidelineColor: 'red',
+  // guidelineDash: [0, 0],
+});
 
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
@@ -72,9 +97,11 @@ const core = new CoreEngine({
     areaSelection,
     nodeHotkeys,
     rulerPlugin,
-    rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    rulerManagerPlugin, // Управление видимостью по Shift+R
+    visualGuidesPlugin,
+    // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    // rulerManagerPlugin, // Управление видимостью по Shift+R
+    historyPlugin, // Undo/Redo: Ctrl+Z / Ctrl+Shift+Z
   ],
 });
 
@@ -84,21 +111,23 @@ const onNodeRemoved = (node: unknown) => {
 
 core.eventBus.once('node:removed', onNodeRemoved);
 
-core.nodes.addText({
-  x: 200,
-  y: 150,
-  text: 'Hello, Flowscape!',
-  fontSize: 120,
-  fill: '#ffcc00',
-  align: 'center',
-  padding: 10,
-});
+core.nodes
+  .addText({
+    x: 200,
+    y: 150,
+    text: 'Hello, Flowscape!',
+    fontSize: 120,
+    fill: '#ffcc00',
+    align: 'left',
+  })
+  .addons.add(new TextAutoTrimAddon());
 
 const img = core.nodes.addImage({
   x: 200,
   y: 500,
   src: logoUrl,
 });
+img.addons.add(new ImageHoverFilterAddon({ mode: 'sepia' }));
 
 core.nodes.addImage({
   x: 500,
@@ -114,6 +143,15 @@ core.nodes.addEllipse({
   fill: '#66ccff',
   stroke: '#003366',
   strokeWidth: 2,
+});
+
+core.nodes.addShape({
+  x: 1200,
+  y: 800,
+  width: 1200,
+  height: 2000,
+  fill: 'grey',
+  strokeWidth: 0,
 });
 
 core.nodes.addEllipse({
@@ -240,16 +278,20 @@ const rect2 = core.nodes.addShape({
   width: 200,
   height: 200,
   fill: 'skyblue',
-  stroke: 'red',
+  strokeWidth: 0,
+  // stroke: 'red',
 });
 
-rect.setFill('orange');
+rect.addons.add(
+  new ShapeHoverHighlightAddon({
+    mode: 'fill',
+    fill: 'green',
+  }),
+);
 
 rect.setPosition({ x: 900, y: 500 });
 
 rect2.setPosition({ x: 1500, y: 550 });
-
-console.log(core.nodes.list(), '??');
 
 // console.log(rect2.setFill('green').setCornerRadius(120000).setSize({ width: 120, height: 120 }));
 
@@ -279,10 +321,11 @@ const polygon = core.nodes.addRegularPolygon({
   strokeWidth: 2,
 });
 
-group.addChild(gCircle.getNode());
-group.addChild(polygon.getNode());
+group.addChild(gCircle.getKonvaNode());
+group.addChild(polygon.getKonvaNode());
 
 setTimeout(() => {
   img.setSrc(Image);
   core.eventBus.off('node:removed', onNodeRemoved);
+  // rulerPlugin.addons.clear();
 }, 5000);

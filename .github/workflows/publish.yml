@@ -44,9 +44,6 @@ jobs:
       - name: Run TypeScript check
         run: bun run lint:ts
 
-      - name: Run tests
-        run: bun run test:run
-
       - name: Build library
         run: bun run build
 

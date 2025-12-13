@@ -2,6 +2,86 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 
+export interface LocalRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Returns local rect for a node:
+ * - for groups — via getClientRect(skipTransform)
+ * - for single nodes — via width/height at (0,0)
+ *
+ * This mirrors the existing logic used in SelectionPlugin and OverlayFrameManager.
+ */
+export function getLocalRectForNode(node: Konva.Node): LocalRect {
+  if (node instanceof Konva.Group) {
+    const clientRect = node.getClientRect({
+      skipTransform: true,
+      skipShadow: true,
+      skipStroke: false,
+    });
+    return {
+      x: clientRect.x,
+      y: clientRect.y,
+      width: clientRect.width,
+      height: clientRect.height,
+    };
+  }
+
+  return {
+    x: 0,
+    y: 0,
+    width: node.width(),
+    height: node.height(),
+  };
+}
+
+/**
+ * Maps active anchor name to local reference point on the opposite corner/edge.
+ * Used to keep this point fixed during resize.
+ *
+ * The mapping is intentionally identical to the existing switch-statements
+ * in SelectionPlugin and OverlayFrameManager.
+ */
+export function getResizeReferencePoint(
+  anchorName: string,
+  rect: LocalRect,
+): { x: number; y: number } | null {
+  const { x, y, width, height } = rect;
+
+  switch (anchorName) {
+    case 'top-left':
+      // opposite corner: bottom-right
+      return { x: x + width, y: y + height };
+    case 'top-right':
+      // opposite corner: bottom-left
+      return { x, y: y + height };
+    case 'bottom-right':
+      // opposite corner: top-left
+      return { x, y };
+    case 'bottom-left':
+      // opposite corner: top-right
+      return { x: x + width, y };
+    case 'middle-left':
+      // opposite edge center: middle of right side
+      return { x: x + width, y: y + height / 2 };
+    case 'middle-right':
+      // opposite edge center: middle of left side
+      return { x, y: y + height / 2 };
+    case 'top-center':
+      // opposite edge center: middle of bottom side
+      return { x: x + width / 2, y: y + height };
+    case 'bottom-center':
+      // opposite edge center: middle of top side
+      return { x: x + width / 2, y };
+    default:
+      return null;
+  }
+}
+
 /**
  * Stretches side anchors (top/right/bottom/left) to the full side of the node and hides them visually,
  * leaving hit-area. Takes real geometry into account when rotating (as in SelectionPlugin).

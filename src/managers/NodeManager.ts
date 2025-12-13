@@ -1,19 +1,32 @@
 import Konva from 'konva';
 
-import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
-import { BaseNode } from '../nodes/BaseNode';
-import { EventBus } from '../utils/EventBus';
-import type { CoreEvents } from '../types/core.events.interface';
-import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
-import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
-import { CircleNode, type CircleNodeOptions } from '../nodes/CircleNode';
-import { EllipseNode, type EllipseNodeOptions } from '../nodes/EllipseNode';
 import { ArcNode, type ArcNodeOptions } from '../nodes/ArcNode';
 import { ArrowNode, type ArrowNodeOptions } from '../nodes/ArrowNode';
-import { RegularPolygonNode, type RegularPolygonNodeOptions } from '../nodes/RegularPolygonNode';
-import { StarNode, type StarNodeOptions } from '../nodes/StarNode';
-import { RingNode, type RingNodeOptions } from '../nodes/RingNode';
+import { BaseNode } from '../nodes/BaseNode';
+import { CircleNode, type CircleNodeOptions } from '../nodes/CircleNode';
+import { EllipseNode, type EllipseNodeOptions } from '../nodes/EllipseNode';
 import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
+import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
+import { RegularPolygonNode, type RegularPolygonNodeOptions } from '../nodes/RegularPolygonNode';
+import { RingNode, type RingNodeOptions } from '../nodes/RingNode';
+import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
+import { StarNode, type StarNodeOptions } from '../nodes/StarNode';
+import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
+import type { CoreEvents } from '../types/core.events.interface';
+import type {
+  ArcNodeHandle,
+  ArrowNodeHandle,
+  CircleNodeHandle,
+  EllipseNodeHandle,
+  GroupNodeHandle,
+  ImageNodeHandle,
+  RegularPolygonNodeHandle,
+  RingNodeHandle,
+  ShapeNodeHandle,
+  StarNodeHandle,
+  TextNodeHandle,
+} from '../types/public/node-handles';
+import { EventBus } from '../utils/EventBus';
 
 export class NodeManager {
   private _layer: Konva.Layer;
@@ -51,9 +64,9 @@ export class NodeManager {
   public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
   }
-  public addShape(options: ShapeNodeOptions): ShapeNode {
+  public addShape(options: ShapeNodeOptions): ShapeNodeHandle {
     const shape = new ShapeNode(options);
-    this._world.add(shape.getNode());
+    this._world.add(shape.getKonvaNode());
     this._nodes.set(shape.id, shape);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', shape);
@@ -61,9 +74,9 @@ export class NodeManager {
     return shape;
   }
 
-  public addText(options: TextNodeOptions): TextNode {
+  public addText(options: TextNodeOptions): TextNodeHandle {
     const text = new TextNode(options);
-    this._world.add(text.getNode());
+    this._world.add(text.getKonvaNode());
     this._nodes.set(text.id, text);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', text);
@@ -71,9 +84,9 @@ export class NodeManager {
     return text;
   }
 
-  public addImage(options: ImageNodeOptions): ImageNode {
+  public addImage(options: ImageNodeOptions): ImageNodeHandle {
     const image = new ImageNode(options);
-    this._world.add(image.getNode());
+    this._world.add(image.getKonvaNode());
     this._nodes.set(image.id, image);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', image);
@@ -81,9 +94,9 @@ export class NodeManager {
     return image;
   }
 
-  public addCircle(options: CircleNodeOptions): CircleNode {
+  public addCircle(options: CircleNodeOptions): CircleNodeHandle {
     const circle = new CircleNode(options);
-    this._world.add(circle.getNode());
+    this._world.add(circle.getKonvaNode());
     this._nodes.set(circle.id, circle);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', circle);
@@ -91,9 +104,9 @@ export class NodeManager {
     return circle;
   }
 
-  public addEllipse(options: EllipseNodeOptions): EllipseNode {
+  public addEllipse(options: EllipseNodeOptions): EllipseNodeHandle {
     const ellipse = new EllipseNode(options);
-    this._world.add(ellipse.getNode());
+    this._world.add(ellipse.getKonvaNode());
     this._nodes.set(ellipse.id, ellipse);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', ellipse);
@@ -101,9 +114,9 @@ export class NodeManager {
     return ellipse;
   }
 
-  public addArc(options: ArcNodeOptions): ArcNode {
+  public addArc(options: ArcNodeOptions): ArcNodeHandle {
     const arc = new ArcNode(options);
-    this._world.add(arc.getNode());
+    this._world.add(arc.getKonvaNode());
     this._nodes.set(arc.id, arc);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', arc);
@@ -111,9 +124,9 @@ export class NodeManager {
     return arc;
   }
 
-  public addStar(options: StarNodeOptions): StarNode {
+  public addStar(options: StarNodeOptions): StarNodeHandle {
     const star = new StarNode(options);
-    this._world.add(star.getNode());
+    this._world.add(star.getKonvaNode());
     this._nodes.set(star.id, star);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', star);
@@ -121,9 +134,9 @@ export class NodeManager {
     return star;
   }
 
-  public addArrow(options: ArrowNodeOptions): ArrowNode {
+  public addArrow(options: ArrowNodeOptions): ArrowNodeHandle {
     const arrow = new ArrowNode(options);
-    this._world.add(arrow.getNode());
+    this._world.add(arrow.getKonvaNode());
     this._nodes.set(arrow.id, arrow);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', arrow);
@@ -131,9 +144,9 @@ export class NodeManager {
     return arrow;
   }
 
-  public addRing(options: RingNodeOptions): RingNode {
+  public addRing(options: RingNodeOptions): RingNodeHandle {
     const ring = new RingNode(options);
-    this._world.add(ring.getNode());
+    this._world.add(ring.getKonvaNode());
     this._nodes.set(ring.id, ring);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', ring);
@@ -141,9 +154,9 @@ export class NodeManager {
     return ring;
   }
 
-  public addRegularPolygon(options: RegularPolygonNodeOptions): RegularPolygonNode {
+  public addRegularPolygon(options: RegularPolygonNodeOptions): RegularPolygonNodeHandle {
     const poly = new RegularPolygonNode(options);
-    this._world.add(poly.getNode());
+    this._world.add(poly.getKonvaNode());
     this._nodes.set(poly.id, poly);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', poly);
@@ -151,9 +164,9 @@ export class NodeManager {
     return poly;
   }
 
-  public addGroup(options: GroupNodeOptions): GroupNode {
+  public addGroup(options: GroupNodeOptions): GroupNodeHandle {
     const group = new GroupNode(options);
-    this._world.add(group.getNode());
+    this._world.add(group.getKonvaNode());
     this._nodes.set(group.id, group);
     this._listCacheInvalidated = true;
     this._eventBus.emit('node:created', group);

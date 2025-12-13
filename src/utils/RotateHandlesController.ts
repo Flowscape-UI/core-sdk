@@ -14,7 +14,7 @@ export interface RotateHandlesControllerOpts {
 
 export class RotateHandlesController {
   private core: CoreEngine;
-  private getNode: () => Konva.Node | null;
+  private getKonvaNode: () => Konva.Node | null;
   private getTransformer: () => Konva.Transformer | null;
   private onUpdate?: () => void;
 
@@ -35,7 +35,7 @@ export class RotateHandlesController {
 
   constructor(opts: RotateHandlesControllerOpts) {
     this.core = opts.core;
-    this.getNode = opts.getNode;
+    this.getKonvaNode = opts.getNode;
     this.getTransformer = opts.getTransformer;
     if (opts.onUpdate) {
       this.onUpdate = opts.onUpdate;
@@ -43,7 +43,7 @@ export class RotateHandlesController {
   }
 
   public attach(): void {
-    const node = this.getNode();
+    const node = this.getKonvaNode();
     if (!node) return;
     const layer = this.core.nodes.layer;
     this.detach();
@@ -71,7 +71,7 @@ export class RotateHandlesController {
         this.core.stage.container().style.cursor = 'default';
       });
       h.on('dragstart.rotate', () => {
-        const n = this.getNode();
+        const n = this.getKonvaNode();
         if (!n) return;
         const dec = n.getAbsoluteTransform().decompose();
         this.centerAbsStart = this.getNodeCenterAbs(n);
@@ -86,7 +86,7 @@ export class RotateHandlesController {
         this.placeBelowTransformer();
       });
       h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
-        const n = this.getNode();
+        const n = this.getKonvaNode();
         if (!n || !this.dragState) return;
         const centerRef = this.centerAbsStart ?? this.getNodeCenterAbs(n);
         const pointer = this.core.stage.getPointerPosition() ?? h.getAbsolutePosition();
@@ -184,7 +184,7 @@ export class RotateHandlesController {
   }
 
   public updatePosition(): void {
-    const n = this.getNode();
+    const n = this.getKonvaNode();
     if (!n || !this.group) return;
     const local = n.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
     const width = local.width;

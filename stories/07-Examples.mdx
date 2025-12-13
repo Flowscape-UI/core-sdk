@@ -1,0 +1,365 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Reference/Code Examples" />
+
+# 💡 Code Examples
+
+Practical examples for common use cases.
+
+## Basic Setup
+
+```typescript
+import { CoreEngine, GridPlugin, SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const core = new CoreEngine({
+  container: document.getElementById('app')!,
+  width: 1200,
+  height: 800,
+  plugins: [new GridPlugin(), new SelectionPlugin()],
+});
+
+// Add a rectangle
+core.nodes.addShape({
+  x: 100,
+  y: 100,
+  width: 200,
+  height: 150,
+  fill: '#3b82f6',
+});
+```
+
+## React Integration
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { CoreEngine, GridPlugin, SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+function Canvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const coreRef = useRef<CoreEngine | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const core = new CoreEngine({
+      container: containerRef.current,
+      plugins: [new GridPlugin(), new SelectionPlugin()],
+    });
+
+    coreRef.current = core;
+
+    // Add initial content
+    core.nodes.addText({
+      x: 100,
+      y: 100,
+      text: 'Hello from React!',
+      fontSize: 32,
+    });
+
+    return () => {
+      core.destroy();
+    };
+  }, []);
+
+  return <div ref={containerRef} style={{ width: '100%', height: '100vh' }} />;
+}
+```
+
+## Vue Integration
+
+```vue
+<template>
+  <div ref="container" class="canvas-container"></div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
+import { CoreEngine, GridPlugin, SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const container = ref<HTMLDivElement>();
+let core: CoreEngine | null = null;
+
+onMounted(() => {
+  if (!container.value) return;
+
+  core = new CoreEngine({
+    container: container.value,
+    plugins: [new GridPlugin(), new SelectionPlugin()],
+  });
+
+  core.nodes.addText({
+    x: 100,
+    y: 100,
+    text: 'Hello from Vue!',
+    fontSize: 32,
+  });
+});
+
+onUnmounted(() => {
+  core?.destroy();
+});
+</script>
+
+<style scoped>
+.canvas-container {
+  width: 100%;
+  height: 100vh;
+}
+</style>
+```
+
+## Dynamic Node Creation
+
+```typescript
+function addRandomShape(core: CoreEngine) {
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+  const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+  core.nodes.addShape({
+    x: Math.random() * 800,
+    y: Math.random() * 600,
+    width: 100 + Math.random() * 100,
+    height: 100 + Math.random() * 100,
+    fill: randomColor,
+    cornerRadius: Math.random() * 20,
+  });
+}
+
+// Add 10 random shapes
+for (let i = 0; i < 10; i++) {
+  addRandomShape(core);
+}
+```
+
+## Event-Driven Updates
+
+```typescript
+const nodeCounter = document.getElementById('counter')!;
+let count = 0;
+
+core.eventBus.on('node:created', () => {
+  count++;
+  nodeCounter.textContent = `Nodes: ${count}`;
+});
+
+core.eventBus.on('node:removed', () => {
+  count--;
+  nodeCounter.textContent = `Nodes: ${count}`;
+});
+```
+
+## Save and Load
+
+```typescript
+// Save canvas state
+function saveCanvas(core: CoreEngine) {
+  const nodes = core.nodes.getAll();
+  const data = nodes.map((node) => ({
+    type: node.getType(),
+    attrs: node.getKonvaNode().attrs,
+  }));
+
+  localStorage.setItem('canvas', JSON.stringify(data));
+}
+
+// Load canvas state
+function loadCanvas(core: CoreEngine) {
+  const data = localStorage.getItem('canvas');
+  if (!data) return;
+
+  const nodes = JSON.parse(data);
+  nodes.forEach((nodeData: any) => {
+    switch (nodeData.type) {
+      case 'Rect':
+        core.nodes.addShape(nodeData.attrs);
+        break;
+      case 'Circle':
+        core.nodes.addCircle(nodeData.attrs);
+        break;
+      case 'Text':
+        core.nodes.addText(nodeData.attrs);
+        break;
+    }
+  });
+}
+```
+
+## Export as Image
+
+```typescript
+function exportAsImage(core: CoreEngine) {
+  const stage = core.getStage();
+  const dataURL = stage.toDataURL({ pixelRatio: 2 });
+
+  // Download
+  const link = document.createElement('a');
+  link.download = 'canvas.png';
+  link.href = dataURL;
+  link.click();
+}
+```
+
+## Custom Toolbar
+
+```typescript
+class Toolbar {
+  constructor(private core: CoreEngine) {
+    this.createToolbar();
+  }
+
+  private createToolbar() {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'toolbar';
+
+    // Add Rectangle button
+    const rectBtn = this.createButton('Rectangle', () => {
+      this.core.nodes.addShape({
+        x: 100,
+        y: 100,
+        width: 150,
+        height: 100,
+        fill: '#3b82f6',
+      });
+    });
+
+    // Add Circle button
+    const circleBtn = this.createButton('Circle', () => {
+      this.core.nodes.addCircle({
+        x: 200,
+        y: 200,
+        radius: 50,
+        fill: '#10b981',
+      });
+    });
+
+    // Add Text button
+    const textBtn = this.createButton('Text', () => {
+      this.core.nodes.addText({
+        x: 150,
+        y: 150,
+        text: 'New Text',
+        fontSize: 24,
+      });
+    });
+
+    toolbar.append(rectBtn, circleBtn, textBtn);
+    document.body.appendChild(toolbar);
+  }
+
+  private createButton(label: string, onClick: () => void) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    btn.onclick = onClick;
+    return btn;
+  }
+}
+
+const toolbar = new Toolbar(core);
+```
+
+## Performance Monitoring
+
+```typescript
+class PerformanceMonitor {
+  private fps = 0;
+  private lastTime = performance.now();
+
+  constructor(private core: CoreEngine) {
+    this.startMonitoring();
+  }
+
+  private startMonitoring() {
+    const stage = this.core.getStage();
+
+    stage.on('draw', () => {
+      const now = performance.now();
+      const delta = now - this.lastTime;
+      this.fps = Math.round(1000 / delta);
+      this.lastTime = now;
+
+      this.updateDisplay();
+    });
+  }
+
+  private updateDisplay() {
+    const nodeCount = this.core.nodes.getAll().length;
+    console.log(`FPS: ${this.fps}, Nodes: ${nodeCount}`);
+  }
+}
+
+const monitor = new PerformanceMonitor(core);
+```
+
+## Responsive Canvas
+
+```typescript
+function makeResponsive(core: CoreEngine) {
+  function resize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    core.getStage().width(width);
+    core.getStage().height(height);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  return () => {
+    window.removeEventListener('resize', resize);
+  };
+}
+
+const cleanup = makeResponsive(core);
+```
+
+## Batch Operations
+
+```typescript
+// Add multiple nodes efficiently
+function addGrid(core: CoreEngine, rows: number, cols: number) {
+  const cellSize = 50;
+  const gap = 10;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      core.nodes.addShape({
+        x: col * (cellSize + gap),
+        y: row * (cellSize + gap),
+        width: cellSize,
+        height: cellSize,
+        fill: `hsl(${(row * cols + col) * 10}, 70%, 60%)`,
+      });
+    }
+  }
+}
+
+addGrid(core, 10, 10); // 100 nodes
+```
+
+## Animation
+
+```typescript
+function animateNode(node: any) {
+  const startX = node.getPosition().x;
+  const duration = 1000;
+  const startTime = Date.now();
+
+  function animate() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    const x = startX + progress * 200;
+    node.setPosition({ x, y: node.getPosition().y });
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    }
+  }
+
+  animate();
+}
+
+const rect = core.nodes.addShape({ x: 100, y: 100, width: 100, height: 100 });
+animateNode(rect);
+```

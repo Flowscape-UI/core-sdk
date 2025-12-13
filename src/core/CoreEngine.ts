@@ -1,12 +1,12 @@
 import Konva from 'konva';
 
-import { NodeManager } from '../managers/NodeManager';
-import { EventBus } from '../utils/EventBus';
 import { CameraManager } from '../managers/CameraManager';
+import { NodeManager } from '../managers/NodeManager';
 import { VirtualizationManager } from '../managers/VirtualizationManager';
-import { Plugins } from '../plugins/Plugins';
 import { Plugin } from '../plugins/Plugin';
+import { Plugins } from '../plugins/Plugins';
 import type { CoreEvents } from '../types/core.events.interface';
+import { EventBus } from '../utils/EventBus';
 
 export interface CoreEngineOptions {
   container: HTMLDivElement;
@@ -36,6 +36,7 @@ export class CoreEngine {
   private _minScale: number;
   private _maxScale: number;
   private _gridLayer: Konva.Layer;
+  private _resizeObserver: ResizeObserver | null = null;
 
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
@@ -84,7 +85,65 @@ export class CoreEngine {
       this.nodes,
       options.virtualization,
     );
-    this.plugins = new Plugins(this, options.plugins ?? []);
+
+    // Initialize the plugin manager before actually attaching plugins,
+    // so that core.plugins already exists inside plugin and addon onAttach methods.
+    this.plugins = new Plugins(this);
+    if (options.plugins?.length) {
+      this.plugins.addPlugins(options.plugins);
+    }
+
+    // Setup auto-resize if enabled
+    if (this._autoResize) {
+      this._setupAutoResize();
+    }
+  }
+
+  /**
+   * Setup automatic canvas resize when container size changes
+   */
+  private _setupAutoResize() {
+    // Use ResizeObserver for better performance and accuracy
+    if (typeof ResizeObserver !== 'undefined') {
+      this._resizeObserver = new ResizeObserver(() => {
+        this._handleResize();
+      });
+      this._resizeObserver.observe(this.container);
+    } else {
+      // Fallback to window resize event for older browsers
+      globalThis.addEventListener('resize', this._handleResize);
+    }
+  }
+
+  /**
+   * Handle container resize
+   */
+  private _handleResize = () => {
+    if (!this._autoResize) return;
+
+    const width = this.container.offsetWidth;
+    const height = this.container.offsetHeight;
+
+    // Only update if size actually changed
+    if (width !== this._stage.width() || height !== this._stage.height()) {
+      this.setSize({ width, height });
+    }
+  };
+
+  /**
+   * Cleanup resources
+   */
+  public destroy() {
+    // Cleanup resize observer
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = null;
+    } else {
+      globalThis.removeEventListener('resize', this._handleResize);
+    }
+
+    // Destroy stage
+    this._stage.destroy();
   }
 
   public get eventBus(): EventBus<CoreEvents> {
@@ -142,5 +201,28 @@ export class CoreEngine {
   public setDraggable(draggable: boolean) {
     this._stage.draggable(draggable);
     this._draggable = draggable;
+  }
+
+  /**
+   * Enable or disable auto-resize
+   */
+  public setAutoResize(enabled: boolean) {
+    if (this._autoResize === enabled) return;
+
+    this._autoResize = enabled;
+
+    if (enabled) {
+      this._setupAutoResize();
+      // Trigger immediate resize
+      this._handleResize();
+    } else {
+      // Cleanup resize observer
+      if (this._resizeObserver) {
+        this._resizeObserver.disconnect();
+        this._resizeObserver = null;
+      } else {
+        globalThis.removeEventListener('resize', this._handleResize);
+      }
+    }
   }
 }

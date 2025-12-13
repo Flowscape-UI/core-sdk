@@ -2,6 +2,8 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { TextNode } from '../nodes/TextNode';
+import type { NodeHandle } from '../types/public/node-handles';
 
 import { Plugin } from './Plugin';
 import { SelectionPlugin } from './SelectionPlugin';
@@ -57,7 +59,9 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Lazy get SelectionPlugin on first use (robust against minification via instanceof)
     if (!this._selectionPlugin) {
-      const plugin = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
+      const plugin = this._core.plugins
+        .list()
+        .find((p): p is SelectionPlugin => p instanceof SelectionPlugin);
       if (plugin) {
         this._selectionPlugin = plugin;
       }
@@ -72,6 +76,16 @@ export class NodeHotkeysPlugin extends Plugin {
 
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
+
+    // Enter — начать редактирование, если выделена одна текстовая нода
+    if (!ctrl && !shift && e.code === 'Enter') {
+      const selected = this._getSelectedNodes();
+      if (selected.length === 1 && selected[0] instanceof TextNode) {
+        e.preventDefault();
+        selected[0].startEdit();
+        return;
+      }
+    }
 
     // Ctrl+C - Copy
     if (ctrl && e.code === 'KeyC') {
@@ -98,6 +112,20 @@ export class NodeHotkeysPlugin extends Plugin {
     if (e.code === 'Delete' || e.code === 'Backspace') {
       e.preventDefault();
       this._handleDelete();
+      return;
+    }
+
+    // Ctrl+Shift+] - Move to top
+    if (ctrl && shift && e.code === 'BracketRight') {
+      e.preventDefault();
+      this._handleMoveToTop();
+      return;
+    }
+
+    // Ctrl+Shift+[ - Move to bottom
+    if (ctrl && shift && e.code === 'BracketLeft') {
+      e.preventDefault();
+      this._handleMoveToBottom();
       return;
     }
 
@@ -205,7 +233,7 @@ export class NodeHotkeysPlugin extends Plugin {
       const list: BaseNode[] = this._core.nodes.list();
       const set = new Set<BaseNode>();
       for (const ch of children) {
-        const bn = list.find((n) => n.getNode() === ch);
+        const bn = list.find((n) => n.getKonvaNode() === ch);
         if (bn) set.add(bn);
       }
       if (set.size > 0) return Array.from(set);
@@ -245,15 +273,28 @@ export class NodeHotkeysPlugin extends Plugin {
       }
     }
 
+    // Используем batch-режим для удаления нескольких нод
+    const historyPlugin = this._core.plugins.get('HistoryPlugin') as
+      | { startBatch: () => void; commitBatch: () => void }
+      | undefined;
+
+    if (nodes.length > 1 && historyPlugin) {
+      historyPlugin.startBatch();
+    }
+
     // Delete nodes
     for (const node of nodes) {
       this._core.nodes.remove(node);
+    }
+
+    if (nodes.length > 1 && historyPlugin) {
+      historyPlugin.commitBatch();
     }
   }
 
   // Serialize node to buffer, position in world coordinates
   private _serializeNode(node: BaseNode): ClipboardData['nodes'][0] {
-    const konvaNode = node.getNode();
+    const konvaNode = node.getKonvaNode();
     const attrs = konvaNode.getAttrs();
     // Use Konva className (robust against minification), not constructor.name
     const nodeType = this._getNodeTypeFromKonva(konvaNode as unknown as Konva.Node);
@@ -377,48 +418,48 @@ export class NodeHotkeysPlugin extends Plugin {
     };
 
     try {
-      let newNode: BaseNode | null = null;
+      let newNode: NodeHandle | null = null;
 
       switch (data.type) {
         case 'shape':
-          newNode = this._core.nodes.addShape(config);
+          newNode = this._core.nodes.addShape(config) as unknown as BaseNode;
           break;
         case 'text':
-          newNode = this._core.nodes.addText(config);
+          newNode = this._core.nodes.addText(config) as unknown as BaseNode;
           break;
         case 'circle':
-          newNode = this._core.nodes.addCircle(config);
+          newNode = this._core.nodes.addCircle(config) as unknown as BaseNode;
           break;
         case 'ellipse':
-          newNode = this._core.nodes.addEllipse(config);
+          newNode = this._core.nodes.addEllipse(config) as unknown as BaseNode;
           break;
         case 'arc':
-          newNode = this._core.nodes.addArc(config);
+          newNode = this._core.nodes.addArc(config) as unknown as BaseNode;
           break;
         case 'star':
-          newNode = this._core.nodes.addStar(config);
+          newNode = this._core.nodes.addStar(config) as unknown as BaseNode;
           break;
         case 'arrow':
-          newNode = this._core.nodes.addArrow(config);
+          newNode = this._core.nodes.addArrow(config) as unknown as BaseNode;
           break;
         case 'ring':
-          newNode = this._core.nodes.addRing(config);
+          newNode = this._core.nodes.addRing(config) as unknown as BaseNode;
           break;
         case 'regularPolygon':
         case 'regularpolygon':
-          newNode = this._core.nodes.addRegularPolygon(config);
+          newNode = this._core.nodes.addRegularPolygon(config) as unknown as BaseNode;
           break;
         case 'image':
-          newNode = this._core.nodes.addImage(config);
+          newNode = this._core.nodes.addImage(config) as unknown as BaseNode;
           break;
         case 'label':
           // LabelNode пока не поддерживается через NodeManager
           globalThis.console.warn('LabelNode is not supported for copy/paste yet');
           return null;
         case 'group': {
-          newNode = this._core.nodes.addGroup(config);
+          newNode = this._core.nodes.addGroup(config) as unknown as BaseNode;
           // Принудительно применяем все атрибуты трансформации после создания
-          const groupKonvaNode = newNode.getNode() as unknown as Konva.Group;
+          const groupKonvaNode = newNode.getKonvaNode() as unknown as Konva.Group;
           // Применяем масштаб, поворот и другие атрибуты
           if (data.config['scaleX'] !== undefined)
             groupKonvaNode.scaleX(data.config['scaleX'] as number);
@@ -446,7 +487,7 @@ export class NodeHotkeysPlugin extends Plugin {
                 y: childData.position.y,
               });
               if (childBaseNode) {
-                const childKonvaNode = childBaseNode.getNode();
+                const childKonvaNode = childBaseNode.getKonvaNode();
                 // Disable draggable for child elements
                 if (typeof childKonvaNode.draggable === 'function') {
                   childKonvaNode.draggable(false);
@@ -464,7 +505,7 @@ export class NodeHotkeysPlugin extends Plugin {
       }
 
       // Apply transformation attributes for ALL node types
-      const konvaNode = newNode.getNode() as unknown as Konva.Node;
+      const konvaNode = newNode.getKonvaNode() as unknown as Konva.Node;
       if (data.config['scaleX'] !== undefined) konvaNode.scaleX(data.config['scaleX'] as number);
       if (data.config['scaleY'] !== undefined) konvaNode.scaleY(data.config['scaleY'] as number);
       if (data.config['rotation'] !== undefined)
@@ -474,7 +515,7 @@ export class NodeHotkeysPlugin extends Plugin {
       if (data.config['offsetX'] !== undefined) konvaNode.offsetX(data.config['offsetX'] as number);
       if (data.config['offsetY'] !== undefined) konvaNode.offsetY(data.config['offsetY'] as number);
 
-      return newNode;
+      return newNode as unknown as BaseNode;
     } catch (error) {
       globalThis.console.error(`Failed to deserialize node:`, error);
       return null;
@@ -547,7 +588,7 @@ export class NodeHotkeysPlugin extends Plugin {
     let maxY = Number.NEGATIVE_INFINITY;
 
     for (const n of nodes) {
-      const kn = n.getNode() as unknown as Konva.Node;
+      const kn = n.getKonvaNode() as unknown as Konva.Node;
       // clientRect already accounts for all transformations (except default stroke — not critical for us)
       const r = kn.getClientRect({ skipShadow: true, skipStroke: true });
       minX = Math.min(minX, r.x);
@@ -576,7 +617,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Move each selected node one level forward
     for (const node of selected) {
-      const konvaNode = node.getNode() as unknown as Konva.Node;
+      const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
 
       // Skip changing z-index for single node inside a real group
       if (this._isNodeInsidePermanentGroup(konvaNode)) {
@@ -614,7 +655,7 @@ export class NodeHotkeysPlugin extends Plugin {
     for (let i = selected.length - 1; i >= 0; i--) {
       const node = selected[i];
       if (!node) continue;
-      const konvaNode = node.getNode() as unknown as Konva.Node;
+      const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
 
       // Skip changing z-index for single node inside a real group
       if (this._isNodeInsidePermanentGroup(konvaNode)) {
@@ -643,6 +684,74 @@ export class NodeHotkeysPlugin extends Plugin {
     }
   }
 
+  private _handleMoveToTop(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    const sorted = [...selected].sort((a, b) => {
+      const knA = a.getKonvaNode() as unknown as Konva.Node;
+      const knB = b.getKonvaNode() as unknown as Konva.Node;
+      return knA.zIndex() - knB.zIndex();
+    });
+
+    for (const node of sorted) {
+      const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
+
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveToTop();
+      const newIndex = konvaNode.zIndex();
+
+      this._syncGroupZIndex(konvaNode);
+
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      this._core.nodes.layer.draw();
+      this._core.stage.batchDraw();
+    }
+  }
+
+  private _handleMoveToBottom(): void {
+    const selected = this._getSelectedNodes();
+    if (selected.length === 0) return;
+
+    const sorted = [...selected].sort((a, b) => {
+      const knA = a.getKonvaNode() as unknown as Konva.Node;
+      const knB = b.getKonvaNode() as unknown as Konva.Node;
+      return knB.zIndex() - knA.zIndex();
+    });
+
+    for (const node of sorted) {
+      const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
+
+      if (this._isNodeInsidePermanentGroup(konvaNode)) {
+        continue;
+      }
+
+      const oldIndex = konvaNode.zIndex();
+      konvaNode.moveToBottom();
+      const newIndex = konvaNode.zIndex();
+
+      this._syncGroupZIndex(konvaNode);
+
+      if (this._core && oldIndex !== newIndex) {
+        this._core.eventBus.emit('node:zIndexChanged', node, oldIndex, newIndex);
+      }
+    }
+
+    if (this._core) {
+      this._core.nodes.layer.draw();
+      this._core.stage.batchDraw();
+    }
+  }
+
   /**
    * Checks if the node is inside a real group (not the group itself)
    */
@@ -655,8 +764,18 @@ export class NodeHotkeysPlugin extends Plugin {
     const parent = konvaNode.getParent();
     if (!parent) return false;
 
-    // If parent is a group (not world) - it's a real group
-    return parent instanceof Konva.Group && parent.name() !== 'world';
+    // If parent is not a group at all — definitely not a permanent group
+    if (!(parent instanceof Konva.Group)) return false;
+
+    // Top-level nodes live directly under core.nodes.world.
+    // For them we DO allow z-index changes.
+    if (parent === this._core?.nodes.world) {
+      return false;
+    }
+
+    // Any other Konva.Group parent is considered a real group,
+    // for which child z-index changes are forbidden.
+    return true;
   }
 
   /**

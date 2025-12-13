@@ -1,0 +1,431 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Core Concepts/Nodes" />
+
+# 📦 Nodes
+
+Nodes are the building blocks of your canvas. Flowscape SDK provides various node types for different use cases.
+
+## Node Types
+
+- **Shape** — Rectangles with optional rounded corners
+- **Circle** — Perfect circles
+- **Ellipse** — Oval shapes
+- **Text** — Text elements with formatting
+- **Image** — Images from URLs or data
+- **Arc** — Arc segments
+- **Arrow** — Arrows with customizable pointers
+- **Star** — Star shapes with configurable points
+- **Ring** — Ring/donut shapes
+- **RegularPolygon** — Regular polygons (triangle, pentagon, hexagon, etc.)
+- **Group** — Container for grouping nodes
+
+## Common Node Properties
+
+All nodes share these base properties:
+
+| Property    | Type      | Default | Description         |
+| ----------- | --------- | ------- | ------------------- |
+| `x`         | `number`  | `0`     | X position          |
+| `y`         | `number`  | `0`     | Y position          |
+| `rotation`  | `number`  | `0`     | Rotation in degrees |
+| `scaleX`    | `number`  | `1`     | Horizontal scale    |
+| `scaleY`    | `number`  | `1`     | Vertical scale      |
+| `opacity`   | `number`  | `1`     | Opacity (0-1)       |
+| `visible`   | `boolean` | `true`  | Visibility          |
+| `draggable` | `boolean` | `false` | Can be dragged      |
+| `id`        | `string`  | auto    | Unique identifier   |
+| `name`      | `string`  | `''`    | Optional name       |
+
+## Shape Node
+
+Rectangles with optional rounded corners.
+
+```typescript
+const rect = core.nodes.addShape({
+  x: 100,
+  y: 100,
+  width: 200,
+  height: 150,
+  fill: '#3b82f6',
+  stroke: '#1e40af',
+  strokeWidth: 2,
+  cornerRadius: 8,
+});
+```
+
+### Shape Options
+
+| Property       | Type     | Default | Description   |
+| -------------- | -------- | ------- | ------------- |
+| `width`        | `number` | `100`   | Width         |
+| `height`       | `number` | `100`   | Height        |
+| `fill`         | `string` | `''`    | Fill color    |
+| `stroke`       | `string` | `''`    | Stroke color  |
+| `strokeWidth`  | `number` | `0`     | Stroke width  |
+| `cornerRadius` | `number` | `0`     | Corner radius |
+
+## Circle Node
+
+Perfect circles.
+
+```typescript
+const circle = core.nodes.addCircle({
+  x: 300,
+  y: 200,
+  radius: 50,
+  fill: '#10b981',
+  stroke: '#059669',
+  strokeWidth: 3,
+});
+```
+
+### Circle Options
+
+| Property      | Type     | Default | Description   |
+| ------------- | -------- | ------- | ------------- |
+| `radius`      | `number` | `50`    | Circle radius |
+| `fill`        | `string` | `''`    | Fill color    |
+| `stroke`      | `string` | `''`    | Stroke color  |
+| `strokeWidth` | `number` | `0`     | Stroke width  |
+
+## Ellipse Node
+
+Oval shapes with independent radii.
+
+```typescript
+const ellipse = core.nodes.addEllipse({
+  x: 400,
+  y: 200,
+  radiusX: 100,
+  radiusY: 60,
+  fill: '#f59e0b',
+  stroke: '#d97706',
+  strokeWidth: 2,
+});
+```
+
+### Ellipse Options
+
+| Property      | Type     | Default | Description       |
+| ------------- | -------- | ------- | ----------------- |
+| `radiusX`     | `number` | `50`    | Horizontal radius |
+| `radiusY`     | `number` | `50`    | Vertical radius   |
+| `fill`        | `string` | `''`    | Fill color        |
+| `stroke`      | `string` | `''`    | Stroke color      |
+| `strokeWidth` | `number` | `0`     | Stroke width      |
+
+## Text Node
+
+Text elements with formatting options.
+
+```typescript
+const text = core.nodes.addText({
+  x: 100,
+  y: 300,
+  text: 'Hello Flowscape!',
+  fontSize: 32,
+  fontFamily: 'Inter, sans-serif',
+  fill: '#1f2937',
+  align: 'left',
+  fontStyle: 'bold',
+});
+```
+
+### Text Options
+
+| Property     | Type                             | Default    | Description    |
+| ------------ | -------------------------------- | ---------- | -------------- |
+| `text`       | `string`                         | `''`       | Text content   |
+| `fontSize`   | `number`                         | `16`       | Font size      |
+| `fontFamily` | `string`                         | `'Arial'`  | Font family    |
+| `fontStyle`  | `'normal' \| 'bold' \| 'italic'` | `'normal'` | Font style     |
+| `fill`       | `string`                         | `'#000'`   | Text color     |
+| `align`      | `'left' \| 'center' \| 'right'`  | `'left'`   | Text alignment |
+| `padding`    | `number`                         | `0`        | Padding        |
+
+## Image Node
+
+Display images from URLs or data URIs.
+
+```typescript
+const image = core.nodes.addImage({
+  x: 500,
+  y: 100,
+  width: 200,
+  height: 150,
+  src: '/path/to/image.jpg',
+});
+```
+
+### Image Options
+
+| Property | Type     | Default | Description  |
+| -------- | -------- | ------- | ------------ |
+| `src`    | `string` | `''`    | Image source |
+| `width`  | `number` | auto    | Width        |
+| `height` | `number` | auto    | Height       |
+
+### Image Methods
+
+```typescript
+// Change image source
+image.setSrc('/new/image.jpg');
+
+// Get current source
+const src = image.getSrc();
+```
+
+## Arc Node
+
+Arc segments with inner and outer radius.
+
+```typescript
+const arc = core.nodes.addArc({
+  x: 600,
+  y: 200,
+  innerRadius: 40,
+  outerRadius: 80,
+  angle: 120,
+  rotation: 45,
+  fill: '#8b5cf6',
+  stroke: '#6d28d9',
+  strokeWidth: 2,
+});
+```
+
+### Arc Options
+
+| Property      | Type      | Default | Description  |
+| ------------- | --------- | ------- | ------------ |
+| `innerRadius` | `number`  | `0`     | Inner radius |
+| `outerRadius` | `number`  | `50`    | Outer radius |
+| `angle`       | `number`  | `90`    | Arc angle    |
+| `clockwise`   | `boolean` | `false` | Direction    |
+| `fill`        | `string`  | `''`    | Fill color   |
+| `stroke`      | `string`  | `''`    | Stroke color |
+| `strokeWidth` | `number`  | `0`     | Stroke width |
+
+## Arrow Node
+
+Arrows with customizable pointers.
+
+```typescript
+const arrow = core.nodes.addArrow({
+  x: 100,
+  y: 400,
+  points: [0, 0, 150, 0, 200, 50],
+  pointerLength: 12,
+  pointerWidth: 12,
+  fill: '#ef4444',
+  stroke: '#dc2626',
+  strokeWidth: 3,
+});
+```
+
+### Arrow Options
+
+| Property        | Type       | Default | Description         |
+| --------------- | ---------- | ------- | ------------------- |
+| `points`        | `number[]` | `[]`    | Array of x,y points |
+| `pointerLength` | `number`   | `10`    | Pointer length      |
+| `pointerWidth`  | `number`   | `10`    | Pointer width       |
+| `fill`          | `string`   | `''`    | Fill color          |
+| `stroke`        | `string`   | `''`    | Stroke color        |
+| `strokeWidth`   | `number`   | `0`     | Stroke width        |
+| `tension`       | `number`   | `0`     | Curve tension       |
+
+## Star Node
+
+Star shapes with configurable points.
+
+```typescript
+const star = core.nodes.addStar({
+  x: 700,
+  y: 300,
+  numPoints: 5,
+  innerRadius: 30,
+  outerRadius: 60,
+  fill: '#fbbf24',
+  stroke: '#f59e0b',
+  strokeWidth: 2,
+});
+```
+
+### Star Options
+
+| Property      | Type     | Default | Description      |
+| ------------- | -------- | ------- | ---------------- |
+| `numPoints`   | `number` | `5`     | Number of points |
+| `innerRadius` | `number` | `30`    | Inner radius     |
+| `outerRadius` | `number` | `60`    | Outer radius     |
+| `fill`        | `string` | `''`    | Fill color       |
+| `stroke`      | `string` | `''`    | Stroke color     |
+| `strokeWidth` | `number` | `0`     | Stroke width     |
+
+## Ring Node
+
+Ring or donut shapes.
+
+```typescript
+const ring = core.nodes.addRing({
+  x: 800,
+  y: 200,
+  innerRadius: 40,
+  outerRadius: 70,
+  fill: '#06b6d4',
+  stroke: '#0891b2',
+  strokeWidth: 2,
+});
+```
+
+### Ring Options
+
+| Property      | Type     | Default | Description  |
+| ------------- | -------- | ------- | ------------ |
+| `innerRadius` | `number` | `30`    | Inner radius |
+| `outerRadius` | `number` | `60`    | Outer radius |
+| `fill`        | `string` | `''`    | Fill color   |
+| `stroke`      | `string` | `''`    | Stroke color |
+| `strokeWidth` | `number` | `0`     | Stroke width |
+
+## RegularPolygon Node
+
+Regular polygons (triangle, pentagon, hexagon, etc.).
+
+```typescript
+// Pentagon
+const pentagon = core.nodes.addRegularPolygon({
+  x: 900,
+  y: 300,
+  sides: 5,
+  radius: 50,
+  fill: '#a855f7',
+  stroke: '#9333ea',
+  strokeWidth: 2,
+});
+
+// Hexagon
+const hexagon = core.nodes.addRegularPolygon({
+  x: 1000,
+  y: 300,
+  sides: 6,
+  radius: 50,
+  fill: '#ec4899',
+});
+```
+
+### RegularPolygon Options
+
+| Property      | Type     | Default | Description     |
+| ------------- | -------- | ------- | --------------- |
+| `sides`       | `number` | `3`     | Number of sides |
+| `radius`      | `number` | `50`    | Radius          |
+| `fill`        | `string` | `''`    | Fill color      |
+| `stroke`      | `string` | `''`    | Stroke color    |
+| `strokeWidth` | `number` | `0`     | Stroke width    |
+
+## Group Node
+
+Container for grouping multiple nodes.
+
+```typescript
+// Create group
+const group = core.nodes.addGroup({
+  x: 400,
+  y: 400,
+  draggable: true,
+});
+
+// Add nodes to group
+const circle1 = core.nodes.addCircle({ x: 0, y: 0, radius: 30 });
+const circle2 = core.nodes.addCircle({ x: 70, y: 0, radius: 30 });
+
+circle1.getKonvaNode().moveTo(group.getKonvaNode());
+circle2.getKonvaNode().moveTo(group.getKonvaNode());
+```
+
+### Group Options
+
+| Property    | Type      | Default | Description     |
+| ----------- | --------- | ------- | --------------- |
+| `draggable` | `boolean` | `false` | Can be dragged  |
+| `clip`      | `object`  | `null`  | Clipping region |
+
+## Node Methods
+
+All nodes provide these methods:
+
+```typescript
+// Position
+node.setPosition({ x: 100, y: 200 });
+const pos = node.getPosition();
+
+// Size (for applicable nodes)
+node.setSize({ width: 200, height: 150 });
+const size = node.getSize();
+
+// Rotation
+node.setRotation(45);
+const rotation = node.getRotation();
+
+// Scale
+node.setScale({ x: 1.5, y: 1.5 });
+const scale = node.getScale();
+
+// Opacity
+node.setOpacity(0.5);
+const opacity = node.getOpacity();
+
+// Visibility
+node.setVisible(false);
+const visible = node.isVisible();
+
+// ID and Name
+const id = node.getId();
+node.setName('my-node');
+const name = node.getName();
+
+// Get Konva node (for advanced use)
+const konvaNode = node.getKonvaNode();
+
+// Destroy node
+node.destroy();
+```
+
+## Working with Addons
+
+Nodes can be extended with addons for additional functionality:
+
+```typescript
+import {
+  TextAutoTrimAddon,
+  ImageHoverFilterAddon,
+  ShapeHoverHighlightAddon,
+} from '@flowscape-ui/core-sdk';
+
+// Text auto-trim
+const text = core.nodes.addText({ text: 'Hello', fontSize: 24 });
+text.addons.add(new TextAutoTrimAddon());
+
+// Image hover filter
+const image = core.nodes.addImage({ src: '/image.jpg' });
+image.addons.add(new ImageHoverFilterAddon({ mode: 'sepia' }));
+
+// Shape hover highlight
+const rect = core.nodes.addShape({ width: 100, height: 100 });
+rect.addons.add(
+  new ShapeHoverHighlightAddon({
+    mode: 'fill',
+    fill: 'rgba(59, 130, 246, 0.3)',
+  }),
+);
+```
+
+## Best Practices
+
+1. **Use appropriate node types** — Choose the right node for your use case
+2. **Set IDs for important nodes** — Makes finding and managing nodes easier
+3. **Group related nodes** — Use groups for better organization
+4. **Clean up unused nodes** — Call `destroy()` to free memory
+5. **Use addons for behavior** — Extend nodes without subclassing

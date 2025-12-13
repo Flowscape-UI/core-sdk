@@ -1,0 +1,198 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Reference/Keyboard Shortcuts" />
+
+# ⌨️ Keyboard Shortcuts
+
+Complete reference of all keyboard shortcuts available in Flowscape SDK.
+
+## Node Operations
+
+Requires `NodeHotkeysPlugin`.
+
+| Shortcut               | Action                       |
+| ---------------------- | ---------------------------- |
+| `Ctrl+C`               | Copy selected nodes          |
+| `Ctrl+X`               | Cut selected nodes           |
+| `Ctrl+V`               | Paste nodes                  |
+| `Delete` / `Backspace` | Delete selected nodes        |
+| `Ctrl+]`               | Move node forward (z-index)  |
+| `Ctrl+[`               | Move node backward (z-index) |
+| `Ctrl+Shift+]`         | Bring to front               |
+| `Ctrl+Shift+[`         | Send to back                 |
+
+```typescript
+import { NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
+
+const hotkeys = new NodeHotkeysPlugin();
+core.plugins.add(hotkeys);
+```
+
+## Grouping
+
+Requires `SelectionPlugin`.
+
+| Shortcut       | Action                            |
+| -------------- | --------------------------------- |
+| `Ctrl+G`       | Group selected nodes              |
+| `Ctrl+Shift+G` | Ungroup selected group            |
+| `Shift+Click`  | Add/remove node to/from selection |
+| `Shift`        | Lock aspect ratio during resize   |
+
+```typescript
+import { SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const selection = new SelectionPlugin();
+core.plugins.add(selection);
+```
+
+## Camera Control
+
+Requires `CameraHotkeysPlugin`.
+
+| Shortcut            | Action             |
+| ------------------- | ------------------ |
+| `Ctrl+Wheel`        | Zoom in/out        |
+| `+` / `=`           | Zoom in            |
+| `-`                 | Zoom out           |
+| `Arrow Keys`        | Pan camera         |
+| `Space+Drag`        | Pan camera (mouse) |
+| `Middle Mouse+Drag` | Pan camera         |
+| `Right Mouse+Drag`  | Pan camera         |
+
+```typescript
+import { CameraHotkeysPlugin } from '@flowscape-ui/core-sdk';
+
+const camera = new CameraHotkeysPlugin({
+  zoomStep: 0.1,
+  panStep: 20,
+});
+core.plugins.add(camera);
+```
+
+## Ruler Controls
+
+Requires `RulerManagerPlugin`.
+
+| Shortcut               | Action                   |
+| ---------------------- | ------------------------ |
+| `Shift+R`              | Toggle rulers visibility |
+| `Delete` / `Backspace` | Delete active guide      |
+| `Drag from ruler`      | Create guide line        |
+
+```typescript
+import { RulerPlugin, RulerManagerAddon } from '@flowscape-ui/core-sdk';
+
+const ruler = new RulerPlugin();
+ruler.addons.add(new RulerManagerAddon());
+core.plugins.add(ruler);
+```
+
+## History
+
+Requires `HistoryPlugin`.
+
+| Shortcut       | Action |
+| -------------- | ------ |
+| `Ctrl+Z`       | Undo   |
+| `Ctrl+Shift+Z` | Redo   |
+
+```typescript
+import { HistoryPlugin } from '@flowscape-ui/core-sdk';
+
+const history = new HistoryPlugin();
+core.plugins.add(history);
+```
+
+## Area Selection
+
+Requires `AreaSelectionPlugin`.
+
+| Shortcut     | Action               |
+| ------------ | -------------------- |
+| `Shift+Drag` | Draw selection frame |
+
+```typescript
+import { AreaSelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const areaSelection = new AreaSelectionPlugin();
+core.plugins.add(areaSelection);
+```
+
+## Complete Setup
+
+Enable all keyboard shortcuts:
+
+```typescript
+import {
+  CoreEngine,
+  NodeHotkeysPlugin,
+  CameraHotkeysPlugin,
+  SelectionPlugin,
+  HistoryPlugin,
+  RulerPlugin,
+  RulerManagerAddon,
+  AreaSelectionPlugin,
+} from '@flowscape-ui/core-sdk';
+
+const ruler = new RulerPlugin();
+ruler.addons.add(new RulerManagerAddon());
+
+const core = new CoreEngine({
+  container: element,
+  plugins: [
+    new NodeHotkeysPlugin(),
+    new CameraHotkeysPlugin(),
+    new SelectionPlugin(),
+    new HistoryPlugin(),
+    new AreaSelectionPlugin(),
+    ruler,
+  ],
+});
+```
+
+## Custom Shortcuts
+
+Create custom keyboard shortcuts:
+
+```typescript
+class CustomHotkeysPlugin extends Plugin {
+  protected onAttach(core: CoreEngine): void {
+    document.addEventListener('keydown', this.handleKeyDown);
+  }
+
+  protected onDetach(core: CoreEngine): void {
+    document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  private handleKeyDown = (e: KeyboardEvent) => {
+    // Ctrl+S to save
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      this.save();
+    }
+
+    // Ctrl+O to open
+    if (e.ctrlKey && e.key === 'o') {
+      e.preventDefault();
+      this.open();
+    }
+  };
+
+  private save() {
+    console.log('Save triggered');
+  }
+
+  private open() {
+    console.log('Open triggered');
+  }
+}
+```
+
+## Tips
+
+1. **Focus required** — Canvas must be focused for shortcuts to work
+2. **Plugin order matters** — Add plugins in logical order
+3. **Prevent conflicts** — Be careful with browser shortcuts
+4. **Document custom shortcuts** — Keep users informed
+5. **Test on all platforms** — Shortcuts may vary (Cmd vs Ctrl)

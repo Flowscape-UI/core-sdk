@@ -1,28 +1,28 @@
 /**
- * Типы для Ruler плагинов
+ * Types for Ruler plugins
  */
 
 /**
- * Направляющая линия на линейке
+ * Guide line on the ruler
  */
 export interface RulerGuide {
-  /** Координата в мировых единицах */
+  /** Coordinate in world units */
   worldCoord: number;
-  /** Имя направляющей (опционально) */
+  /** Guide name (optional) */
   name?: string;
-  /** Толщина линии (опционально) */
+  /** Line thickness (optional) */
   strokeWidth?: number;
-  /** Цвет линии (опционально) */
+  /** Line color (optional) */
   stroke?: string;
 }
 
 /**
- * Тип направляющей (горизонтальная или вертикальная)
+ * Guide type (horizontal or vertical)
  */
 export type RulerGuideType = 'h' | 'v';
 
 /**
- * Информация об активной направляющей
+ * Active guide information
  */
 export interface ActiveGuideInfo {
   type: RulerGuideType;

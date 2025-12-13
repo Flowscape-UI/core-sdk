@@ -1,0 +1,143 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Getting Started/Introduction" />
+
+# 🎨 Flowscape Core SDK
+
+**Powerful 2D canvas engine built on Konva**
+
+Welcome to the interactive documentation for Flowscape Core SDK! Here you can test all library features in real-time.
+
+## ✨ Key Features
+
+- **🎯 Framework-agnostic** — Works seamlessly with React, Vue, Svelte, Angular, or vanilla JavaScript
+- **🧩 Plugin System** — Extensible architecture with ready-to-use plugins
+- **📐 Complete Toolset** — Grid, rulers, guides, area selection, alignment guides
+- **⌨️ Keyboard Shortcuts** — Ctrl+C/V/X, Delete, Ctrl+G for grouping, Ctrl+Z/Shift+Z for undo/redo
+- **🎨 Rich Shapes** — Rectangles, circles, ellipses, text, images, arrows, stars, and more
+- **🔄 Transformations** — Rotation, scaling, movement with aspect ratio lock
+- **✏️ Inline Editing** — Double-click text nodes to edit directly on canvas
+- **🕐 History System** — Full undo/redo support with Ctrl+Z
+- **📦 TypeScript-first** — Full typing support out of the box
+- **🚀 High Performance** — Handles 1000+ nodes without FPS drops
+- **🔧 Addons API** — Extend any component with custom functionality
+
+## 📦 Installation
+
+```bash
+npm install @flowscape-ui/core-sdk
+```
+
+Or using other package managers:
+
+```bash
+# Yarn
+yarn add @flowscape-ui/core-sdk
+
+# pnpm
+pnpm add @flowscape-ui/core-sdk
+
+# Bun
+bun add @flowscape-ui/core-sdk
+```
+
+## 🚀 Quick Start
+
+```typescript
+import { CoreEngine, GridPlugin, SelectionPlugin, NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
+
+// Create engine with plugins
+const core = new CoreEngine({
+  container: document.getElementById('canvas-container')!,
+  width: 1200,
+  height: 800,
+  plugins: [
+    new GridPlugin({ enabled: true }),
+    new SelectionPlugin({ dragEnabled: true }),
+    new NodeHotkeysPlugin(), // Ctrl+C/V/X, Delete
+  ],
+});
+
+// Add shapes
+const rect = core.nodes.addShape({
+  x: 100,
+  y: 100,
+  width: 200,
+  height: 150,
+  fill: '#3b82f6',
+  cornerRadius: 8,
+});
+
+const text = core.nodes.addText({
+  x: 120,
+  y: 140,
+  text: 'Hello Flowscape!',
+  fontSize: 24,
+  fill: 'white',
+});
+```
+
+## 🏗️ Architecture
+
+Flowscape Core SDK is built on a modular architecture:
+
+```
+┌─────────────────────────────────────┐
+│         CoreEngine                  │
+│  ┌──────────────────────────────┐   │
+│  │     Plugin System            │   │
+│  │  - GridPlugin                │   │
+│  │  - SelectionPlugin           │   │
+│  │  - RulerPlugin               │   │
+│  │  - NodeHotkeysPlugin         │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │     Node Manager             │   │
+│  │  - ShapeNode                 │   │
+│  │  - TextNode                  │   │
+│  │  - ImageNode                 │   │
+│  │  - GroupNode                 │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │     Camera Manager           │   │
+│  │  - Zoom (Ctrl+Wheel)         │   │
+│  │  - Pan (Space+Drag)          │   │
+│  └──────────────────────────────┘   │
+└─────────────────────────────────────┘
+```
+
+## 🎉 What's New in 1.0.3
+
+This release brings major improvements:
+
+- **✨ History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
+- **📏 Alignment Guides** — Smart guides appear during movement and resizing
+- **✏️ Inline Text Editing** — Double-click text nodes to edit directly
+- **🔧 Addons API** — Attach custom functionality to any component
+- **📐 Canvas Auto-Resize** — Automatically adjusts to window size changes
+- **⚡ Performance** — Optimized to handle 1000+ nodes smoothly
+- **🎨 New Layer Shortcuts** — Ctrl+Shift+[ / ] for send to back/bring to front
+- **📦 Full TypeScript** — Complete type coverage across all components
+
+## 📚 What's Next?
+
+Explore the documentation sections:
+
+- **Core Concepts** — Learn about the engine architecture
+- **Nodes** — All available node types and their options
+- **Plugins** — Built-in plugins and how to create custom ones
+- **Events** — Event system and available events
+- **Keyboard Shortcuts** — Complete reference of all hotkeys
+- **API Reference** — Complete API documentation
+- **Playground** — Interactive sandbox to test features
+
+## 🔗 Links
+
+- [GitHub Repository](https://github.com/Flowscape-UI/core-sdk)
+- [NPM Package](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
+- [Report Issues](https://github.com/Flowscape-UI/core-sdk/issues)
+- [Changelog](https://github.com/Flowscape-UI/core-sdk/blob/main/CHANGELOG.md)
+
+## 📄 License
+
+MIT © [Flowscape UI Team](https://github.com/Flowscape-UI)

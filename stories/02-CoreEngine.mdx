@@ -1,0 +1,270 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Core Concepts/Core Engine" />
+
+# 🎯 Core Engine
+
+The `CoreEngine` is the heart of Flowscape SDK. It manages the canvas, coordinates plugins, handles nodes, and provides camera controls.
+
+## Creating an Engine
+
+### Basic Setup
+
+```typescript
+import { CoreEngine } from '@flowscape-ui/core-sdk';
+
+const core = new CoreEngine({
+  container: document.getElementById('app')!,
+});
+```
+
+### With Options
+
+```typescript
+const core = new CoreEngine({
+  container: document.getElementById('app')!,
+  width: 1920,
+  height: 1080,
+  plugins: [new GridPlugin(), new SelectionPlugin()],
+});
+```
+
+## Configuration Options
+
+### CoreEngineOptions
+
+| Option      | Type             | Default    | Description                     |
+| ----------- | ---------------- | ---------- | ------------------------------- |
+| `container` | `HTMLDivElement` | _required_ | DOM element to mount the canvas |
+| `width`     | `number`         | `800`      | Canvas width in pixels          |
+| `height`    | `number`         | `600`      | Canvas height in pixels         |
+| `plugins`   | `Plugin[]`       | `[]`       | Array of plugins to initialize  |
+
+## Core Components
+
+### Node Manager
+
+Access and manage all nodes on the canvas:
+
+```typescript
+// Add nodes
+const rect = core.nodes.addShape({ x: 100, y: 100, width: 200, height: 150 });
+const circle = core.nodes.addCircle({ x: 400, y: 200, radius: 50 });
+const text = core.nodes.addText({ x: 100, y: 300, text: 'Hello!' });
+
+// Get all nodes
+const allNodes = core.nodes.getAll();
+
+// Find node by ID
+const node = core.nodes.findById('node-id');
+
+// Remove node
+core.nodes.remove(rect);
+
+// Clear all nodes
+core.nodes.clear();
+```
+
+### Camera Manager
+
+Control viewport zoom and position:
+
+```typescript
+// Zoom
+core.camera.zoomIn(); // Zoom in by step
+core.camera.zoomOut(); // Zoom out by step
+core.camera.setZoom(1.5); // Set specific zoom level
+
+// Pan
+core.camera.pan(100, 50); // Move camera by dx, dy
+core.camera.setPosition(x, y); // Set absolute position
+
+// Center on node
+core.camera.centerOn(node);
+
+// Reset camera
+core.camera.reset();
+
+// Get current state
+const scale = core.camera.getScale();
+const position = core.camera.getPosition();
+```
+
+### Event Bus
+
+Subscribe to and emit events:
+
+```typescript
+// Subscribe to events
+core.eventBus.on('node:created', (node) => {
+  console.log('Node created:', node);
+});
+
+core.eventBus.on('node:selected', (node) => {
+  console.log('Node selected:', node);
+});
+
+core.eventBus.on('camera:zoom', ({ scale }) => {
+  console.log('Zoom level:', scale);
+});
+
+// Emit custom events
+core.eventBus.emit('custom:event', { data: 'value' });
+
+// Unsubscribe
+const handler = (node) => console.log(node);
+core.eventBus.on('node:created', handler);
+core.eventBus.off('node:created', handler);
+
+// One-time subscription
+core.eventBus.once('node:created', (node) => {
+  console.log('First node created:', node);
+});
+```
+
+### Plugin Manager
+
+Manage plugins dynamically:
+
+```typescript
+// Add plugin after initialization
+const gridPlugin = new GridPlugin();
+core.plugins.add(gridPlugin);
+
+// Remove plugin
+core.plugins.remove(gridPlugin);
+
+// Get all plugins
+const allPlugins = core.plugins.getAll();
+
+// Find plugin by type
+const selection = core.plugins.find(SelectionPlugin);
+```
+
+## Lifecycle
+
+### Initialization
+
+```typescript
+const core = new CoreEngine({
+  container: element,
+  plugins: [
+    /* plugins */
+  ],
+});
+
+// Engine is ready to use
+core.nodes.addShape({ x: 0, y: 0, width: 100, height: 100 });
+```
+
+### Cleanup
+
+```typescript
+// Destroy engine and cleanup resources
+core.destroy();
+```
+
+## Advanced Usage
+
+### Custom Configuration
+
+```typescript
+const core = new CoreEngine({
+  container: element,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  plugins: [
+    new GridPlugin({
+      color: '#e5e7eb',
+      cellSize: 20,
+      enableSnap: true,
+    }),
+    new SelectionPlugin({
+      dragEnabled: true,
+      rotateEnabled: true,
+    }),
+    new HistoryPlugin({
+      maxHistorySize: 100,
+    }),
+  ],
+});
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  core.resize(window.innerWidth, window.innerHeight);
+});
+```
+
+### Accessing Konva Stage
+
+For advanced use cases, you can access the underlying Konva stage:
+
+```typescript
+const stage = core.getStage();
+const layer = core.getLayer();
+
+// Use Konva API directly
+stage.on('click', (e) => {
+  console.log('Stage clicked at:', e.evt.clientX, e.evt.clientY);
+});
+```
+
+## Best Practices
+
+1. **Always provide a container** — The container must be a valid DOM element
+2. **Initialize plugins early** — Add plugins during engine creation for best performance
+3. **Clean up on unmount** — Call `core.destroy()` when removing the canvas
+4. **Use TypeScript** — Take advantage of full type safety
+5. **Subscribe to events** — Use the event bus for reactive updates
+
+## Example: Complete Setup
+
+```typescript
+import {
+  CoreEngine,
+  GridPlugin,
+  SelectionPlugin,
+  NodeHotkeysPlugin,
+  CameraHotkeysPlugin,
+  HistoryPlugin,
+} from '@flowscape-ui/core-sdk';
+
+// Create container
+const container = document.createElement('div');
+container.style.width = '100%';
+container.style.height = '100vh';
+document.body.appendChild(container);
+
+// Initialize engine
+const core = new CoreEngine({
+  container,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  plugins: [
+    new GridPlugin({ enabled: true }),
+    new SelectionPlugin(),
+    new NodeHotkeysPlugin(),
+    new CameraHotkeysPlugin(),
+    new HistoryPlugin(),
+  ],
+});
+
+// Add initial content
+core.nodes.addText({
+  x: 100,
+  y: 100,
+  text: 'Welcome to Flowscape!',
+  fontSize: 48,
+  fill: '#1f2937',
+});
+
+// Handle events
+core.eventBus.on('node:created', (node) => {
+  console.log('New node:', node.getId());
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  core.destroy();
+});
+```

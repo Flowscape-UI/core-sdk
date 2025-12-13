@@ -1,24 +1,48 @@
+<div align="center">
+
 # 🎨 @flowscape-ui/core-sdk
 
-**Powerful 2D canvas engine built on Konva.js**
+**Powerful 2D canvas engine built on Konva**
 
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
-[![Buy Me a Coffee](https://img.shields.io/badge/Donate-Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/flowscape)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 
-[📖 Documentation](https://flowscape-ui.github.io/core-sdk-doc/) • [💡 Examples](https://flowscape-ui.github.io/core-sdk-doc/docs/guides/interactive-demo) • [📝 Changelog](#)
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+[![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
+[![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
+
+</div>
 
 ---
+
+## 📖 Documentation
+
+### What's New in 1.0.3
+
+- ✨ **History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
+- 📏 **Alignment Guides** — Smart guides appear during movement and resizing
+- ✏️ **Inline Text Editing** — Double-click text nodes to edit directly
+- 🔧 **Addons API** — Attach custom functionality to any component
+- 📐 **Canvas Auto-Resize** — Automatically adjusts to window size changes
+- ⚡ **Performance** — Optimized to handle 1000+ nodes smoothly
+- 🎨 **New Layer Shortcuts** — Ctrl+Shift+[ / ] for send to back/bring to front
+- 📦 **Full TypeScript** — Complete type coverage across all components
+- 🎮 **Storybook Demo** — Interactive playground to test all features
 
 ## ✨ Features
 
 - 🎯 **Framework-agnostic** — works with React, Vue, Svelte, Angular or vanilla JS
 - 🧩 **Plugin system** — extensible architecture with ready-to-use plugins
-- 📐 **Complete toolset** — grid, rulers, guides, area selection
-- ⌨️ **Hotkeys** — Ctrl+C/V/X, Delete, Ctrl+G for grouping
+- 📐 **Complete toolset** — grid, rulers, guides, area selection, alignment guides
+- ⌨️ **Hotkeys** — Ctrl+C/V/X, Delete, Ctrl+G for grouping, Ctrl+Z/Shift+Z for undo/redo
 - 🎨 **Rich shapes** — rectangles, circles, text, images, arrows, stars
 - 🔄 **Transformations** — rotation, scaling, movement with aspect ratio lock
+- ✏️ **Inline editing** — double-click text nodes to edit directly on canvas
+- 🕐 **History system** — full undo/redo support with Ctrl+Z
 - 📦 **TypeScript-first** — full typing out of the box
-- 🚀 **Optimized** — tree-shaking, ESM + CJS, source maps
+- 🚀 **High performance** — handles 1000+ nodes without FPS drops
+- 🎨 **Addons API** — extend any component with custom functionality
 
 ---
 
@@ -37,16 +61,11 @@ bun add @flowscape-ui/core-sdk
 ## 🚀 Quick Start
 
 ```typescript
-import {
-  CoreEngine,
-  GridPlugin,
-  SelectionPlugin,
-  NodeHotkeysPlugin,
-} from "@flowscape-ui/core-sdk";
+import { CoreEngine, GridPlugin, SelectionPlugin, NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
 
 // Create engine with plugins
 const engine = new CoreEngine({
-  container: document.getElementById("canvas-container")!,
+  container: document.getElementById('canvas-container')!,
   width: 1200,
   height: 800,
   plugins: [
@@ -62,16 +81,16 @@ const rect = engine.nodes.addShape({
   y: 100,
   width: 200,
   height: 150,
-  fill: "#3b82f6",
+  fill: '#3b82f6',
   cornerRadius: 8,
 });
 
 const text = engine.nodes.addText({
   x: 120,
   y: 140,
-  text: "Hello Flowscape!",
+  text: 'Hello Flowscape!',
   fontSize: 24,
-  fill: "white",
+  fill: 'white',
 });
 
 // Grouping
@@ -83,7 +102,11 @@ rect.getNode().moveTo(group.getNode());
 text.getNode().moveTo(group.getNode());
 ```
 
----
+## 🔒 Public API Policy
+
+- All supported entities are exported only through the root package `@flowscape-ui/core-sdk`.
+- The `src/public-api.ts` file contains the complete list of stable exports; anything outside this file is considered internal API and may change without notice.
+- Do not import files directly via `@flowscape-ui/core-sdk/src/...` — such imports are not supported and may break during updates.
 
 ## 🏗️ Architecture
 
@@ -118,19 +141,19 @@ text.getNode().moveTo(group.getNode());
 Plugins extend engine functionality without modifying the core:
 
 ```typescript
-import { Plugin, CoreEngine } from "@flowscape-ui/core-sdk";
+import { Plugin, CoreEngine } from '@flowscape-ui/core-sdk';
 
 class CustomPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     // Initialize on attach
-    core.eventBus.on("node:created", (node) => {
-      console.log("Node created:", node);
+    core.eventBus.on('node:created', (node) => {
+      console.log('Node created:', node);
     });
   }
 
   protected onDetach(core: CoreEngine): void {
     // Cleanup on detach
-    core.eventBus.off("node:created");
+    core.eventBus.off('node:created');
   }
 }
 
@@ -143,7 +166,20 @@ const engine = new CoreEngine({
 
 ---
 
-## 🧩 Built-in Plugins
+| Plugin                 | Description                                      |
+| ---------------------- | ------------------------------------------------ |
+| `GridPlugin`           | Adaptive grid with automatic scaling             |
+| `SelectionPlugin`      | Selection, transformation, drag & drop, grouping |
+| `NodeHotkeysPlugin`    | Copy/paste/cut nodes, delete, z-index management |
+| `CameraHotkeysPlugin`  | Zoom and pan controls with keyboard              |
+| `RulerPlugin`          | Rulers with measurement units                    |
+| `RulerGuidesPlugin`    | Draggable guide lines from rulers                |
+| `RulerHighlightPlugin` | Ruler highlighting on hover                      |
+| `RulerManagerPlugin`   | Toggle rulers and manage guides                  |
+| `AreaSelectionPlugin`  | Area selection with frame (Shift+Drag)           |
+| `VisualGuidesPlugin`   | Smart alignment guides during movement/resize    |
+| `HistoryPlugin`        | Undo/redo functionality with Ctrl+Z              |
+| `LogoPlugin`           | Watermark/logo on canvas                         |
 
 | Plugin                   | Description                                           |
 | ------------------------ | ----------------------------------------------------- |
@@ -164,14 +200,16 @@ const engine = new CoreEngine({
 
 ### Node Operations (NodeHotkeysPlugin)
 
-| Shortcut               | Action                   |
-| ---------------------- | ------------------------ |
-| `Ctrl+C`               | Copy selected nodes      |
-| `Ctrl+X`               | Cut selected nodes       |
-| `Ctrl+V`               | Paste nodes              |
-| `Delete` / `Backspace` | Delete selected nodes    |
-| `Ctrl+]`               | Move node up (z-index)   |
-| `Ctrl+[`               | Move node down (z-index) |
+| Shortcut               | Action                       |
+| ---------------------- | ---------------------------- |
+| `Ctrl+C`               | Copy selected nodes          |
+| `Ctrl+X`               | Cut selected nodes           |
+| `Ctrl+V`               | Paste nodes                  |
+| `Delete` / `Backspace` | Delete selected nodes        |
+| `Ctrl+]`               | Move node forward (z-index)  |
+| `Ctrl+[`               | Move node backward (z-index) |
+| `Ctrl+Shift+]`         | Bring to front               |
+| `Ctrl+Shift+[`         | Send to back                 |
 
 ### Grouping (SelectionPlugin)
 
@@ -182,7 +220,14 @@ const engine = new CoreEngine({
 | `Shift+Click`           | Add/remove node to/from selection |
 | `Shift` (during resize) | Lock aspect ratio                 |
 
-### Camera Controls (CameraHotkeysPlugin)
+#### History (HistoryPlugin)
+
+| Shortcut       | Action |
+| -------------- | ------ |
+| `Ctrl+Z`       | Undo   |
+| `Ctrl+Shift+Z` | Redo   |
+
+#### Camera Controls (CameraHotkeysPlugin)
 
 | Shortcut            | Action      |
 | ------------------- | ----------- |
@@ -214,7 +259,7 @@ const rect = engine.nodes.addShape({
   y: 50,
   width: 200,
   height: 100,
-  fill: "#10b981",
+  fill: '#10b981',
   cornerRadius: 12,
 });
 
@@ -223,8 +268,8 @@ const circle = engine.nodes.addCircle({
   x: 300,
   y: 100,
   radius: 50,
-  fill: "#f59e0b",
-  stroke: "#d97706",
+  fill: '#f59e0b',
+  stroke: '#d97706',
   strokeWidth: 3,
 });
 
@@ -232,10 +277,10 @@ const circle = engine.nodes.addCircle({
 const text = engine.nodes.addText({
   x: 400,
   y: 50,
-  text: "Flowscape UI",
+  text: 'Flowscape UI',
   fontSize: 32,
-  fontFamily: "Inter",
-  fill: "#1f2937",
+  fontFamily: 'Inter',
+  fill: '#1f2937',
 });
 
 // Image
@@ -244,7 +289,7 @@ const image = engine.nodes.addImage({
   y: 200,
   width: 200,
   height: 150,
-  src: "/path/to/image.jpg",
+  src: '/path/to/image.jpg',
 });
 ```
 
@@ -252,22 +297,22 @@ const image = engine.nodes.addImage({
 
 ```typescript
 // Subscribe to events
-engine.eventBus.on("node:created", (node) => {
-  console.log("Node created:", node);
+engine.eventBus.on('node:created', (node) => {
+  console.log('Node created:', node);
 });
 
-engine.eventBus.on("node:selected", (node) => {
-  console.log("Node selected:", node);
+engine.eventBus.on('node:selected', (node) => {
+  console.log('Node selected:', node);
 });
 
-engine.eventBus.on("camera:zoom", ({ scale }) => {
-  console.log("Zoom changed:", scale);
+engine.eventBus.on('camera:zoom', ({ scale }) => {
+  console.log('Zoom changed:', scale);
 });
 
 // Unsubscribe
 const handler = (node) => console.log(node);
-engine.eventBus.on("node:created", handler);
-engine.eventBus.off("node:created", handler);
+engine.eventBus.on('node:created', handler);
+engine.eventBus.off('node:created', handler);
 ```
 
 ### Grouping and Management
@@ -332,20 +377,6 @@ bun run lint          # ESLint
 bun run lint:ts       # TypeScript check
 bun run lint:fix      # Auto-fix
 ```
-
----
-
-## 📖 Documentation
-
-Full documentation is available at [flowscape-ui.github.io/core-sdk-doc/](https://flowscape-ui.github.io/core-sdk-doc/)
-
-- [Getting Started](https://flowscape-ui.github.io/core-sdk-doc/docs/getting-started/installation)
-- [Core Concepts](https://flowscape-ui.github.io/core-sdk-doc/docs/core-concepts/architecture)
-- [Plugins](https://flowscape-ui.github.io/core-sdk-doc/docs/plugins/overview)
-- [API Reference](https://flowscape-ui.github.io/core-sdk-doc/docs/api/reference)
-- [Interactive Demo](https://flowscape-ui.github.io/core-sdk-doc/docs/guides/interactive-demo)
-
----
 
 ## 📄 License
 
