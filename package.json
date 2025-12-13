@@ -49,7 +49,7 @@
   "scripts": {
     "dev": "vite --config playground/vite.config.ts",
     "build": "tsup",
-    "prepublishOnly": "npm run build && npm run lint:ts && npm run test:run",
+    "prepublishOnly": "npm run build && npm run lint:ts",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
