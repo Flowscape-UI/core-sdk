@@ -18,8 +18,6 @@
 
 ## 📖 Documentation
 
-Full interactive documentation is available at [flowscape-ui.github.io/core-sdk](https://flowscape-ui.github.io/core-sdk/)
-
 ### What's New in 1.0.3
 
 - ✨ **History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
