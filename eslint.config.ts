@@ -4,7 +4,7 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: ['dist', 'node_modules', 'playground/'],
+    ignores: ['dist', 'node_modules', 'playground/', 'storybook-static/'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],
@@ -28,7 +28,10 @@ export default [
 
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'import/order': ['warn', { 'newlines-between': 'always' }],
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       '@typescript-eslint/no-explicit-any': ['error'],
     },
     settings: {

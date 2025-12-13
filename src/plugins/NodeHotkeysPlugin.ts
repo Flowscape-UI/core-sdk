@@ -769,7 +769,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Top-level nodes live directly under core.nodes.world.
     // For them we DO allow z-index changes.
-    if (this._core && parent === this._core.nodes.world) {
+    if (parent === this._core?.nodes.world) {
       return false;
     }
 
