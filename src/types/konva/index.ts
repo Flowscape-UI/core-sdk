@@ -19,7 +19,7 @@ export type KonvaNodeConfig = Konva.NodeConfig;
 export type KonvaGroupConfig = Konva.GroupConfig;
 
 /**
- * Нарративное API для прямого доступа к Konva (например, константы, класс Node).
- * Используйте осторожно; более безопасный путь — `node.getKonvaNode()`.
+ * Direct API for accessing Konva (e.g., constants, Node class).
+ * Use with caution; a safer approach is `node.getKonvaNode()`.
  */
 export { Konva };

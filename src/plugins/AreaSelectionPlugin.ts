@@ -11,7 +11,7 @@ export interface AreaSelectionPluginOptions {
   rectStroke?: string;
   rectFill?: string;
   rectStrokeWidth?: number;
-  rectOpacity?: number; // применяется к fill
+  rectOpacity?: number; // applied to fill
   enableKeyboardShortcuts?: boolean; // Ctrl+G, Ctrl+Shift+G
 }
 
@@ -32,6 +32,7 @@ export class AreaSelectionPlugin extends Plugin {
   private _transformer: Konva.Transformer | null = null;
   // Modelasso forms temporary group, so single clicks are not needed
   private _selecting = false;
+  private _skipNextClick = false;
   private _lastPickedBaseNodes: BaseNode[] = [];
 
   private _options: Required<AreaSelectionPluginOptions>;
@@ -54,7 +55,7 @@ export class AreaSelectionPlugin extends Plugin {
     core.stage.add(layer);
     this._layer = layer;
 
-    // Рамка выбора
+    // Selection rectangle
     this._rect = new Konva.Rect({
       x: 0,
       y: 0,
@@ -154,28 +155,42 @@ export class AreaSelectionPlugin extends Plugin {
         }
       }
       const pickedBase: BaseNode[] = Array.from(pickedSet);
-      this._lastPickedBaseNodes = pickedBase;
       const sel = this._getSelectionPlugin();
+      if (pickedBase.length > 0) {
+        this._lastPickedBaseNodes = pickedBase;
+      }
       if (sel) {
         const ctrl = sel.getMultiGroupController();
         if (pickedBase.length > 0) {
           ctrl.ensure(pickedBase);
-        } else {
-          // If the rectangle left the only (or all) node — temporary group fades away
-          ctrl.destroy();
         }
         this._core?.stage.batchDraw();
       }
     });
 
-    stage.on('mouseup.area', () => {
+    stage.on('mouseup.area', (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._selecting) return;
+      let dragged = false;
+      if (this._rect?.visible()) {
+        const size = this._rect.size();
+        dragged = size.width > 2 || size.height > 2;
+      }
       this._finalizeArea();
+      if (dragged) {
+        this._skipNextClick = true;
+        this._core?.stage.setAttr('_skipSelectionEmptyClickOnce', true);
+        e.cancelBubble = true;
+      }
     });
 
     // Click outside — remove temporary group/selection
     stage.on('click.area', (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (!this._core) return;
+      if (this._skipNextClick) {
+        this._skipNextClick = false;
+        e.cancelBubble = true;
+        return;
+      }
       // Do not interfere with Shift‑clicks: multi selection handles SelectionPlugin
       if (e.evt.shiftKey) return;
       const sel = this._getSelectionPlugin();
@@ -236,7 +251,7 @@ export class AreaSelectionPlugin extends Plugin {
       const picked: Konva.Node[] = [];
       for (const n of nodes) {
         const node = n.getKonvaNode() as unknown as Konva.Node;
-        // Только те, что реально в слое нод
+        // Only those actually in the node layer
         const layer = node.getLayer();
         if (layer !== this._core.nodes.layer) continue;
         const r = node.getClientRect({ skipShadow: true, skipStroke: false });
@@ -283,7 +298,9 @@ export class AreaSelectionPlugin extends Plugin {
   // Get SelectionPlugin from CoreEngine
   private _getSelectionPlugin(): SelectionPlugin | null {
     if (!this._core) return null;
-    const sel = this._core.plugins.list().find((p) => p instanceof SelectionPlugin);
+    const sel = this._core.plugins
+      .list()
+      .find((p): p is SelectionPlugin => p instanceof SelectionPlugin);
     return sel ?? null;
   }
 
@@ -339,19 +356,4 @@ export class AreaSelectionPlugin extends Plugin {
     if (!n) return null;
     return n instanceof Konva.Group ? n : null;
   }
-
-  // true, if pointer inside visual bbox any permanent group (GroupNode from NodeManager)
-  // private _pointerInsidePermanentGroupBBox(p: { x: number; y: number }): boolean {
-  //   if (!this._core) return false;
-  //   const list: BaseNode[] = this._core.nodes.list();
-  //   for (const bn of list) {
-  //     if (!(bn instanceof GroupNode)) continue;
-  //     const node = bn.getKonvaNode();
-  //     const bbox = node.getClientRect({ skipShadow: true, skipStroke: true });
-  //     const inside =
-  //       p.x >= bbox.x && p.x <= bbox.x + bbox.width && p.y >= bbox.y && p.y <= bbox.y + bbox.height;
-  //     if (inside) return true;
-  //   }
-  //   return false;
-  // }
 }

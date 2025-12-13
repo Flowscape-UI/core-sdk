@@ -2,8 +2,8 @@ import type { NodeAddon } from '../../addons/NodeAddon';
 import type { KonvaNode } from '../konva';
 
 /**
- * Публичный интерфейс для работы с аддонами ноды.
- * Скрывает внутреннюю реализацию NodeAddons<BaseNode>.
+ * Public interface for working with node addons.
+ * Hides the internal implementation of NodeAddons<BaseNode>.
  */
 export interface NodeAddonsHandle {
   add(addons: NodeAddon | NodeAddon[]): unknown;
@@ -14,8 +14,8 @@ export interface NodeAddonsHandle {
 }
 
 /**
- * Базовый интерфейс для публичных Node Handle.
- * Конкретные реализации будут проксировать методы BaseNode.
+ * Base interface for public Node Handles.
+ * Concrete implementations will proxy BaseNode methods.
  */
 export interface NodeHandle<TKonva extends KonvaNode = KonvaNode> {
   readonly id: string;
@@ -27,14 +27,14 @@ export interface NodeHandle<TKonva extends KonvaNode = KonvaNode> {
   remove(): void;
 
   /**
-   * Безопасный доступ к низкоуровневому Konva-объекту.
-   * Возвращает сам объект, без необходимости импортировать Konva из внешней зависимости.
+   * Safe access to the low-level Konva object.
+   * Returns the object itself without the need to import Konva from an external dependency.
    */
   getKonvaNode(): TKonva;
 }
 
 /**
- * Handle для ShapeNode (прямоугольник с скруглением)
+ * Handle for ShapeNode (rectangle with rounded corners)
  */
 export interface ShapeNodeHandle extends NodeHandle {
   setFill(color: string): this;
@@ -49,7 +49,7 @@ export interface ShapeNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для TextNode
+ * Handle for TextNode
  */
 export interface TextNodeHandle extends NodeHandle {
   getText(): string;
@@ -67,7 +67,7 @@ export interface TextNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для ImageNode
+ * Handle for ImageNode
  */
 export interface ImageNodeHandle extends NodeHandle {
   setSrc(url: string, crossOrigin?: '' | 'anonymous' | 'use-credentials'): Promise<this>;
@@ -79,7 +79,7 @@ export interface ImageNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для CircleNode
+ * Handle for CircleNode
  */
 export interface CircleNodeHandle extends NodeHandle {
   setRadius(radius: number): this;
@@ -92,7 +92,7 @@ export interface CircleNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для EllipseNode
+ * Handle for EllipseNode
  */
 export interface EllipseNodeHandle extends NodeHandle {
   setRadiusX(radiusX: number): this;
@@ -105,7 +105,7 @@ export interface EllipseNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для ArcNode
+ * Handle for ArcNode
  */
 export interface ArcNodeHandle extends NodeHandle {
   setInnerRadius(radius: number): this;
@@ -117,7 +117,7 @@ export interface ArcNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для ArrowNode
+ * Handle for ArrowNode
  */
 export interface ArrowNodeHandle extends NodeHandle {
   setPoints(points: number[]): this;
@@ -130,7 +130,7 @@ export interface ArrowNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для StarNode
+ * Handle for StarNode
  */
 export interface StarNodeHandle extends NodeHandle {
   setNumPoints(points: number): this;
@@ -142,7 +142,7 @@ export interface StarNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для RingNode
+ * Handle for RingNode
  */
 export interface RingNodeHandle extends NodeHandle {
   setInnerRadius(radius: number): this;
@@ -153,7 +153,7 @@ export interface RingNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для RegularPolygonNode
+ * Handle for RegularPolygonNode
  */
 export interface RegularPolygonNodeHandle extends NodeHandle {
   setSides(sides: number): this;
@@ -166,7 +166,7 @@ export interface RegularPolygonNodeHandle extends NodeHandle {
 }
 
 /**
- * Handle для GroupNode
+ * Handle for GroupNode
  */
 export interface GroupNodeHandle extends NodeHandle {
   addChild(child: KonvaNode | NodeHandle): this;

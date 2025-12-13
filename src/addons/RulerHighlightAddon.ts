@@ -6,7 +6,7 @@ import type { RulerPlugin } from '../plugins/RulerPlugin';
 import { PluginAddon } from './PluginAddon';
 
 /**
- * Аддон для RulerPlugin, который подключает RulerHighlightPlugin.
+ * Addon for RulerPlugin, set up by RulerHighlightPlugin.
  */
 export class RulerHighlightAddon extends PluginAddon<RulerPlugin> {
   private readonly _options: RulerHighlightPluginOptions;

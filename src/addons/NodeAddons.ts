@@ -3,8 +3,8 @@ import type { BaseNode } from '../nodes/BaseNode';
 import type { NodeAddon } from './NodeAddon';
 
 /**
- * Менеджер аддонов для конкретной ноды.
- * Позволяет добавлять/удалять аддоны удобным API:
+ * Addon manager for a specific node.
+ * Allows adding/removing addons with a convenient API:
  *   node.addons.add(addon)
  *   node.addons.add([a, b])
  *   node.addons.remove(addon)
@@ -18,7 +18,7 @@ export class NodeAddons<TNode extends BaseNode = BaseNode> {
     this._node = node;
   }
 
-  /** Подключить один или несколько аддонов к ноде */
+  /** Attach one or more addons to the node */
   public add(addons: NodeAddon<TNode> | NodeAddon<TNode>[]): TNode {
     const list = Array.isArray(addons) ? addons : [addons];
     for (const addon of list) {
@@ -29,7 +29,7 @@ export class NodeAddons<TNode extends BaseNode = BaseNode> {
     return this._node;
   }
 
-  /** Отключить один или несколько аддонов от ноды */
+  /** Detach one or more addons from the node */
   public remove(addons: NodeAddon<TNode> | NodeAddon<TNode>[]): TNode {
     const list = Array.isArray(addons) ? addons : [addons];
     for (const addon of list) {
@@ -40,17 +40,17 @@ export class NodeAddons<TNode extends BaseNode = BaseNode> {
     return this._node;
   }
 
-  /** Все подключённые аддоны (копия массива) */
+  /** All attached addons (array copy) */
   public list(): NodeAddon<TNode>[] {
     return Array.from(this._addons);
   }
 
-  /** Проверить, подключён ли конкретный аддон */
+  /** Check if a specific addon is attached */
   public has(addon: NodeAddon<TNode>): boolean {
     return this._addons.has(addon);
   }
 
-  /** Отключить и очистить все аддоны (используется при удалении ноды) */
+  /** Detach and clear all addons (used when removing the node) */
   public clear(): void {
     this._addons.forEach((addon) => {
       addon.detach(this._node);

@@ -155,7 +155,7 @@ export class CameraHotkeysPlugin extends Plugin {
     const stage = core.stage;
     stage.off('.cameraHotkeys');
     stage.off('.cameraHotkeysGuard');
-    // снять DOM wheel/ctxmenu
+    // Remove DOM wheel/ctxmenu listeners
     stage.container().removeEventListener('wheel', this._onWheelDOM as EventListener);
     if (this._options.enablePanning) {
       stage.container().removeEventListener('contextmenu', this._onContextMenuDOM as EventListener);

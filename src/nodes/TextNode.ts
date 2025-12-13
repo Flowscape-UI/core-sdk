@@ -335,7 +335,7 @@ export class TextNode extends BaseNode<Konva.Text> {
     if (rot) ta.style.transform = 'rotateZ(' + String(rot) + 'deg)';
 
     ta.style.height = 'auto';
-    ta.style.height = String(ta.scrollHeight + 3) + 'px';
+    // ta.style.height = String(ta.scrollHeight + 3) + 'px';
     ta.focus();
     ta.select();
 

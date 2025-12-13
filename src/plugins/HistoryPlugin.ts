@@ -1058,7 +1058,7 @@ export class HistoryPlugin extends Plugin {
 
   // ==================== Debug ====================
 
-  private _debug(method: string, data?: unknown): void {
-    globalThis.console.log(`[HistoryPlugin] ${method}`, data ?? '');
+  private _debug(_method: string, _data?: unknown): void {
+    // globalThis.console.log(`[HistoryPlugin] ${_method}`, _data ?? '');
   }
 }

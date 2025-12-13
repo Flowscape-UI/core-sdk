@@ -80,7 +80,7 @@ export class GridPlugin extends Plugin {
       const scaleY = world.scaleY();
       const stepXPx = Math.max(1, this._stepX) * Math.max(1e-6, scaleX);
       const stepYPx = Math.max(1, this._stepY) * Math.max(1e-6, scaleY);
-      // Смещение в экране считается от позиции world, как в «рабочем» проекте
+      // Screen offset is calculated from world position, as in the "working" project
       const offX = ((world.x() % stepXPx) + stepXPx) % stepXPx;
       const offY = ((world.y() % stepYPx) + stepYPx) % stepYPx;
 

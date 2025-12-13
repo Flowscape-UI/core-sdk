@@ -1,0 +1,334 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Reference/API Reference" />
+
+# 📖 API Reference
+
+Complete API documentation for Flowscape Core SDK.
+
+## CoreEngine
+
+Main engine class that manages the canvas.
+
+### Constructor
+
+```typescript
+new CoreEngine(options: CoreEngineOptions)
+```
+
+### Properties
+
+| Property   | Type             | Description        |
+| ---------- | ---------------- | ------------------ |
+| `nodes`    | `NodeManager`    | Node management    |
+| `camera`   | `CameraManager`  | Camera control     |
+| `plugins`  | `Plugins`        | Plugin management  |
+| `eventBus` | `EventBus`       | Event system       |
+| `history`  | `HistoryManager` | History management |
+
+### Methods
+
+| Method                  | Returns | Description         |
+| ----------------------- | ------- | ------------------- |
+| `getStage()`            | `Stage` | Get Konva stage     |
+| `getLayer()`            | `Layer` | Get main layer      |
+| `resize(width, height)` | `void`  | Resize canvas       |
+| `destroy()`             | `void`  | Cleanup and destroy |
+
+## NodeManager
+
+Manages all nodes on the canvas.
+
+### Methods
+
+#### addShape(options)
+
+```typescript
+addShape(options: ShapeNodeOptions): ShapeNodeHandle
+```
+
+Add a rectangle node.
+
+#### addCircle(options)
+
+```typescript
+addCircle(options: CircleNodeOptions): CircleNodeHandle
+```
+
+Add a circle node.
+
+#### addEllipse(options)
+
+```typescript
+addEllipse(options: EllipseNodeOptions): EllipseNodeHandle
+```
+
+Add an ellipse node.
+
+#### addText(options)
+
+```typescript
+addText(options: TextNodeOptions): TextNodeHandle
+```
+
+Add a text node.
+
+#### addImage(options)
+
+```typescript
+addImage(options: ImageNodeOptions): ImageNodeHandle
+```
+
+Add an image node.
+
+#### addArc(options)
+
+```typescript
+addArc(options: ArcNodeOptions): ArcNodeHandle
+```
+
+Add an arc node.
+
+#### addArrow(options)
+
+```typescript
+addArrow(options: ArrowNodeOptions): ArrowNodeHandle
+```
+
+Add an arrow node.
+
+#### addStar(options)
+
+```typescript
+addStar(options: StarNodeOptions): StarNodeHandle
+```
+
+Add a star node.
+
+#### addRing(options)
+
+```typescript
+addRing(options: RingNodeOptions): RingNodeHandle
+```
+
+Add a ring node.
+
+#### addRegularPolygon(options)
+
+```typescript
+addRegularPolygon(options: RegularPolygonNodeOptions): RegularPolygonNodeHandle
+```
+
+Add a regular polygon node.
+
+#### addGroup(options)
+
+```typescript
+addGroup(options: GroupNodeOptions): GroupNodeHandle
+```
+
+Add a group node.
+
+#### Other Methods
+
+| Method         | Returns        | Description      |
+| -------------- | -------------- | ---------------- |
+| `getAll()`     | `NodeHandle[]` | Get all nodes    |
+| `findById(id)` | `NodeHandle?`  | Find node by ID  |
+| `remove(node)` | `void`         | Remove node      |
+| `clear()`      | `void`         | Remove all nodes |
+
+## CameraManager
+
+Controls camera zoom and position.
+
+### Methods
+
+| Method              | Returns  | Description         |
+| ------------------- | -------- | ------------------- |
+| `zoomIn()`          | `void`   | Zoom in by step     |
+| `zoomOut()`         | `void`   | Zoom out by step    |
+| `setZoom(scale)`    | `void`   | Set zoom level      |
+| `getScale()`        | `number` | Get current zoom    |
+| `pan(dx, dy)`       | `void`   | Pan camera          |
+| `setPosition(x, y)` | `void`   | Set camera position |
+| `getPosition()`     | `{x, y}` | Get camera position |
+| `centerOn(node)`    | `void`   | Center on node      |
+| `reset()`           | `void`   | Reset to default    |
+
+## EventBus
+
+Event system for communication.
+
+### Methods
+
+| Method                 | Returns | Description            |
+| ---------------------- | ------- | ---------------------- |
+| `on(event, handler)`   | `void`  | Subscribe to event     |
+| `off(event, handler)`  | `void`  | Unsubscribe from event |
+| `once(event, handler)` | `void`  | Subscribe once         |
+| `emit(event, data)`    | `void`  | Emit event             |
+
+## Plugins
+
+Plugin management system.
+
+### Methods
+
+| Method              | Returns    | Description          |
+| ------------------- | ---------- | -------------------- |
+| `add(plugin)`       | `void`     | Add plugin           |
+| `remove(plugin)`    | `void`     | Remove plugin        |
+| `getAll()`          | `Plugin[]` | Get all plugins      |
+| `find(PluginClass)` | `Plugin?`  | Find plugin by class |
+
+## NodeHandle
+
+Base interface for all nodes.
+
+### Methods
+
+| Method                | Returns     | Description      |
+| --------------------- | ----------- | ---------------- |
+| `getId()`             | `string`    | Get node ID      |
+| `getName()`           | `string`    | Get node name    |
+| `setName(name)`       | `void`      | Set node name    |
+| `getPosition()`       | `{x, y}`    | Get position     |
+| `setPosition(pos)`    | `void`      | Set position     |
+| `getSize()`           | `{w, h}`    | Get size         |
+| `setSize(size)`       | `void`      | Set size         |
+| `getRotation()`       | `number`    | Get rotation     |
+| `setRotation(angle)`  | `void`      | Set rotation     |
+| `getScale()`          | `{x, y}`    | Get scale        |
+| `setScale(scale)`     | `void`      | Set scale        |
+| `getOpacity()`        | `number`    | Get opacity      |
+| `setOpacity(opacity)` | `void`      | Set opacity      |
+| `isVisible()`         | `boolean`   | Check visibility |
+| `setVisible(visible)` | `void`      | Set visibility   |
+| `getKonvaNode()`      | `KonvaNode` | Get Konva node   |
+| `destroy()`           | `void`      | Destroy node     |
+
+## Plugin
+
+Base class for creating plugins.
+
+### Methods to Override
+
+| Method           | Description                   |
+| ---------------- | ----------------------------- |
+| `onAttach(core)` | Called when plugin is added   |
+| `onDetach(core)` | Called when plugin is removed |
+
+### Example
+
+```typescript
+class CustomPlugin extends Plugin {
+  protected onAttach(core: CoreEngine): void {
+    // Initialize
+  }
+
+  protected onDetach(core: CoreEngine): void {
+    // Cleanup
+  }
+}
+```
+
+## Type Definitions
+
+### CoreEngineOptions
+
+```typescript
+interface CoreEngineOptions {
+  container: HTMLDivElement;
+  width?: number;
+  height?: number;
+  plugins?: Plugin[];
+}
+```
+
+### BaseNodeOptions
+
+```typescript
+interface BaseNodeOptions {
+  x?: number;
+  y?: number;
+  rotation?: number;
+  scaleX?: number;
+  scaleY?: number;
+  opacity?: number;
+  visible?: boolean;
+  draggable?: boolean;
+  id?: string;
+  name?: string;
+}
+```
+
+### ShapeNodeOptions
+
+```typescript
+interface ShapeNodeOptions extends BaseNodeOptions {
+  width?: number;
+  height?: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  cornerRadius?: number;
+}
+```
+
+### CircleNodeOptions
+
+```typescript
+interface CircleNodeOptions extends BaseNodeOptions {
+  radius?: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+}
+```
+
+### TextNodeOptions
+
+```typescript
+interface TextNodeOptions extends BaseNodeOptions {
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontStyle?: 'normal' | 'bold' | 'italic';
+  fill?: string;
+  align?: 'left' | 'center' | 'right';
+  padding?: number;
+}
+```
+
+## Events
+
+### Core Events
+
+```typescript
+interface CoreEvents {
+  'node:created': (node: NodeHandle) => void;
+  'node:removed': (node: NodeHandle) => void;
+  'node:selected': (node: NodeHandle) => void;
+  'node:deselected': (node: NodeHandle) => void;
+  'node:transformed': (data: TransformData) => void;
+  'node:dragstart': (node: NodeHandle) => void;
+  'node:dragend': (node: NodeHandle) => void;
+  'camera:zoom': (data: ZoomData) => void;
+  'camera:pan': (data: PanData) => void;
+  'camera:reset': () => void;
+  'selection:changed': (nodes: NodeHandle[]) => void;
+  'selection:cleared': () => void;
+  'history:undo': (action: HistoryAction) => void;
+  'history:redo': (action: HistoryAction) => void;
+}
+```
+
+## Best Practices
+
+1. **Always use TypeScript** — Full type safety
+2. **Clean up resources** — Call `destroy()` when done
+3. **Use event bus** — Decouple components
+4. **Batch operations** — Group multiple changes
+5. **Handle errors** — Graceful error handling
+6. **Document custom code** — Clear comments

@@ -8,9 +8,9 @@ export type ImageHoverFilterMode = 'sepia' | 'warm' | 'cool';
 
 export interface ImageHoverFilterAddonOptions {
   mode?: ImageHoverFilterMode;
-  /** 0..1 — сила эффекта для warm/cool */
+  /** 0..1 — effect strength for warm/cool */
   intensity?: number;
-  /** pixelRatio для кэша во время hover. По умолчанию = devicePixelRatio или 1 */
+  /** pixelRatio for cache during hover. Default = devicePixelRatio or 1 */
   pixelRatio?: number;
 }
 
@@ -89,7 +89,7 @@ export class ImageHoverFilterAddon extends NodeAddon<ImageNode> {
     state.mouseEnterHandler = () => {
       state.hadHover = true;
 
-      // Для работы фильтров Konva требуется cache
+      // Konva filters require cache to work
       image.cache({ pixelRatio: this.pixelRatio });
 
       if (this.mode === 'sepia') {
@@ -106,8 +106,8 @@ export class ImageHoverFilterAddon extends NodeAddon<ImageNode> {
         }
 
         const intensity = this.intensity;
-        const hueBase = 18; // градусов
-        const saturationBase = 0.2; // усиление насыщенности
+        const hueBase = 18; // degrees
+        const saturationBase = 0.2; // saturation boost
         const hueDelta = hueBase * intensity;
         const saturationDelta = saturationBase * intensity;
 
@@ -212,7 +212,6 @@ export class ImageHoverFilterAddon extends NodeAddon<ImageNode> {
 
     image.getLayer()?.batchDraw();
 
-    // Полностью отключаем кэш, чтобы качество картинки вернулось к исходному
     image.clearCache();
 
     this.nodes.delete(node);

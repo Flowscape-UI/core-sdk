@@ -1,6 +1,6 @@
 export * from './node-handles';
 
-// Базовые опции и события нод
+// Base node options and events
 export type { ArcNodeOptions } from '../../nodes/ArcNode';
 export type { ArrowNodeOptions } from '../../nodes/ArrowNode';
 export type { BaseNodeOptions } from '../../nodes/BaseNode';

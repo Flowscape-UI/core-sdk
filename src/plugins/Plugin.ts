@@ -2,7 +2,7 @@ import { PluginAddons } from '../addons/PluginAddons';
 import type { CoreEngine } from '../core/CoreEngine';
 
 export abstract class Plugin {
-  /** Локальные аддоны, привязанные к этому плагину */
+  /** Local addons attached to this plugin */
   public readonly addons: PluginAddons<this>;
 
   constructor() {

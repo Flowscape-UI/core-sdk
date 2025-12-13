@@ -57,7 +57,6 @@ export class RulerManagerPlugin extends Plugin {
    */
   private _handleKeyDown = (e: KeyboardEvent): void => {
     // Check Shift+R (any layout, any case)
-    // R on English and К on Russian layout
     if (e.shiftKey && (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К')) {
       e.preventDefault();
       this.toggle();

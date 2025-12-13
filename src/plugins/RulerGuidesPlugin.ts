@@ -364,7 +364,7 @@ export class RulerGuidesPlugin extends Plugin {
       line.points([0, 0, 0, stage.height()]);
     }
 
-    // Начинаем перетаскивание программно
+    // Start dragging programmatically
     this._draggingGuide = { type, line: guideLine };
 
     const moveHandler = () => {
@@ -407,7 +407,7 @@ export class RulerGuidesPlugin extends Plugin {
 
   private _setActiveGuide(guide: GuideLineWithCoord | null) {
     if (this._activeGuide && this._activeGuide !== guide) {
-      // Сбрасываем предыдущую активную направляющую
+      // Reset previous active guide
       this._activeGuide.stroke(this._options.guideColor);
       this._activeGuide.strokeWidth(1);
     }

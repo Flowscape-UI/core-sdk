@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2025-01-05
+
+### Fixed
+
+- AreaSelectionPlugin: fixed issue where a click right after lasso release immediately cleared the temporary group. Implemented one-time empty-click suppression and mouseup-driven suppression flag.
+- AreaSelectionPlugin: stabilized lasso behavior when the rectangle temporarily leaves intersected nodes (keeps last non-empty set instead of instant reset).
+
+### Changed
+
+- SelectionPlugin: honors a stage-level `_skipSelectionEmptyClickOnce` flag to avoid clearing selection after marquee.
+- Playground (stories): plugin toggles now call `core.plugins.addPlugins/removePlugins` to enable/disable plugins at runtime.
+
+### Docs
+
+- README: added “What’s new in 1.0.3” and a section about Runtime Plugin Management with examples.
+
 ## [1.0.1] - 2025-01-04
 
 ### Changed
@@ -81,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔧 Optimized Konva layer handling (reduced layer count)
 - 🔧 Improved keyboard event handling in production
 
-[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.1...v1.0.3
 [1.0.1]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Flowscape-UI/core-sdk/releases/tag/v1.0.0

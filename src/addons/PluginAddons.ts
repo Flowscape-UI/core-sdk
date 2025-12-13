@@ -4,8 +4,8 @@ import type { Plugin } from '../plugins/Plugin';
 import type { PluginAddon } from './PluginAddon';
 
 /**
- * Менеджер аддонов для конкретного плагина.
- * Позволяет добавлять/удалять аддоны удобным API:
+ * Addon manager for a specific plugin.
+ * Allows adding/removing addons with a convenient API:
  *   plugin.addons.add(addon)
  *   plugin.addons.add([a, b])
  *   plugin.addons.remove(addon)
@@ -20,7 +20,7 @@ export class PluginAddons<TPlugin extends Plugin = Plugin> {
     this._plugin = plugin;
   }
 
-  /** Внутренний хелпер: вызывается из Plugin.attach */
+  /** Internal helper: called from Plugin.attach */
   _attachAll(core: CoreEngine): void {
     this._core = core;
     this._addons.forEach((addon) => {
@@ -28,7 +28,7 @@ export class PluginAddons<TPlugin extends Plugin = Plugin> {
     });
   }
 
-  /** Внутренний хелпер: вызывается из Plugin.detach */
+  /** Internal helper: called from Plugin.detach */
   _detachAll(core: CoreEngine): void {
     this._addons.forEach((addon) => {
       addon.detach(this._plugin, core);
@@ -36,7 +36,7 @@ export class PluginAddons<TPlugin extends Plugin = Plugin> {
     this._core = undefined;
   }
 
-  /** Подключить один или несколько аддонов к плагину */
+  /** Attach one or more addons to the plugin */
   public add(addons: PluginAddon<TPlugin> | PluginAddon<TPlugin>[]): TPlugin {
     const list = Array.isArray(addons) ? addons : [addons];
     for (const addon of list) {
@@ -49,7 +49,7 @@ export class PluginAddons<TPlugin extends Plugin = Plugin> {
     return this._plugin;
   }
 
-  /** Отключить один или несколько аддонов от плагина */
+  /** Detach one or more addons from the plugin */
   public remove(addons: PluginAddon<TPlugin> | PluginAddon<TPlugin>[]): TPlugin {
     const list = Array.isArray(addons) ? addons : [addons];
     for (const addon of list) {
@@ -62,17 +62,17 @@ export class PluginAddons<TPlugin extends Plugin = Plugin> {
     return this._plugin;
   }
 
-  /** Все подключённые аддоны (копия массива) */
+  /** All attached addons (array copy) */
   public list(): PluginAddon<TPlugin>[] {
     return Array.from(this._addons);
   }
 
-  /** Проверить, подключён ли конкретный аддон */
+  /** Check if a specific addon is attached */
   public has(addon: PluginAddon<TPlugin>): boolean {
     return this._addons.has(addon);
   }
 
-  /** Отключить и очистить все аддоны (используется при удалении плагина) */
+  /** Detach and clear all addons (used when removing the plugin) */
   public clear(): void {
     if (this._core) {
       const core = this._core;

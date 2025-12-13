@@ -14,7 +14,7 @@ export interface BaseNodeOptions {
 export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements NodeHandle<T> {
   protected konvaNode: T;
   public readonly id: string;
-  /** Локальные аддоны, привязанные к этой ноде */
+  /** Local addons attached to this node */
   public readonly addons: NodeAddons<this>;
 
   constructor(node: T, options: BaseNodeOptions = {}) {
@@ -28,8 +28,8 @@ export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements Nod
   }
 
   /**
-   * Публичный доступ к низкоуровневому Konva-объекту.
-   * Используйте этот метод вместо импорта `konva` напрямую.
+   * Public access to the low-level Konva object.
+   * Use this method instead of importing `konva` directly.
    */
   public getKonvaNode(): T {
     return this.konvaNode;
@@ -45,7 +45,7 @@ export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements Nod
   }
 
   public remove() {
-    // Отключаем все аддоны перед уничтожением ноды
+    // Detach all addons before destroying the node
     this.addons.clear();
     this.konvaNode.destroy();
   }

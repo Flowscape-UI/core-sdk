@@ -1,0 +1,235 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Core Concepts/Plugins" />
+
+# 🧩 Plugins
+
+Plugins extend Flowscape SDK functionality. The SDK includes built-in plugins and supports custom development.
+
+## GridPlugin
+
+Adaptive grid with snap-to-grid functionality.
+
+```typescript
+import { GridPlugin } from '@flowscape-ui/core-sdk';
+
+const grid = new GridPlugin({
+  enabled: true,
+  color: '#e5e7eb',
+  cellSize: 20,
+  enableSnap: true,
+});
+```
+
+**Options:**
+
+- `enabled` — Grid visibility
+- `color` — Grid line color
+- `cellSize` — Cell size in pixels
+- `enableSnap` — Enable snap-to-grid
+- `snapThreshold` — Snap distance threshold
+
+## SelectionPlugin
+
+Selection, transformation, drag & drop, and grouping.
+
+```typescript
+import { SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const selection = new SelectionPlugin({
+  dragEnabled: true,
+  rotateEnabled: true,
+  keepRatio: false,
+});
+```
+
+**Features:**
+
+- Multi-selection (Shift+Click)
+- Drag & drop
+- Rotation handles
+- Resize with aspect ratio lock (Shift)
+- Grouping (Ctrl+G)
+
+## NodeHotkeysPlugin
+
+Keyboard shortcuts for node operations.
+
+```typescript
+import { NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
+
+const hotkeys = new NodeHotkeysPlugin();
+```
+
+**Shortcuts:**
+
+- `Ctrl+C` — Copy selected nodes
+- `Ctrl+X` — Cut selected nodes
+- `Ctrl+V` — Paste nodes
+- `Delete` — Delete selected nodes
+- `Ctrl+]` — Move up (z-index)
+- `Ctrl+[` — Move down (z-index)
+
+## CameraHotkeysPlugin
+
+Keyboard shortcuts for camera control.
+
+```typescript
+import { CameraHotkeysPlugin } from '@flowscape-ui/core-sdk';
+
+const camera = new CameraHotkeysPlugin({
+  zoomStep: 0.1,
+  panStep: 20,
+});
+```
+
+**Shortcuts:**
+
+- `Ctrl+Wheel` — Zoom
+- `+/=` — Zoom in
+- `-` — Zoom out
+- `Arrow Keys` — Pan camera
+- `Space+Drag` — Pan with mouse
+
+## RulerPlugin
+
+Rulers with measurement units and guide lines.
+
+```typescript
+import { RulerPlugin, RulerGuidesAddon, RulerHighlightAddon } from '@flowscape-ui/core-sdk';
+
+const ruler = new RulerPlugin();
+ruler.addons.add([new RulerGuidesAddon(), new RulerHighlightAddon()]);
+```
+
+**Features:**
+
+- Horizontal and vertical rulers
+- Draggable guide lines
+- Measurement units
+- Snap to grid
+
+## AreaSelectionPlugin
+
+Select multiple nodes with area frame.
+
+```typescript
+import { AreaSelectionPlugin } from '@flowscape-ui/core-sdk';
+
+const areaSelection = new AreaSelectionPlugin();
+```
+
+**Usage:**
+
+- `Shift+Drag` — Draw selection frame
+- All nodes within frame are selected
+
+## VisualGuidesPlugin
+
+Visual alignment guides when moving nodes.
+
+```typescript
+import { VisualGuidesPlugin } from '@flowscape-ui/core-sdk';
+
+const guides = new VisualGuidesPlugin({
+  snapThreshold: 5,
+  guideColor: '#3b82f6',
+});
+```
+
+**Features:**
+
+- Center alignment guides
+- Edge alignment guides
+- Automatic snapping
+
+## HistoryPlugin
+
+Undo/redo functionality.
+
+```typescript
+import { HistoryPlugin } from '@flowscape-ui/core-sdk';
+
+const history = new HistoryPlugin({
+  maxHistorySize: 50,
+});
+```
+
+**Shortcuts:**
+
+- `Ctrl+Z` — Undo
+- `Ctrl+Shift+Z` — Redo
+
+**Methods:**
+
+```typescript
+history.undo();
+history.redo();
+history.clear();
+const canUndo = history.canUndo();
+const canRedo = history.canRedo();
+```
+
+## LogoPlugin
+
+Watermark or logo overlay.
+
+```typescript
+import { LogoPlugin } from '@flowscape-ui/core-sdk';
+
+const logo = new LogoPlugin({
+  src: '/logo.png',
+  width: 200,
+  height: 200,
+  opacity: 0.3,
+  position: 'bottom-right',
+});
+```
+
+## Creating Custom Plugins
+
+```typescript
+import { Plugin, CoreEngine } from '@flowscape-ui/core-sdk';
+
+class CustomPlugin extends Plugin {
+  protected onAttach(core: CoreEngine): void {
+    // Initialize plugin
+    console.log('Plugin attached');
+
+    // Subscribe to events
+    core.eventBus.on('node:created', this.handleNodeCreated);
+  }
+
+  protected onDetach(core: CoreEngine): void {
+    // Cleanup
+    core.eventBus.off('node:created', this.handleNodeCreated);
+  }
+
+  private handleNodeCreated = (node: any) => {
+    console.log('Node created:', node.getId());
+  };
+}
+
+// Usage
+const custom = new CustomPlugin();
+core.plugins.addPlugins([custom]);
+
+// Later at runtime
+core.plugins.removePlugins([custom]);
+```
+
+## Plugin Lifecycle
+
+1. **Creation** — Plugin instance created
+2. **Attach** — `onAttach()` called when added to engine
+3. **Active** — Plugin is active and listening to events
+4. **Detach** — `onDetach()` called when removed
+5. **Cleanup** — Resources freed
+
+## Best Practices
+
+1. **Clean up resources** — Always unsubscribe in `onDetach()`
+2. **Use event bus** — Communicate via events
+3. **Keep plugins focused** — One responsibility per plugin
+4. **Document options** — Provide clear configuration
+5. **Handle errors** — Graceful error handling

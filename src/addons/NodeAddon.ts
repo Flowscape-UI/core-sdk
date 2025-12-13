@@ -1,9 +1,9 @@
 import type { BaseNode } from '../nodes/BaseNode';
 
 /**
- * Базовый класс аддона для конкретной ноды.
+ * Base class for a node addon.
  *
- * Использование:
+ * Usage:
  *   class MyAddon extends NodeAddon<TextNode> {
  *     protected onAttach(node: TextNode) { ... }
  *     protected onDetach(node: TextNode) { ... }
@@ -13,12 +13,12 @@ export abstract class NodeAddon<TNode extends BaseNode = BaseNode> {
   protected abstract onAttach(node: TNode): void;
   protected abstract onDetach(node: TNode): void;
 
-  /** Внутренний хелпер: вызывается менеджером аддонов ноды */
+  /** Internal helper: called by the node's addon manager */
   attach(node: TNode): void {
     this.onAttach(node);
   }
 
-  /** Внутренний хелпер: вызывается менеджером аддонов ноды */
+  /** Internal helper: called by the node's addon manager */
   detach(node: TNode): void {
     this.onDetach(node);
   }

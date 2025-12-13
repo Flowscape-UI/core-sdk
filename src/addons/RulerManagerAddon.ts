@@ -6,7 +6,7 @@ import type { RulerPlugin } from '../plugins/RulerPlugin';
 import { PluginAddon } from './PluginAddon';
 
 /**
- * Аддон для RulerPlugin, который подключает RulerManagerPlugin.
+ * Addon for RulerPlugin, set up by RulerManagerPlugin.
  */
 export class RulerManagerAddon extends PluginAddon<RulerPlugin> {
   private readonly _options: RulerManagerPluginOptions;

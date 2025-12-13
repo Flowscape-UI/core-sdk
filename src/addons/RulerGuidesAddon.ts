@@ -6,7 +6,7 @@ import type { RulerPlugin } from '../plugins/RulerPlugin';
 import { PluginAddon } from './PluginAddon';
 
 /**
- * Аддон для RulerPlugin, который подключает RulerGuidesPlugin.
+ * Addon for RulerPlugin, set up by RulerGuidesPlugin.
  */
 export class RulerGuidesAddon extends PluginAddon<RulerPlugin> {
   private readonly _options: RulerGuidesPluginOptions;
@@ -21,7 +21,7 @@ export class RulerGuidesAddon extends PluginAddon<RulerPlugin> {
   protected onAttach(_plugin: RulerPlugin, core: CoreEngine): void {
     if (this._instance) return;
 
-    // Попробуем переиспользовать уже существующий плагин, если он есть
+    // Try to reuse existing plugin if it exists
     const existing = core.plugins
       .list()
       .find((p): p is RulerGuidesPlugin => p instanceof RulerGuidesPlugin);

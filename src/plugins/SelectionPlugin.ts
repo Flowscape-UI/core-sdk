@@ -278,6 +278,13 @@ export class SelectionPlugin extends Plugin {
       if (e.evt.button !== 0) return;
 
       if (e.target === stage || e.target.getLayer() !== layer) {
+        // Suppress one-time empty click after lasso/marquee drag
+        const skipOnce = !!stage.getAttr('_skipSelectionEmptyClickOnce');
+        if (skipOnce) {
+          stage.setAttr('_skipSelectionEmptyClickOnce', false);
+          e.cancelBubble = true;
+          return;
+        }
         if (this._options.deselectOnEmptyClick) {
           this._destroyTempMulti();
           this._clearSelection();
@@ -1506,7 +1513,9 @@ export class SelectionPlugin extends Plugin {
     // - by default, the nearest registered group;
     // - if none, the nearest registered ancestor (including the target itself);
     // - HOWEVER: if there is a selected node in this same group and hover over another node from the group — highlight this node specifically.
-    const registeredArr = this._core.nodes.list().map((n) => n.getKonvaNode() as unknown as Konva.Node);
+    const registeredArr = this._core.nodes
+      .list()
+      .map((n) => n.getKonvaNode() as unknown as Konva.Node);
     const registered = new Set<Konva.Node>(registeredArr);
 
     const findNearestRegistered = (start: Konva.Node): Konva.Node | null => {

@@ -1,20 +1,20 @@
 import type { BaseNode } from '../nodes/BaseNode';
 
 /**
- * Типизированные события CoreEngine
- * Все события строго типизированы для лучшего DX
+ * Typed CoreEngine events
+ * All events are strictly typed for better DX
  */
 export interface CoreEvents {
   // === Node Events ===
-  /** Нода была создана и добавлена в мир */
+  /** Node was created and added to the world */
   'node:created': [node: BaseNode];
-  /** Нода была удалена из мира */
+  /** Node was removed from the world */
   'node:removed': [node: BaseNode];
-  /** Нода была выделена */
+  /** Node was selected */
   'node:selected': [node: BaseNode];
-  /** Выделение ноды было снято */
+  /** Node was deselected */
   'node:deselected': [node: BaseNode];
-  /** Нода была изменена (position, size, rotation, etc.) */
+  /** Node was transformed (position, size, rotation, etc.) */
   'node:transformed': [
     node: BaseNode,
     changes: {
@@ -27,52 +27,52 @@ export interface CoreEvents {
       scaleY?: number;
     },
   ];
-  /** Z-index ноды был изменён */
+  /** Node z-index was changed */
   'node:zIndexChanged': [node: BaseNode, oldIndex: number, newIndex: number];
 
   // === Group Events ===
-  /** Группа была создана */
+  /** Group was created */
   'group:created': [group: BaseNode, nodes: BaseNode[]];
-  /** Группа была разгруппирована */
+  /** Group was ungrouped */
   'group:ungrouped': [group: BaseNode, nodes: BaseNode[]];
 
   // === Selection Events ===
-  /** Множественное выделение создано */
+  /** Multi-selection was created */
   'selection:multi:created': [nodes: BaseNode[]];
-  /** Множественное выделение уничтожено */
+  /** Multi-selection was destroyed */
   'selection:multi:destroyed': [];
-  /** Выделение полностью снято */
+  /** Selection was completely cleared */
   'selection:cleared': [];
 
   // === Copy/Paste Events ===
-  /** Ноды были скопированы в буфер обмена */
+  /** Nodes were copied to clipboard */
   'clipboard:copy': [nodes: BaseNode[]];
-  /** Ноды были вырезаны в буфер обмена */
+  /** Nodes were cut to clipboard */
   'clipboard:cut': [nodes: BaseNode[]];
-  /** Ноды были вставлены из буфера обмена */
+  /** Nodes were pasted from clipboard */
   'clipboard:paste': [nodes: BaseNode[]];
 
   // === Camera Events ===
-  /** Зум был изменён программно */
+  /** Zoom was changed programmatically */
   'camera:setZoom': [{ scale: number }];
-  /** Зум был изменён пользователем (колесо мыши) */
+  /** Zoom was changed by user (mouse wheel) */
   'camera:zoom': [{ scale: number; position: { x: number; y: number } }];
-  /** Камера была сброшена */
+  /** Camera was reset */
   'camera:reset': [];
-  /** Шаг зума был изменён */
+  /** Zoom step was changed */
   'camera:zoomStep': [{ zoomStep: number }];
-  /** Шаг панорамирования был изменён */
+  /** Pan step was changed */
   'camera:panStep': [{ panStep: number }];
-  /** Камера была перемещена (панорамирование) */
+  /** Camera was moved (panning) */
   'camera:pan': [{ dx: number; dy: number; position: { x: number; y: number } }];
 
   // === Plugin Events ===
-  /** Плагин был добавлен */
+  /** Plugin was added */
   'plugin:added': [pluginName: string];
-  /** Плагин был удалён */
+  /** Plugin was removed */
   'plugin:removed': [pluginName: string];
 
   // === Stage Events ===
-  /** Stage был изменён (resize) */
+  /** Stage was resized */
   'stage:resized': [{ width: number; height: number }];
 }

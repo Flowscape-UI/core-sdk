@@ -25,7 +25,7 @@ export class GroupNode extends BaseNode<Konva.Group> {
     const raw: Konva.Node = (child as BaseNode).getKonvaNode
       ? ((child as BaseNode).getKonvaNode() as unknown as Konva.Node)
       : (child as Konva.Node);
-    // Group.add ожидает Group | Shape, приведём тип к совместимому юниону
+    // Group.add expects Group | Shape, cast to compatible union
     this.konvaNode.add(raw as unknown as Konva.Group | Konva.Shape);
     this.konvaNode.getLayer()?.batchDraw();
     return this;

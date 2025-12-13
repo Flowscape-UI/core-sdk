@@ -1,0 +1,302 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Core Concepts/Events" />
+
+# 📡 Events
+
+Flowscape SDK uses an event-driven architecture. The EventBus allows components to communicate without tight coupling.
+
+## Event Bus
+
+Access the event bus through the core engine:
+
+```typescript
+const core = new CoreEngine({ container: element });
+
+// Subscribe to events
+core.eventBus.on('node:created', (node) => {
+  console.log('Node created:', node);
+});
+
+// Emit events
+core.eventBus.emit('custom:event', { data: 'value' });
+
+// Unsubscribe
+core.eventBus.off('node:created', handler);
+```
+
+## Node Events
+
+### node:created
+
+Fired when a new node is created.
+
+```typescript
+core.eventBus.on('node:created', (node) => {
+  console.log('New node:', node.getId());
+});
+```
+
+### node:removed
+
+Fired when a node is removed.
+
+```typescript
+core.eventBus.on('node:removed', (node) => {
+  console.log('Node removed:', node.getId());
+});
+```
+
+### node:selected
+
+Fired when a node is selected.
+
+```typescript
+core.eventBus.on('node:selected', (node) => {
+  console.log('Selected:', node.getId());
+});
+```
+
+### node:deselected
+
+Fired when a node is deselected.
+
+```typescript
+core.eventBus.on('node:deselected', (node) => {
+  console.log('Deselected:', node.getId());
+});
+```
+
+### node:transformed
+
+Fired when a node is moved, rotated, or scaled.
+
+```typescript
+core.eventBus.on('node:transformed', ({ node, transform }) => {
+  console.log('Transform:', transform);
+});
+```
+
+### node:dragstart
+
+Fired when node drag starts.
+
+```typescript
+core.eventBus.on('node:dragstart', (node) => {
+  console.log('Drag started');
+});
+```
+
+### node:dragend
+
+Fired when node drag ends.
+
+```typescript
+core.eventBus.on('node:dragend', (node) => {
+  console.log('Drag ended');
+});
+```
+
+## Camera Events
+
+### camera:zoom
+
+Fired when camera zoom changes.
+
+```typescript
+core.eventBus.on('camera:zoom', ({ scale, oldScale }) => {
+  console.log(`Zoom: ${oldScale} → ${scale}`);
+});
+```
+
+### camera:pan
+
+Fired when camera position changes.
+
+```typescript
+core.eventBus.on('camera:pan', ({ x, y }) => {
+  console.log(`Pan to: ${x}, ${y}`);
+});
+```
+
+### camera:reset
+
+Fired when camera is reset to default.
+
+```typescript
+core.eventBus.on('camera:reset', () => {
+  console.log('Camera reset');
+});
+```
+
+## Selection Events
+
+### selection:changed
+
+Fired when selection changes.
+
+```typescript
+core.eventBus.on('selection:changed', (nodes) => {
+  console.log(`Selected ${nodes.length} nodes`);
+});
+```
+
+### selection:cleared
+
+Fired when selection is cleared.
+
+```typescript
+core.eventBus.on('selection:cleared', () => {
+  console.log('Selection cleared');
+});
+```
+
+## History Events
+
+### history:undo
+
+Fired when undo is performed.
+
+```typescript
+core.eventBus.on('history:undo', (action) => {
+  console.log('Undo:', action);
+});
+```
+
+### history:redo
+
+Fired when redo is performed.
+
+```typescript
+core.eventBus.on('history:redo', (action) => {
+  console.log('Redo:', action);
+});
+```
+
+## Custom Events
+
+Emit and listen to custom events:
+
+```typescript
+// Emit custom event
+core.eventBus.emit('app:save', {
+  timestamp: Date.now(),
+  nodes: core.nodes.getAll(),
+});
+
+// Listen to custom event
+core.eventBus.on('app:save', (data) => {
+  console.log('Saving:', data);
+});
+```
+
+## Event Patterns
+
+### One-time Subscription
+
+```typescript
+core.eventBus.once('node:created', (node) => {
+  console.log('First node created');
+});
+```
+
+### Conditional Handling
+
+```typescript
+core.eventBus.on('node:created', (node) => {
+  if (node.getName() === 'important') {
+    console.log('Important node created');
+  }
+});
+```
+
+### Event Chaining
+
+```typescript
+core.eventBus.on('node:created', (node) => {
+  // Trigger another event
+  core.eventBus.emit('app:nodeAdded', {
+    id: node.getId(),
+    type: node.getType(),
+  });
+});
+```
+
+### Cleanup Pattern
+
+```typescript
+class MyComponent {
+  private handlers = new Map();
+
+  init(core: CoreEngine) {
+    const handler = (node) => console.log(node);
+    this.handlers.set('node:created', handler);
+    core.eventBus.on('node:created', handler);
+  }
+
+  destroy(core: CoreEngine) {
+    this.handlers.forEach((handler, event) => {
+      core.eventBus.off(event, handler);
+    });
+    this.handlers.clear();
+  }
+}
+```
+
+## Best Practices
+
+1. **Always unsubscribe** — Prevent memory leaks
+2. **Use once() for one-time events** — Automatic cleanup
+3. **Keep handlers simple** — Delegate complex logic
+4. **Avoid infinite loops** — Don't emit events in handlers for same event
+5. **Use TypeScript** — Type-safe event handling
+6. **Document custom events** — Clear event contracts
+
+## Example: Complete Event Handling
+
+```typescript
+class CanvasManager {
+  private core: CoreEngine;
+  private nodeCount = 0;
+
+  constructor(container: HTMLDivElement) {
+    this.core = new CoreEngine({ container });
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners() {
+    // Track node count
+    this.core.eventBus.on('node:created', () => {
+      this.nodeCount++;
+      this.updateUI();
+    });
+
+    this.core.eventBus.on('node:removed', () => {
+      this.nodeCount--;
+      this.updateUI();
+    });
+
+    // Log selection changes
+    this.core.eventBus.on('selection:changed', (nodes) => {
+      console.log(`Selected: ${nodes.length} nodes`);
+    });
+
+    // Auto-save on changes
+    this.core.eventBus.on('node:transformed', () => {
+      this.autoSave();
+    });
+  }
+
+  private updateUI() {
+    console.log(`Total nodes: ${this.nodeCount}`);
+  }
+
+  private autoSave() {
+    // Implement auto-save logic
+  }
+
+  destroy() {
+    this.core.destroy();
+  }
+}
+```

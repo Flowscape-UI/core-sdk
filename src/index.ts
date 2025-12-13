@@ -1,6 +1,6 @@
 /**
- * Публичный API Flowscape Core SDK.
- * Всё, что экспортируется отсюда, считается стабильной частью SDK.
+ * Public API of Flowscape Core SDK.
+ * Everything exported from here is considered a stable part of the SDK.
  */
 
 // Core
@@ -56,7 +56,7 @@ export { TextAutoTrimAddon } from './addons/TextAutoTrimAddon';
 export { DebounceHelper } from './utils/DebounceHelper';
 export { ThrottleHelper } from './utils/ThrottleHelper';
 
-// Публичные типы (handle-интерфейсы и опции нод)
+// Public types (handle interfaces and node options)
 export type {
   ArcNodeHandle,
   ArrowNodeHandle,
@@ -86,10 +86,10 @@ export type { ShapeNodeOptions } from './nodes/ShapeNode';
 export type { StarNodeOptions } from './nodes/StarNode';
 export type { TextNodeOptions } from './nodes/TextNode';
 
-// Типы событий
+// Event types
 export type { CoreEvents } from './types/core.events.interface';
 
-// Типы Konva (для работы с getKonvaNode())
+// Konva types (for working with getKonvaNode())
 export type {
   Konva,
   KonvaArc,

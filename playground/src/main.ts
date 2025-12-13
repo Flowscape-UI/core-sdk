@@ -77,8 +77,6 @@ rulerPlugin.addons.add([
   }),
 ]);
 
-console.log(rulerPlugin.addons.list(), 'list?');
-
 const areaSelection = new AreaSelectionPlugin();
 
 const historyPlugin = new HistoryPlugin();
@@ -220,22 +218,15 @@ core.nodes.addCircle({
   strokeWidth: 3,
 });
 
-const rect = core.nodes
-  .addShape({
-    x: 500,
-    y: 250,
-    width: 200,
-    height: 150,
-    fill: 'skyblue',
-    stroke: 'red',
-    strokeWidth: 14,
-  })
-  .addons.add(
-    new ShapeHoverHighlightAddon({
-      mode: 'fill',
-      fill: 'green',
-    }),
-  );
+const rect = core.nodes.addShape({
+  x: 500,
+  y: 250,
+  width: 200,
+  height: 150,
+  fill: 'skyblue',
+  stroke: 'red',
+  strokeWidth: 14,
+});
 
 core.nodes.addArc({
   x: 600,
@@ -291,6 +282,13 @@ const rect2 = core.nodes.addShape({
   // stroke: 'red',
 });
 
+rect.addons.add(
+  new ShapeHoverHighlightAddon({
+    mode: 'fill',
+    fill: 'green',
+  }),
+);
+
 rect.setPosition({ x: 900, y: 500 });
 
 rect2.setPosition({ x: 1500, y: 550 });
@@ -322,8 +320,6 @@ const polygon = core.nodes.addRegularPolygon({
   stroke: '#1a7f1a',
   strokeWidth: 2,
 });
-
-console.log(polygon.getKonvaNode());
 
 group.addChild(gCircle.getKonvaNode());
 group.addChild(polygon.getKonvaNode());
