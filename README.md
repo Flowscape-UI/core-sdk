@@ -9,12 +9,28 @@
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 
 [![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
-[![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+[![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
 [![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
 
 </div>
 
 ---
+
+## 📖 Documentation
+
+Full interactive documentation is available at [flowscape-ui.github.io/core-sdk](https://flowscape-ui.github.io/core-sdk/)
+
+### What's New in 1.0.3
+
+- ✨ **History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
+- 📏 **Alignment Guides** — Smart guides appear during movement and resizing
+- ✏️ **Inline Text Editing** — Double-click text nodes to edit directly
+- 🔧 **Addons API** — Attach custom functionality to any component
+- 📐 **Canvas Auto-Resize** — Automatically adjusts to window size changes
+- ⚡ **Performance** — Optimized to handle 1000+ nodes smoothly
+- 🎨 **New Layer Shortcuts** — Ctrl+Shift+[ / ] for send to back/bring to front
+- 📦 **Full TypeScript** — Complete type coverage across all components
+- 🎮 **Storybook Demo** — Interactive playground to test all features
 
 ## ✨ Features
 
@@ -342,22 +358,6 @@ bun run lint          # ESLint
 bun run lint:ts       # TypeScript check
 bun run lint:fix      # Auto-fix
 ```
-
-## 📖 Documentation
-
-Full interactive documentation is available at [flowscape-ui.github.io/core-sdk](https://flowscape-ui.github.io/core-sdk/)
-
-### What's New in 1.0.3
-
-- ✨ **History System** — Full undo/redo support (Ctrl+Z / Ctrl+Shift+Z)
-- 📏 **Alignment Guides** — Smart guides appear during movement and resizing
-- ✏️ **Inline Text Editing** — Double-click text nodes to edit directly
-- 🔧 **Addons API** — Attach custom functionality to any component
-- 📐 **Canvas Auto-Resize** — Automatically adjusts to window size changes
-- ⚡ **Performance** — Optimized to handle 1000+ nodes smoothly
-- 🎨 **New Layer Shortcuts** — Ctrl+Shift+[ / ] for send to back/bring to front
-- 📦 **Full TypeScript** — Complete type coverage across all components
-- 🎮 **Storybook Demo** — Interactive playground to test all features
 
 ## 📄 License
 
