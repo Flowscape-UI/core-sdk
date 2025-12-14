@@ -656,12 +656,14 @@ export class SelectionPlugin extends Plugin {
     if (!this._options.selectablePredicate(target)) return;
 
     // Basic search (usually group)
-    let baseNode = this._findBaseNodeByTarget(target);
-    if (!baseNode) return;
+    const foundBaseNode = this._findBaseNodeByTarget(target);
+    if (!foundBaseNode) return;
+    let baseNode = foundBaseNode;
 
     // If there's selection and click came inside already selected node — drag it
-    if (this._selected) {
-      const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
+    const selected = this._selected;
+    if (selected) {
+      const selKonva = selected.getKonvaNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
         let cur: Konva.Node | null = b;
         while (cur) {
@@ -671,7 +673,7 @@ export class SelectionPlugin extends Plugin {
         return false;
       };
       if (isAncestor(selKonva, target)) {
-        baseNode = this._selected;
+        baseNode = selected;
       }
       // Otherwise — remains group (baseNode found above)
     }
@@ -1089,6 +1091,7 @@ export class SelectionPlugin extends Plugin {
     const layer = this._core.nodes.layer;
 
     // Fill set for correct size check on commit (important for lasso)
+    // IMPORTANT: do not lose the set when we need to recreate overlay due to composition change
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
 
@@ -1102,7 +1105,10 @@ export class SelectionPlugin extends Plugin {
         konvaNodes.every((n) => this._tempMultiNodes.includes(n));
       if (same) return; // No change in composition
       // Composition changed — destroy and recreate
-      this._destroyTempMulti();
+      this._destroyTempMultiOverlayOnly();
+      // Restore set because overlay-only destroy should not affect it, but keep it safe
+      this._tempMultiSet.clear();
+      for (const b of nodes) this._tempMultiSet.add(b);
     }
 
     // Compute union bounding box in world-local coordinates
@@ -1253,6 +1259,27 @@ export class SelectionPlugin extends Plugin {
 
     // Event: temporary multi-selection created
     this._core.eventBus.emit('selection:multi:created', nodes);
+  }
+
+  private _destroyTempMultiOverlayOnly() {
+    if (!this._core) return;
+    if (!this._tempMultiGroup) return;
+
+    if (this._tempOverlay) {
+      this._tempOverlay.detach();
+      this._tempOverlay = null;
+    }
+
+    this._tempMultiGroup.off('.tempMulti');
+    this._tempMultiGroup.destroy();
+    this._tempMultiGroup = null;
+
+    this._tempMultiNodes = [];
+    this._tempMultiInitialTransforms.clear();
+
+    this._core.nodes.layer.batchDraw();
+
+    this._core.eventBus.emit('selection:multi:destroyed');
   }
 
   private _destroyTempMulti() {
