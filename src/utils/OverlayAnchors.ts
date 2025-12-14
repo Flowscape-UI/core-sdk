@@ -31,6 +31,27 @@ export function getLocalRectForNode(node: Konva.Node): LocalRect {
     };
   }
 
+  if (
+    node instanceof Konva.Shape &&
+    typeof (
+      node as unknown as {
+        getSelfRect?: () => { x: number; y: number; width: number; height: number };
+      }
+    ).getSelfRect === 'function'
+  ) {
+    const selfRect = (
+      node as unknown as {
+        getSelfRect: () => { x: number; y: number; width: number; height: number };
+      }
+    ).getSelfRect();
+    return {
+      x: selfRect.x,
+      y: selfRect.y,
+      width: selfRect.width,
+      height: selfRect.height,
+    };
+  }
+
   return {
     x: 0,
     y: 0,
