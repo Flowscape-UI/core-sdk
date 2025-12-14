@@ -35,6 +35,12 @@ export class AreaSelectionPlugin extends Plugin {
   private _skipNextClick = false;
   private _lastPickedBaseNodes: BaseNode[] = [];
 
+  // Auto-pan world when lasso selecting near screen edges
+  private _autoPanRafId: number | null = null;
+  private _autoPanActive = false;
+  private _autoPanEdgePx = 50; // edge zone width (px)
+  private _autoPanMaxSpeedPx = 20; // max auto-pan speed in px/frame
+
   private _options: Required<AreaSelectionPluginOptions>;
 
   constructor(options: AreaSelectionPluginOptions = {}) {
@@ -110,25 +116,15 @@ export class AreaSelectionPlugin extends Plugin {
       this._rect.size({ width: 0, height: 0 });
       this._layer?.batchDraw();
       this._lastPickedBaseNodes = [];
+      // Start auto-pan during lasso selection
+      this._startAutoPanLoop();
     });
 
     stage.on('mousemove.area', () => {
       if (!this._selecting || !this._rect || !this._start) return;
 
-      // Check if we are over rulers (RulerPlugin)
       const p = stage.getPointerPosition();
       if (!p) return;
-
-      const rulerThickness = 30;
-      const overRuler = p.y <= rulerThickness || p.x <= rulerThickness;
-
-      // If we are over rulers (RulerPlugin), disable marquee selection
-      if (overRuler) {
-        this._selecting = false;
-        this._rect.visible(false);
-        this._layer?.batchDraw();
-        return;
-      }
 
       const x = Math.min(this._start.x, p.x);
       const y = Math.min(this._start.y, p.y);
@@ -176,6 +172,8 @@ export class AreaSelectionPlugin extends Plugin {
         dragged = size.width > 2 || size.height > 2;
       }
       this._finalizeArea();
+      // Stop auto-pan
+      this._stopAutoPanLoop();
       if (dragged) {
         this._skipNextClick = true;
         this._core?.stage.setAttr('_skipSelectionEmptyClickOnce', true);
@@ -223,6 +221,9 @@ export class AreaSelectionPlugin extends Plugin {
     // Remove subscriptions
     core.stage.off('.area');
 
+    // Stop auto-pan if active
+    this._stopAutoPanLoop();
+
     // Clear current state
     this._clearSelection();
 
@@ -230,6 +231,63 @@ export class AreaSelectionPlugin extends Plugin {
     if (this._layer) this._layer.destroy();
     this._layer = null;
     this._rect = null;
+  }
+
+  // =================== Auto-pan logic ===================
+  private _startAutoPanLoop() {
+    if (!this._core) return;
+    if (this._autoPanRafId != null) return;
+    this._autoPanActive = true;
+    const world = this._core.nodes.world;
+    const stage = this._core.stage;
+    const tick = () => {
+      this._autoPanRafId = null;
+      if (!this._core || !this._autoPanActive) return;
+      const ptr = stage.getPointerPosition();
+      if (ptr) {
+        const w = stage.width();
+        const h = stage.height();
+        const edge = this._autoPanEdgePx;
+        let vx = 0;
+        let vy = 0;
+        const leftPress = Math.max(0, edge - ptr.x);
+        const rightPress = Math.max(0, ptr.x - (w - edge));
+        const topPress = Math.max(0, edge - ptr.y);
+        const bottomPress = Math.max(0, ptr.y - (h - edge));
+        const norm = (p: number) => Math.min(1, p / edge);
+        vx = this._autoPanMaxSpeedPx * (norm(rightPress) - norm(leftPress));
+        vy = this._autoPanMaxSpeedPx * (norm(bottomPress) - norm(topPress));
+        if (vx !== 0 || vy !== 0) {
+          // Shift world to "pull" field under cursor (in screen pixels)
+          world.x(world.x() - vx);
+          world.y(world.y() - vy);
+          // Update lasso rectangle position to compensate for world movement
+          if (this._rect && this._start) {
+            const p = stage.getPointerPosition();
+            if (p) {
+              const x = Math.min(this._start.x, p.x);
+              const y = Math.min(this._start.y, p.y);
+              const width = Math.abs(p.x - this._start.x);
+              const height = Math.abs(p.y - this._start.y);
+              this._rect.position({ x, y });
+              this._rect.size({ width, height });
+            }
+          }
+          this._layer?.batchDraw();
+          this._core.nodes.layer.batchDraw();
+        }
+      }
+      this._autoPanRafId = globalThis.requestAnimationFrame(tick);
+    };
+    this._autoPanRafId = globalThis.requestAnimationFrame(tick);
+  }
+
+  private _stopAutoPanLoop() {
+    this._autoPanActive = false;
+    if (this._autoPanRafId != null) {
+      globalThis.cancelAnimationFrame(this._autoPanRafId);
+      this._autoPanRafId = null;
+    }
   }
 
   // =================== Internal logic ===================
