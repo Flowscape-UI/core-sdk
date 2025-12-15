@@ -16,8 +16,9 @@ import {
   TextAutoTrimAddon,
   VisualGuidesPlugin,
 } from '@flowscape-ui/core-sdk';
-import Image from './images/img.jpg';
-import logoUrl from './images/logo.png';
+import TestSvg from './assets/images/cursor-rotation.svg';
+import Image from './assets/images/img.jpg';
+import logoUrl from './assets/images/logo.png';
 
 const logoPlugin = new LogoPlugin({
   src: logoUrl,
@@ -110,6 +111,69 @@ const onNodeRemoved = (node: unknown) => {
 };
 
 core.eventBus.once('node:removed', onNodeRemoved);
+
+const svgNode = core.nodes.addSvg({
+  x: 450,
+  y: 500,
+  width: 200,
+  height: 200,
+  src: 'https://konvajs.org/assets/tiger.svg',
+  onLoad: (node) => {
+    console.log('SVG загружен!', node);
+  },
+  onError: (error) => {
+    console.error('Ошибка загрузки SVG:', error);
+  },
+});
+
+setTimeout(() => {
+  svgNode.setSrc(TestSvg);
+}, 5000);
+
+const videoNode = core.nodes.addVideo({
+  x: 1500,
+  y: 200,
+  width: 640,
+  height: 360,
+  src: 'https://archive.org/download/apple-september-2017-key-note-at-the-steve-jobs-theater-full-1080p-720p-30fps-h-264-128kbit-aac/Apple%20September%2C%202017%20Key%20Note%20at%20the%20Steve%20Jobs%20Theater%20Full%2C%201080p%20%28720p_30fps_H264-128kbit_AAC%29.mp4',
+  autoplay: true,
+  loop: true,
+  muted: false,
+  onLoadedMetadata: (node, videoElement) => {
+    console.log('Видео загружено');
+    console.log('Длительность:', videoElement.duration);
+  },
+  onPlay: (node) => {
+    console.log('Воспроизведение началось');
+  },
+  onPause: (node) => {
+    console.log('Воспроизведение приостановлено');
+  },
+  onEnded: (node) => {
+    console.log('Видео завершено');
+  },
+});
+
+videoNode.setLoop(true);
+videoNode.setCurrentTime(3000);
+
+core.nodes.addGif({
+  x: 750,
+  y: -150,
+  width: 200,
+  height: 200,
+  src: 'https://konvajs.org/assets/yoda.gif',
+  autoplay: true,
+  onLoad: (node) => {
+    console.log('GIF загружен!', node);
+  },
+  onError: (error) => {
+    console.error('Ошибка загрузки GIF:', error);
+  },
+  // onFrame: (node, frameIndex) => {
+  //   console.log('Кадр:', frameIndex);
+  // },
+});
 
 core.nodes
   .addText({

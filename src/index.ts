@@ -62,6 +62,7 @@ export type {
   ArrowNodeHandle,
   CircleNodeHandle,
   EllipseNodeHandle,
+  GifNodeHandle,
   GroupNodeHandle,
   ImageNodeHandle,
   NodeAddonsHandle,
@@ -70,7 +71,9 @@ export type {
   RingNodeHandle,
   ShapeNodeHandle,
   StarNodeHandle,
+  SvgNodeHandle,
   TextNodeHandle,
+  VideoNodeHandle,
 } from './types/public/node-handles';
 
 export type { ArcNodeOptions } from './nodes/ArcNode';
@@ -78,13 +81,16 @@ export type { ArrowNodeOptions } from './nodes/ArrowNode';
 export type { BaseNodeOptions } from './nodes/BaseNode';
 export type { CircleNodeOptions } from './nodes/CircleNode';
 export type { EllipseNodeOptions } from './nodes/EllipseNode';
+export type { GifNodeOptions } from './nodes/GifNode';
 export type { GroupNodeOptions } from './nodes/GroupNode';
 export type { ImageNodeOptions, ImageSource } from './nodes/ImageNode';
 export type { RegularPolygonNodeOptions } from './nodes/RegularPolygonNode';
 export type { RingNodeOptions } from './nodes/RingNode';
 export type { ShapeNodeOptions } from './nodes/ShapeNode';
 export type { StarNodeOptions } from './nodes/StarNode';
+export type { SvgNodeOptions } from './nodes/SvgNode';
 export type { TextNodeOptions } from './nodes/TextNode';
+export type { VideoNodeOptions } from './nodes/VideoNode';
 
 // Event types
 export type { CoreEvents } from './types/core.events.interface';

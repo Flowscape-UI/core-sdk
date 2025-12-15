@@ -5,26 +5,32 @@ import { ArrowNode, type ArrowNodeOptions } from '../nodes/ArrowNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { CircleNode, type CircleNodeOptions } from '../nodes/CircleNode';
 import { EllipseNode, type EllipseNodeOptions } from '../nodes/EllipseNode';
+import { GifNode, type GifNodeOptions } from '../nodes/GifNode';
 import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
 import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
 import { RegularPolygonNode, type RegularPolygonNodeOptions } from '../nodes/RegularPolygonNode';
 import { RingNode, type RingNodeOptions } from '../nodes/RingNode';
 import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
 import { StarNode, type StarNodeOptions } from '../nodes/StarNode';
+import { SvgNode, type SvgNodeOptions } from '../nodes/SvgNode';
 import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
+import { VideoNode, type VideoNodeOptions } from '../nodes/VideoNode';
 import type { CoreEvents } from '../types/core.events.interface';
 import type {
   ArcNodeHandle,
   ArrowNodeHandle,
   CircleNodeHandle,
   EllipseNodeHandle,
+  GifNodeHandle,
   GroupNodeHandle,
   ImageNodeHandle,
   RegularPolygonNodeHandle,
   RingNodeHandle,
   ShapeNodeHandle,
   StarNodeHandle,
+  SvgNodeHandle,
   TextNodeHandle,
+  VideoNodeHandle,
 } from '../types/public/node-handles';
 import { EventBus } from '../utils/EventBus';
 
@@ -172,6 +178,36 @@ export class NodeManager {
     this._eventBus.emit('node:created', group);
     this._scheduleBatchDraw();
     return group;
+  }
+
+  public addSvg(options: SvgNodeOptions): SvgNodeHandle {
+    const svg = new SvgNode(options);
+    this._world.add(svg.getKonvaNode());
+    this._nodes.set(svg.id, svg);
+    this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', svg);
+    this._scheduleBatchDraw();
+    return svg;
+  }
+
+  public addVideo(options: VideoNodeOptions): VideoNodeHandle {
+    const video = new VideoNode(options);
+    this._world.add(video.getKonvaNode());
+    this._nodes.set(video.id, video);
+    this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', video);
+    this._scheduleBatchDraw();
+    return video;
+  }
+
+  public addGif(options: GifNodeOptions): GifNodeHandle {
+    const gif = new GifNode(options);
+    this._world.add(gif.getKonvaNode());
+    this._nodes.set(gif.id, gif);
+    this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', gif);
+    this._scheduleBatchDraw();
+    return gif;
   }
 
   public remove(node: BaseNode) {
