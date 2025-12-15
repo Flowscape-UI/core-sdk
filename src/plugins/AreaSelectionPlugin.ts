@@ -261,6 +261,11 @@ export class AreaSelectionPlugin extends Plugin {
           // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
+          // Expand lasso anchor to reflect additional area revealed by auto-pan
+          if (this._start) {
+            this._start.x -= vx;
+            this._start.y -= vy;
+          }
           // Update lasso rectangle position to compensate for world movement
           if (this._rect && this._start) {
             const p = stage.getPointerPosition();
