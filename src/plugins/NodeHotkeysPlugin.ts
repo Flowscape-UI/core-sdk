@@ -13,7 +13,7 @@ export interface NodeHotkeysOptions {
   ignoreEditableTargets?: boolean;
 }
 
-interface ClipboardData {
+export interface ClipboardData {
   nodes: {
     type: string;
     config: Record<string, unknown>;
@@ -23,6 +23,8 @@ interface ClipboardData {
   // Visual center in world coordinates at the time of copying (takes into account offset/rotation/scale)
   center?: { x: number; y: number };
 }
+
+const FLOWSCAPE_CLIPBOARD_PREFIX = 'flowscape:nodes:';
 
 export class NodeHotkeysPlugin extends Plugin {
   private _core?: CoreEngine;
@@ -43,16 +45,55 @@ export class NodeHotkeysPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
 
-    // Subscribe to keydown
+    // Subscribe to keydown and paste
     this._options.target.addEventListener('keydown', this._onKeyDown as EventListener);
+    this._options.target.addEventListener('paste', this._onPaste as EventListener);
   }
 
   protected onDetach(_core: CoreEngine): void {
     this._options.target.removeEventListener('keydown', this._onKeyDown as EventListener);
+    this._options.target.removeEventListener('paste', this._onPaste as EventListener);
     this._core = undefined as unknown as CoreEngine;
     this._selectionPlugin = undefined as unknown as SelectionPlugin;
     this._clipboard = null;
   }
+
+  private _onPaste = (e: ClipboardEvent) => {
+    if (!this._core) return;
+
+    if (this._options.ignoreEditableTargets && this._isEditableTarget(e.target)) {
+      return;
+    }
+
+    const dt = e.clipboardData;
+    const text = dt?.getData('text/plain') ?? '';
+    if (!text.startsWith(FLOWSCAPE_CLIPBOARD_PREFIX)) {
+      return;
+    }
+
+    const raw = text.slice(FLOWSCAPE_CLIPBOARD_PREFIX.length);
+    let data: ClipboardData | null = null;
+    try {
+      data = JSON.parse(raw) as ClipboardData;
+    } catch {
+      data = null;
+    }
+
+    if (!data || !Array.isArray(data.nodes) || data.nodes.length === 0) {
+      return;
+    }
+
+    // Check if we have internal clipboard data
+    // If yes - handle it and prevent external clipboard handling
+    // If no - let ContentFromClipboardPlugin handle external clipboard
+    if (data.nodes.length > 0) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      this._clipboard = data;
+      this._handlePaste();
+      return;
+    }
+  };
 
   private _onKeyDown = (e: KeyboardEvent) => {
     if (!this._core) return;
@@ -103,8 +144,6 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Ctrl+V - Paste
     if (ctrl && e.code === 'KeyV') {
-      e.preventDefault();
-      this._handlePaste();
       return;
     }
 
@@ -160,6 +199,14 @@ export class NodeHotkeysPlugin extends Plugin {
     const center = this._computeSelectionWorldCenter(selected);
     this._clipboard = { nodes, center };
 
+    try {
+      void globalThis.navigator.clipboard.writeText(
+        `${FLOWSCAPE_CLIPBOARD_PREFIX}${JSON.stringify(this._clipboard)}`,
+      );
+    } catch {
+      // ignore
+    }
+
     // Copied successfully
     if (this._core) {
       this._core.eventBus.emit('clipboard:copy', selected);
@@ -173,6 +220,14 @@ export class NodeHotkeysPlugin extends Plugin {
     const nodes = selected.map((node) => this._serializeNode(node));
     const center = this._computeSelectionWorldCenter(selected);
     this._clipboard = { nodes, center };
+
+    try {
+      void globalThis.navigator.clipboard.writeText(
+        `${FLOWSCAPE_CLIPBOARD_PREFIX}${JSON.stringify(this._clipboard)}`,
+      );
+    } catch {
+      // ignore
+    }
 
     // Delete nodes
     this._deleteNodes(selected);
@@ -308,12 +363,13 @@ export class NodeHotkeysPlugin extends Plugin {
       pos = { x: wpt.x, y: wpt.y };
     }
 
+    // Remove non-serializable attributes (image, video objects, etc.)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, image, video, ...serializableAttrs } = attrs;
+
     const serialized: ClipboardData['nodes'][0] = {
       type: nodeType,
-      config: {
-        ...attrs,
-        id: undefined,
-      },
+      config: serializableAttrs,
       position: pos,
     };
 
@@ -349,14 +405,23 @@ export class NodeHotkeysPlugin extends Plugin {
     // Define type of className Konva (Rect -> shape, Circle -> circle, etc.)
     let nodeType = className.toLowerCase();
     if (nodeType === 'rect') nodeType = 'shape';
+    if (className === 'Image') {
+      const imageAttrs = kn.getAttrs() as Record<string, unknown>;
+      const flowscapeType = imageAttrs['flowscapeNodeType'];
+      if (flowscapeType === 'svg') nodeType = 'svg';
+      else if (flowscapeType === 'gif') nodeType = 'gif';
+      else if (flowscapeType === 'video') nodeType = 'video';
+      else nodeType = 'image';
+    }
+
+    // Remove non-serializable attributes (image, video objects, etc.)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { id, image, video, ...serializableAttrs } = attrs;
 
     // For group children, save RELATIVE positions (x, y inside group)
     const serialized: ClipboardData['nodes'][0] = {
       type: nodeType,
-      config: {
-        ...attrs,
-        id: undefined,
-      },
+      config: serializableAttrs,
       position: { x: kn.x(), y: kn.y() }, // Relative coordinates inside group
     };
 
@@ -383,13 +448,20 @@ export class NodeHotkeysPlugin extends Plugin {
   // Get node type from Konva className (robust against minification)
   private _getNodeTypeFromKonva(kn: Konva.Node): string {
     const className = kn.getClassName();
+    if (className === 'Image') {
+      const attrs = kn.getAttrs() as Record<string, unknown>;
+      const nodeType = attrs['flowscapeNodeType'];
+      if (nodeType === 'svg') return 'svg';
+      if (nodeType === 'gif') return 'gif';
+      if (nodeType === 'video') return 'video';
+      return 'image';
+    }
     // Map Konva class names to our internal types
     const typeMap: Record<string, string> = {
       Rect: 'shape',
       Circle: 'circle',
       Ellipse: 'ellipse',
       Text: 'text',
-      Image: 'image',
       Group: 'group',
       Arc: 'arc',
       Star: 'star',
@@ -411,8 +483,14 @@ export class NodeHotkeysPlugin extends Plugin {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { zIndex, ...configWithoutZIndex } = data.config;
 
+    // Map serialized Konva attrs -> Node options
+    // Placeholder is stored in attrs for copy/paste, but node constructors expect it in `placeholder`
+    const placeholder = configWithoutZIndex['placeholder'] as Record<string, unknown> | undefined;
+    const { placeholder: _placeholderAttr, ...configSansPlaceholder } = configWithoutZIndex;
+
     const config = {
-      ...configWithoutZIndex,
+      ...configSansPlaceholder,
+      ...(placeholder ? { placeholder } : {}),
       x: position.x,
       y: position.y,
     };
@@ -451,6 +529,15 @@ export class NodeHotkeysPlugin extends Plugin {
           break;
         case 'image':
           newNode = this._core.nodes.addImage(config) as unknown as BaseNode;
+          break;
+        case 'svg':
+          newNode = this._core.nodes.addSvg(config) as unknown as BaseNode;
+          break;
+        case 'gif':
+          newNode = this._core.nodes.addGif(config) as unknown as BaseNode;
+          break;
+        case 'video':
+          newNode = this._core.nodes.addVideo(config) as unknown as BaseNode;
           break;
         case 'label':
           // LabelNode пока не поддерживается через NodeManager

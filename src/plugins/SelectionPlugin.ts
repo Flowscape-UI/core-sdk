@@ -1,5 +1,6 @@
 import Konva from 'konva';
 
+import { VideoOverlayAddon, type VideoOverlayAddonOptions } from '../addons/VideoOverlayAddon';
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
@@ -33,6 +34,9 @@ export interface SelectionPluginOptions {
   autoPanEdgePx?: number;
   // Max auto-pan speed in px/frame
   autoPanMaxSpeedPx?: number;
+
+  // Enable DOM video controls overlay for VideoNode on selection
+  enableVideoOverlay?: boolean | VideoOverlayAddonOptions;
 }
 
 /**
@@ -242,7 +246,14 @@ export class SelectionPlugin extends Plugin {
       autoPanEnabled: options.autoPanEnabled ?? true,
       autoPanEdgePx: options.autoPanEdgePx ?? 40,
       autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
+      enableVideoOverlay: options.enableVideoOverlay ?? false,
     };
+
+    if (options.enableVideoOverlay) {
+      const addonOptions =
+        typeof options.enableVideoOverlay === 'object' ? options.enableVideoOverlay : {};
+      this.addons.add(new VideoOverlayAddon(addonOptions));
+    }
 
     // Initialize auto-pan private fields from options
     this._autoPanEdgePx = this._options.autoPanEdgePx;

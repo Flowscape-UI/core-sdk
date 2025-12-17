@@ -1,5 +1,7 @@
 import Konva from 'konva';
 
+import { MediaPlaceholder, type MediaPlaceholderOptions } from '../utils/MediaPlaceholder';
+
 import { BaseNode, type BaseNodeOptions } from './BaseNode';
 
 declare global {
@@ -25,7 +27,9 @@ export interface GifNodeOptions extends BaseNodeOptions {
   src?: string;
   width?: number;
   height?: number;
+  cornerRadius?: number | number[];
   autoplay?: boolean;
+  placeholder?: Partial<MediaPlaceholderOptions>;
   onLoad?: (node: GifNode) => void;
   onError?: (error: Error) => void;
   onFrame?: (node: GifNode, frameIndex: number) => void;
@@ -33,6 +37,7 @@ export interface GifNodeOptions extends BaseNodeOptions {
 
 export class GifNode extends BaseNode<Konva.Image> {
   private _canvas: HTMLCanvasElement | null = null;
+  private _placeholder: MediaPlaceholder;
   private _isLoaded = false;
   private _isPlaying = false;
   private _giflerLoaded = false;
@@ -40,11 +45,19 @@ export class GifNode extends BaseNode<Konva.Image> {
 
   constructor(options: GifNodeOptions = {}) {
     const node = new Konva.Image({} as Konva.ImageConfig);
+    node.setAttr('flowscapeNodeType', 'gif');
     node.x(options.x ?? 0);
     node.y(options.y ?? 0);
     node.width(options.width ?? 150);
     node.height(options.height ?? 150);
+    node.cornerRadius(options.cornerRadius ?? 0);
+    node.setAttr('placeholder', options.placeholder ?? {});
+    if (options.src) {
+      node.setAttr('src', options.src); // Save src for serialization
+    }
     super(node, options);
+
+    this._placeholder = new MediaPlaceholder(this.konvaNode, options.placeholder);
 
     void this._ensureGiflerLibrary();
 
@@ -65,10 +78,11 @@ export class GifNode extends BaseNode<Konva.Image> {
 
     await this._ensureGiflerLibrary();
 
+    this._placeholder.start();
+
     const canvas = globalThis.document.createElement('canvas');
     this._canvas = canvas;
-
-    this.konvaNode.image(canvas);
+    this.konvaNode.setAttr('src', url); // Save src for serialization
 
     return new Promise((resolve, reject) => {
       if (!globalThis.window.gifler) {
@@ -95,6 +109,8 @@ export class GifNode extends BaseNode<Konva.Image> {
               ctx.drawImage(frame.buffer, 0, 0);
 
               if (!this._isLoaded) {
+                this._placeholder.stop();
+                this.konvaNode.image(canvas);
                 this._isLoaded = true;
                 this._isPlaying = options.autoplay ?? true;
 
@@ -119,6 +135,7 @@ export class GifNode extends BaseNode<Konva.Image> {
             },
           );
       } catch (error) {
+        this._placeholder.stop();
         const err = new Error(`Failed to load GIF: ${url}. ${(error as Error).message}`);
         this._isLoaded = false;
 
@@ -236,6 +253,7 @@ export class GifNode extends BaseNode<Konva.Image> {
   }
 
   private _cleanup(): void {
+    this._placeholder.stop();
     this._isPlaying = false;
     this._isLoaded = false;
     this._frameIndex = 0;

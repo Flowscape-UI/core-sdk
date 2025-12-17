@@ -1,14 +1,21 @@
 import Konva from 'konva';
 
+import { MediaPlaceholder, type MediaPlaceholderOptions } from '../utils/MediaPlaceholder';
+
 import { BaseNode, type BaseNodeOptions } from './BaseNode';
 
 export interface VideoNodeOptions extends BaseNodeOptions {
   src?: string;
   width?: number;
   height?: number;
+  cornerRadius?: number | number[];
   autoplay?: boolean;
   loop?: boolean;
   muted?: boolean;
+  currentTime?: number;
+  volume?: number;
+  playbackRate?: number;
+  placeholder?: Partial<MediaPlaceholderOptions>;
   onLoadedMetadata?: (node: VideoNode, video: HTMLVideoElement) => void;
   onError?: (error: Error) => void;
   onPlay?: (node: VideoNode) => void;
@@ -19,16 +26,33 @@ export interface VideoNodeOptions extends BaseNodeOptions {
 export class VideoNode extends BaseNode<Konva.Image> {
   private _videoElement: HTMLVideoElement | null = null;
   private _animation: Konva.Animation | null = null;
+  private _placeholder: MediaPlaceholder;
   private _isPlaying = false;
   private _isLoaded = false;
 
   constructor(options: VideoNodeOptions = {}) {
     const node = new Konva.Image({} as Konva.ImageConfig);
+    node.setAttr('flowscapeNodeType', 'video');
     node.x(options.x ?? 0);
     node.y(options.y ?? 0);
     node.width(options.width ?? 320);
     node.height(options.height ?? 240);
+    node.cornerRadius(options.cornerRadius ?? 0);
+    node.setAttr('src', options.src ?? '');
+    node.setAttr('loop', options.loop ?? true);
+    node.setAttr('muted', options.muted ?? false);
+    node.setAttr('autoplay', options.autoplay ?? false);
+    node.setAttr('currentTime', options.currentTime ?? 0);
+    node.setAttr('volume', options.volume ?? 1);
+    node.setAttr('playbackRate', options.playbackRate ?? 1);
+    node.setAttr('placeholder', options.placeholder ?? {});
     super(node, options);
+
+    this._placeholder = new MediaPlaceholder(this.konvaNode, {
+      fallbackWidth: 320,
+      fallbackHeight: 240,
+      ...(options.placeholder ?? {}),
+    });
 
     if (options.src) {
       void this.setSrc(options.src, options);
@@ -45,33 +69,68 @@ export class VideoNode extends BaseNode<Konva.Image> {
       throw new Error('VideoNode requires a browser environment with document object');
     }
 
+    // Get saved attributes from Konva node if options not provided
+    const attrs = this.konvaNode.getAttrs() as Record<string, unknown>;
+    const loop = options.loop ?? (attrs['loop'] as boolean | undefined) ?? false;
+    const muted = options.muted ?? (attrs['muted'] as boolean | undefined) ?? false;
+    const autoplay = options.autoplay ?? (attrs['autoplay'] as boolean | undefined);
+    const currentTime = options.currentTime ?? (attrs['currentTime'] as number | undefined) ?? 0;
+    const savedVolume = options.volume ?? (attrs['volume'] as number | undefined) ?? 1;
+    const savedPlaybackRate =
+      options.playbackRate ?? (attrs['playbackRate'] as number | undefined) ?? 1;
+    this._placeholder.start();
+
     const video = globalThis.document.createElement('video');
+    video.preload = 'auto';
     video.src = url;
-    video.loop = options.loop ?? false;
-    video.muted = options.muted ?? false;
-
+    video.loop = loop;
+    video.muted = muted;
+    video.currentTime = currentTime;
+    video.volume = savedVolume;
+    video.playbackRate = savedPlaybackRate;
+    video.load();
     this._videoElement = video;
-
-    this.konvaNode.image(video);
-
+    this.konvaNode.setAttr('src', url);
+    this.konvaNode.setAttr('loop', loop);
+    this.konvaNode.setAttr('muted', muted);
+    this.konvaNode.setAttr('currentTime', currentTime);
+    this.konvaNode.setAttr('autoplay', autoplay);
     this._ensureAnimation();
 
     return new Promise((resolve, reject) => {
-      video.addEventListener('loadedmetadata', () => {
-        this._isLoaded = true;
+      let settled = false;
 
+      const settleSuccess = () => {
+        if (settled) return;
+        settled = true;
+        this._isLoaded = true;
+        this._placeholder.stop();
+        this.konvaNode.image(video);
+        this.konvaNode.getLayer()?.batchDraw();
+        if (autoplay) {
+          void this.play();
+        }
+        resolve(this);
+      };
+
+      video.addEventListener('loadedmetadata', () => {
         if (options.onLoadedMetadata) {
           options.onLoadedMetadata(this, video);
         }
+      });
 
-        if (options.autoplay) {
-          void this.play();
-        }
+      video.addEventListener('loadeddata', () => {
+        settleSuccess();
+      });
 
-        resolve(this);
+      video.addEventListener('canplay', () => {
+        settleSuccess();
       });
 
       video.addEventListener('error', () => {
+        if (settled) return;
+        settled = true;
+        this._placeholder.stop();
         const error = new Error(`Failed to load video: ${url}`);
         this._isLoaded = false;
 
@@ -120,7 +179,18 @@ export class VideoNode extends BaseNode<Konva.Image> {
       this._isPlaying = true;
       this._animation?.start();
     } catch (error) {
-      throw new Error(`Failed to play video: ${(error as Error).message}`);
+      // Browser autoplay policy: user interaction required
+      // Just log warning instead of throwing error
+      const err = error as Error;
+      if (err.name === 'NotAllowedError' || err.message.includes("user didn't interact")) {
+        globalThis.console.warn(
+          'Video autoplay blocked by browser policy. User interaction required.',
+          err.message,
+        );
+      } else {
+        globalThis.console.error('Failed to play video:', err.message);
+      }
+      // Don't throw, just return this to allow chaining
     }
 
     return this;
@@ -157,6 +227,7 @@ export class VideoNode extends BaseNode<Konva.Image> {
     }
 
     this._videoElement.currentTime = time;
+    this.konvaNode.setAttr('currentTime', time);
     return this;
   }
 
@@ -181,7 +252,9 @@ export class VideoNode extends BaseNode<Konva.Image> {
       throw new Error('Video element is not initialized');
     }
 
-    this._videoElement.volume = Math.max(0, Math.min(1, volume));
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    this._videoElement.volume = clampedVolume;
+    this.konvaNode.setAttr('volume', clampedVolume);
     return this;
   }
 
@@ -199,6 +272,7 @@ export class VideoNode extends BaseNode<Konva.Image> {
     }
 
     this._videoElement.muted = muted;
+    this.konvaNode.setAttr('muted', muted);
     return this;
   }
 
@@ -216,6 +290,7 @@ export class VideoNode extends BaseNode<Konva.Image> {
     }
 
     this._videoElement.loop = loop;
+    this.konvaNode.setAttr('loop', loop);
     return this;
   }
 
@@ -233,6 +308,7 @@ export class VideoNode extends BaseNode<Konva.Image> {
     }
 
     this._videoElement.playbackRate = rate;
+    this.konvaNode.setAttr('playbackRate', rate);
     return this;
   }
 
@@ -300,6 +376,7 @@ export class VideoNode extends BaseNode<Konva.Image> {
   }
 
   private _cleanup(): void {
+    this._placeholder.stop();
     if (this._animation) {
       this._animation.stop();
       this._animation = null;

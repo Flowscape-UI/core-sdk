@@ -1,6 +1,7 @@
 import {
   AreaSelectionPlugin,
   CameraHotkeysPlugin,
+  ContentFromClipboardPlugin,
   CoreEngine,
   GridPlugin,
   HistoryPlugin,
@@ -32,6 +33,12 @@ const hotkeys = new CameraHotkeysPlugin();
 const nodeHotkeys = new NodeHotkeysPlugin();
 
 const selection = new SelectionPlugin({
+  // enableVideoOverlay: true,
+  enableVideoOverlay: {
+    uiAccentColor: '#ff8a00',
+    uiTrackFilledColor: '#ff8a00',
+    uiBackgroundColor: 'rgba(18,18,18,0.92)',
+  },
   // selectablePredicate: (node) => {
   //   const cls = node.getClassName();
   //   return cls === 'Text';
@@ -88,6 +95,8 @@ const visualGuidesPlugin = new VisualGuidesPlugin({
   // guidelineDash: [0, 0],
 });
 
+const cfc = new ContentFromClipboardPlugin();
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
   plugins: [
@@ -99,6 +108,7 @@ const core = new CoreEngine({
     nodeHotkeys,
     rulerPlugin,
     visualGuidesPlugin,
+    cfc,
     // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     // rulerManagerPlugin, // Управление видимостью по Shift+R
@@ -136,9 +146,12 @@ const videoNode = core.nodes.addVideo({
   width: 640,
   height: 360,
   src: 'https://archive.org/download/apple-september-2017-key-note-at-the-steve-jobs-theater-full-1080p-720p-30fps-h-264-128kbit-aac/Apple%20September%2C%202017%20Key%20Note%20at%20the%20Steve%20Jobs%20Theater%20Full%2C%201080p%20%28720p_30fps_H264-128kbit_AAC%29.mp4',
+  placeholder: {
+    accentSpinnerColor: 'yellow',
+  },
   autoplay: true,
   loop: true,
-  muted: false,
+  muted: true,
   onLoadedMetadata: (node, videoElement) => {
     console.log('Видео загружено');
     console.log('Длительность:', videoElement.duration);
@@ -153,7 +166,6 @@ const videoNode = core.nodes.addVideo({
     console.log('Видео завершено');
   },
 });
-
 videoNode.setLoop(true);
 videoNode.setCurrentTime(3000);
 
@@ -164,6 +176,10 @@ core.nodes.addGif({
   height: 200,
   src: 'https://konvajs.org/assets/yoda.gif',
   autoplay: true,
+  placeholder: {
+    accentSpinnerColor: 'red',
+    // backgroundColor: 'transparent',
+  },
   onLoad: (node) => {
     console.log('GIF загружен!', node);
   },

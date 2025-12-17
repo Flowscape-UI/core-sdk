@@ -20,6 +20,8 @@ export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
 export type { AreaSelectionPluginOptions } from './plugins/AreaSelectionPlugin';
 export { CameraHotkeysPlugin } from './plugins/CameraHotkeysPlugin';
 export type { CameraHotkeysOptions } from './plugins/CameraHotkeysPlugin';
+export { ContentFromClipboardPlugin } from './plugins/ContentFromClipboardPlugin';
+export type { ContentFromClipboardPluginOptions } from './plugins/ContentFromClipboardPlugin';
 export { GridPlugin } from './plugins/GridPlugin';
 export type { GridPluginOptions } from './plugins/GridPlugin';
 export { HistoryPlugin } from './plugins/HistoryPlugin';
@@ -51,9 +53,13 @@ export { RulerHighlightAddon } from './addons/RulerHighlightAddon';
 export { RulerManagerAddon } from './addons/RulerManagerAddon';
 export { ShapeHoverHighlightAddon } from './addons/ShapeHoverHighlightAddon';
 export { TextAutoTrimAddon } from './addons/TextAutoTrimAddon';
+export { VideoOverlayAddon } from './addons/VideoOverlayAddon';
+export type { VideoOverlayAddonOptions } from './addons/VideoOverlayAddon';
 
 // Utils
 export { DebounceHelper } from './utils/DebounceHelper';
+export { MediaPlaceholder } from './utils/MediaPlaceholder';
+export type { MediaPlaceholderOptions } from './utils/MediaPlaceholder';
 export { ThrottleHelper } from './utils/ThrottleHelper';
 
 // Public types (handle interfaces and node options)
