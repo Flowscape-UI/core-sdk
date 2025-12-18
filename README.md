@@ -12,17 +12,19 @@
 [![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
 [![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
 
-
   <img 
-    src="./assets/readme-preview.gif" 
+    src="./assets/readme/cover-image.png" 
+    alt="Flowscape Canvas Demo" 
+    width="900"
+  />
+  <img 
+    src="./assets/readme/preview.gif" 
     alt="Flowscape Canvas Demo" 
     width="900"
   />
 </div>
 
 ---
-
-## 📖 Documentation
 
 ## 📦 Installation
 
