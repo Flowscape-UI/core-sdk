@@ -601,6 +601,9 @@ export class HistoryPlugin extends Plugin {
         case 'image':
           newNode = this._core.nodes.addImage(configWithoutId) as unknown as BaseNode;
           break;
+        case 'svg':
+          newNode = this._core.nodes.addSvg(configWithoutId) as unknown as BaseNode;
+          break;
         case 'group': {
           newNode = this._core.nodes.addGroup(configWithoutId) as unknown as BaseNode;
           // Восстанавливаем детей группы
@@ -973,12 +976,16 @@ export class HistoryPlugin extends Plugin {
    */
   private _getNodeType(konvaNode: Konva.Node): string {
     const className = konvaNode.getClassName();
+    if (className === 'Image') {
+      const attrs = konvaNode.getAttrs() as Record<string, unknown>;
+      if (attrs['flowscapeNodeType'] === 'svg') return 'svg';
+      return 'image';
+    }
     const typeMap: Record<string, string> = {
       Rect: 'shape',
       Circle: 'circle',
       Ellipse: 'ellipse',
       Text: 'text',
-      Image: 'image',
       Group: 'group',
       Arc: 'arc',
       Star: 'star',

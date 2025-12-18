@@ -262,6 +262,17 @@ export class TextNode extends BaseNode<Konva.Text> {
       // После «запекания» scale всегда возвращаем в 1, чтобы не искажать шрифт
       this.konvaNode.scaleX(1);
       this.konvaNode.scaleY(1);
+
+      // Во время ресайза по ширине текст может переноситься и требовать большей высоты.
+      // Обновляем height сразу, чтобы transformer/рамка выделения не обрезали строки.
+      this._ensureHeightFitsWrappedText();
+    });
+
+    this.konvaNode.on('transformend.textResize', () => {
+      // После изменения ширины (wrap) высота текста может увеличиться —
+      // увеличиваем высоту ноды, чтобы рамка выделения не обрезала текст.
+      this._ensureHeightFitsWrappedText();
+      this.konvaNode.getLayer()?.batchDraw();
     });
   }
 
@@ -269,11 +280,129 @@ export class TextNode extends BaseNode<Konva.Text> {
   private _keyHandler: ((e: KeyboardEvent) => void) | null = null;
   private _clickHandler: ((e: Event) => void) | null = null;
   private _syncTextareaRafId: number | null = null;
+  private _inputHandler: (() => void) | null = null;
+  private _prevWrap: Konva.TextConfig['wrap'] | null = null;
+
+  private _getWrappedLineCount(innerWidth: number): number {
+    const text = this.konvaNode.text();
+    if (!text) return 1;
+
+    const wrap = this.konvaNode.wrap();
+    const paragraphs = text.split('\n');
+
+    if (wrap === 'none') {
+      return Math.max(1, paragraphs.length);
+    }
+
+    const maxW = Math.max(0, innerWidth);
+    let lines = 0;
+
+    for (const paragraph of paragraphs) {
+      // Пустая строка всё равно занимает одну строку
+      if (paragraph.length === 0) {
+        lines += 1;
+        continue;
+      }
+
+      if (wrap === 'char') {
+        let current = '';
+        for (const ch of paragraph) {
+          const next = current + ch;
+          if (this.konvaNode.measureSize(next).width <= maxW || current.length === 0) {
+            current = next;
+            continue;
+          }
+          lines += 1;
+          current = ch;
+        }
+        if (current.length > 0) lines += 1;
+        continue;
+      }
+
+      // wrap === 'word'
+      // Сохраняем пробелы как разделители, но в line измеряем без ведущих пробелов
+      const words = paragraph.split(/\s+/g);
+      let current = '';
+      for (const word of words) {
+        if (!word) continue;
+        const candidate = current ? current + ' ' + word : word;
+        if (this.konvaNode.measureSize(candidate).width <= maxW || current.length === 0) {
+          current = candidate;
+          continue;
+        }
+        lines += 1;
+        current = word;
+      }
+      if (current.length > 0) lines += 1;
+    }
+
+    return Math.max(1, lines);
+  }
+
+  private _ensureHeightFitsWrappedText(): void {
+    const padding = this.konvaNode.padding() * 2;
+    const innerWidth = this.konvaNode.width() - padding;
+
+    // При wrap:none высоту не трогаем (там переносов нет)
+    if (this.konvaNode.wrap() === 'none') return;
+
+    const lineCount = this._getWrappedLineCount(innerWidth);
+    const linePx = this.konvaNode.fontSize() * this.konvaNode.lineHeight();
+    const needed = Math.ceil(lineCount * linePx + padding);
+
+    if (Number.isFinite(needed) && needed > this.konvaNode.height()) {
+      this.konvaNode.height(needed);
+    }
+  }
+
+  private _ensureWidthFitsText(): void {
+    const padding = this.konvaNode.padding() * 2;
+    const text = this.konvaNode.text();
+    const lines = text.split('\n');
+
+    let maxLineWidth = 0;
+    for (const line of lines) {
+      const m = this.konvaNode.measureSize(line);
+      if (m.width > maxLineWidth) maxLineWidth = m.width;
+    }
+
+    // Небольшой запас на округления/кернинг, чтобы после выхода из edit-mode
+    // текст не переносился из-за "минус пары пикселей".
+    const EPS = 2;
+    const needed = Math.ceil(maxLineWidth + padding + EPS);
+    if (Number.isFinite(needed) && needed > this.konvaNode.width()) {
+      this.konvaNode.width(needed);
+    }
+  }
+
+  private _syncNodeSizeFromTextarea(): void {
+    if (!this._isEditing || !this._textarea) return;
+
+    const ta = this._textarea;
+    const scale = this.konvaNode.getAbsoluteScale();
+    const factor = scale.x || scale.y || 1;
+
+    const padding = this.konvaNode.padding() * 2;
+    const neededInnerWidth = ta.scrollWidth;
+    const neededHeight = ta.scrollHeight;
+
+    const newWidth = Math.max(1, neededInnerWidth / factor + padding);
+    const newHeight = Math.max(1, neededHeight / factor + padding);
+
+    if (Number.isFinite(newWidth) && newWidth !== this.konvaNode.width()) {
+      this.konvaNode.width(newWidth);
+    }
+    if (Number.isFinite(newHeight) && newHeight !== this.konvaNode.height()) {
+      this.konvaNode.height(newHeight);
+    }
+  }
 
   private _syncTextareaPosition(): void {
     if (!this._isEditing || !this._textarea) return;
     const stage = this.konvaNode.getStage();
     if (!stage) return;
+
+    this._syncNodeSizeFromTextarea();
 
     const pos = this.konvaNode.absolutePosition();
     const box = stage.container().getBoundingClientRect();
@@ -296,7 +425,13 @@ export class TextNode extends BaseNode<Konva.Text> {
     if (!stage) return;
     this._isEditing = true;
     this._oldText = this.konvaNode.text();
-    this.konvaNode.hide();
+
+    this._prevWrap = this.konvaNode.wrap();
+    this.konvaNode.wrap('none');
+
+    // Не hide(): иначе getClientRect() для ноды станет нулевым и рамка выделения не обновляется.
+    this.konvaNode.opacity(0);
+    this.konvaNode.listening(false);
     stage.batchDraw();
 
     const pos = this.konvaNode.absolutePosition();
@@ -317,6 +452,8 @@ export class TextNode extends BaseNode<Konva.Text> {
     ta.style.padding = '0';
     ta.style.margin = '0';
     ta.style.overflow = 'hidden';
+    ta.wrap = 'off';
+    ta.style.whiteSpace = 'pre';
     ta.style.background = 'none';
     ta.style.outline = 'none';
     ta.style.resize = 'none';
@@ -339,6 +476,30 @@ export class TextNode extends BaseNode<Konva.Text> {
     ta.focus();
     ta.select();
 
+    const updateFromTextarea = (): void => {
+      if (!this._textarea) return;
+
+      this._textarea.style.height = 'auto';
+      this._textarea.style.height = String(this._textarea.scrollHeight) + 'px';
+
+      this._syncNodeSizeFromTextarea();
+
+      const scale = this.konvaNode.getAbsoluteScale();
+      const factor = scale.x || scale.y || 1;
+      this._textarea.style.width =
+        String((this.konvaNode.width() - this.konvaNode.padding() * 2) * factor) + 'px';
+
+      this.konvaNode.getLayer()?.batchDraw();
+    };
+
+    this._inputHandler = () => {
+      globalThis.requestAnimationFrame(() => {
+        updateFromTextarea();
+      });
+    };
+    ta.addEventListener('input', this._inputHandler);
+    updateFromTextarea();
+
     // Постоянно синхронизируем позицию textarea с нодой (камера, зум, перетаскивание мира)
     this._syncTextareaRafId = globalThis.requestAnimationFrame(() => {
       this._syncTextareaPosition();
@@ -360,11 +521,7 @@ export class TextNode extends BaseNode<Konva.Text> {
         return;
       }
       globalThis.requestAnimationFrame(() => {
-        if (this._textarea) {
-          this._textarea.style.height = 'auto';
-          this._textarea.style.height =
-            String(this._textarea.scrollHeight + this.konvaNode.fontSize()) + 'px';
-        }
+        updateFromTextarea();
       });
     };
 
@@ -387,17 +544,8 @@ export class TextNode extends BaseNode<Konva.Text> {
     const newText = cancelled ? this._oldText : this._textarea.value;
     this.konvaNode.text(newText);
 
-    // После изменения текста убеждаемся, что высота Konva.Text достаточно
-    // велика, чтобы показать весь контент (без обрезки по высоте).
     if (!cancelled) {
-      const textarea = this._textarea;
-      const scale = this.konvaNode.getAbsoluteScale();
-      const factor = scale.x || scale.y || 1;
-      const neededHeight = textarea.scrollHeight / factor;
-      const currentHeight = this.konvaNode.height();
-      if (Number.isFinite(neededHeight) && neededHeight > currentHeight) {
-        this.konvaNode.height(neededHeight);
-      }
+      this._syncNodeSizeFromTextarea();
     }
 
     // Останавливаем цикл синхронизации позиции textarea
@@ -409,6 +557,9 @@ export class TextNode extends BaseNode<Konva.Text> {
     if (this._keyHandler) {
       this._textarea.removeEventListener('keydown', this._keyHandler);
     }
+    if (this._inputHandler) {
+      this._textarea.removeEventListener('input', this._inputHandler);
+    }
     if (this._clickHandler) {
       globalThis.removeEventListener('click', this._clickHandler);
       globalThis.removeEventListener('touchstart', this._clickHandler);
@@ -418,8 +569,18 @@ export class TextNode extends BaseNode<Konva.Text> {
     this._textarea = null;
     this._keyHandler = null;
     this._clickHandler = null;
+    this._inputHandler = null;
 
-    this.konvaNode.show();
+    if (this._prevWrap) {
+      this.konvaNode.wrap(this._prevWrap);
+      this._prevWrap = null;
+    }
+
+    this._ensureWidthFitsText();
+    this._ensureHeightFitsWrappedText();
+
+    this.konvaNode.opacity(1);
+    this.konvaNode.listening(true);
     this.konvaNode.getStage()?.batchDraw();
     this._isEditing = false;
     // Сброс ожидания повторного двойного клика внутри группы после завершения редактирования

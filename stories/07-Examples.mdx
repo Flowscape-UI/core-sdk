@@ -313,6 +313,102 @@ function makeResponsive(core: CoreEngine) {
 const cleanup = makeResponsive(core);
 ```
 
+## Paste & Drag-and-Drop Content
+
+Enable paste from clipboard and drag & drop of files from desktop.
+
+```typescript
+import { CoreEngine, ContentFromClipboardPlugin } from '@flowscape-ui/core-sdk';
+
+const core = new CoreEngine({
+  container: document.getElementById('app')!,
+  width: 1200,
+  height: 800,
+  plugins: [
+    new ContentFromClipboardPlugin({
+      ignoreEditableTargets: true,
+      maxImageSize: 1200,
+      enableDragDrop: true,
+    }),
+  ],
+});
+```
+
+## Add SVG / Video / GIF Programmatically
+
+```typescript
+// SVG
+core.nodes.addSvg({
+  x: 100,
+  y: 100,
+  width: 240,
+  height: 240,
+  src:
+    'data:image/svg+xml;charset=utf-8,' +
+    encodeURIComponent(
+      '<svg viewBox="0 0 100 100"><rect x="10" y="10" width="80" height="80" fill="#3b82f6"/></svg>',
+    ),
+});
+
+// Video
+const video = core.nodes.addVideo({
+  x: 380,
+  y: 100,
+  width: 320,
+  height: 240,
+  autoplay: true,
+  loop: true,
+  muted: true,
+  volume: 1,
+});
+await video.setSrc('/videos/demo.mp4', { autoplay: true, loop: true, muted: true, volume: 1 });
+
+// GIF
+core.nodes.addGif({
+  x: 100,
+  y: 380,
+  width: 240,
+  height: 180,
+  src: '/images/animation.gif',
+});
+```
+
+## Video Overlay Controls (SelectionPlugin)
+
+Enable and style DOM video controls overlay for selected `VideoNode`.
+
+```typescript
+import { SelectionPlugin } from '@flowscape-ui/core-sdk';
+
+core.plugins.add(
+  new SelectionPlugin({
+    enableVideoOverlay: {
+      uiAccentColor: '#ff8a00',
+      uiTrackFilledColor: '#ff8a00',
+      uiBackgroundColor: 'rgba(18,18,18,0.92)',
+    },
+  }),
+);
+```
+
+## Video from Remote URL + Placeholder
+
+```typescript
+const videoNode = core.nodes.addVideo({
+  x: 1500,
+  y: 200,
+  width: 640,
+  height: 360,
+  src: 'https://archive.org/download/apple-september-2017-key-note-at-the-steve-jobs-theater-full-1080p-720p-30fps-h-264-128kbit-aac/Apple%20September%2C%202017%20Key%20Note%20at%20the%20Steve%20Jobs%20Theater%20Full%2C%201080p%20%28720p_30fps_H264-128kbit_AAC%29.mp4',
+  placeholder: {
+    accentSpinnerColor: 'yellow',
+  },
+  autoplay: true,
+  loop: true,
+  muted: true,
+});
+```
+
 ## Batch Operations
 
 ```typescript

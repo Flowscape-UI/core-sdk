@@ -20,6 +20,8 @@ export { AreaSelectionPlugin } from './plugins/AreaSelectionPlugin';
 export type { AreaSelectionPluginOptions } from './plugins/AreaSelectionPlugin';
 export { CameraHotkeysPlugin } from './plugins/CameraHotkeysPlugin';
 export type { CameraHotkeysOptions } from './plugins/CameraHotkeysPlugin';
+export { ContentFromClipboardPlugin } from './plugins/ContentFromClipboardPlugin';
+export type { ContentFromClipboardPluginOptions } from './plugins/ContentFromClipboardPlugin';
 export { GridPlugin } from './plugins/GridPlugin';
 export type { GridPluginOptions } from './plugins/GridPlugin';
 export { HistoryPlugin } from './plugins/HistoryPlugin';
@@ -51,9 +53,13 @@ export { RulerHighlightAddon } from './addons/RulerHighlightAddon';
 export { RulerManagerAddon } from './addons/RulerManagerAddon';
 export { ShapeHoverHighlightAddon } from './addons/ShapeHoverHighlightAddon';
 export { TextAutoTrimAddon } from './addons/TextAutoTrimAddon';
+export { VideoOverlayAddon } from './addons/VideoOverlayAddon';
+export type { VideoOverlayAddonOptions } from './addons/VideoOverlayAddon';
 
 // Utils
 export { DebounceHelper } from './utils/DebounceHelper';
+export { MediaPlaceholder } from './utils/MediaPlaceholder';
+export type { MediaPlaceholderOptions } from './utils/MediaPlaceholder';
 export { ThrottleHelper } from './utils/ThrottleHelper';
 
 // Public types (handle interfaces and node options)
@@ -62,6 +68,7 @@ export type {
   ArrowNodeHandle,
   CircleNodeHandle,
   EllipseNodeHandle,
+  GifNodeHandle,
   GroupNodeHandle,
   ImageNodeHandle,
   NodeAddonsHandle,
@@ -70,7 +77,9 @@ export type {
   RingNodeHandle,
   ShapeNodeHandle,
   StarNodeHandle,
+  SvgNodeHandle,
   TextNodeHandle,
+  VideoNodeHandle,
 } from './types/public/node-handles';
 
 export type { ArcNodeOptions } from './nodes/ArcNode';
@@ -78,13 +87,16 @@ export type { ArrowNodeOptions } from './nodes/ArrowNode';
 export type { BaseNodeOptions } from './nodes/BaseNode';
 export type { CircleNodeOptions } from './nodes/CircleNode';
 export type { EllipseNodeOptions } from './nodes/EllipseNode';
+export type { GifNodeOptions } from './nodes/GifNode';
 export type { GroupNodeOptions } from './nodes/GroupNode';
 export type { ImageNodeOptions, ImageSource } from './nodes/ImageNode';
 export type { RegularPolygonNodeOptions } from './nodes/RegularPolygonNode';
 export type { RingNodeOptions } from './nodes/RingNode';
 export type { ShapeNodeOptions } from './nodes/ShapeNode';
 export type { StarNodeOptions } from './nodes/StarNode';
+export type { SvgNodeOptions } from './nodes/SvgNode';
 export type { TextNodeOptions } from './nodes/TextNode';
+export type { VideoNodeOptions } from './nodes/VideoNode';
 
 // Event types
 export type { CoreEvents } from './types/core.events.interface';

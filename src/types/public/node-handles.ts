@@ -180,3 +180,71 @@ export interface GroupNodeHandle extends NodeHandle {
   isListening(): boolean;
   setClip(rect: { x: number; y: number; width: number; height: number }): this;
 }
+
+/**
+ * Handle for SvgNode
+ */
+export interface SvgNodeHandle extends NodeHandle {
+  setSrc(
+    url: string,
+    onLoad?: (node: unknown) => void,
+    onError?: (error: Error) => void,
+  ): Promise<unknown>;
+  setSize(size: { width: number; height: number }): this;
+  setCornerRadius(radius: number | number[]): this;
+  setOpacity(opacity: number): this;
+  getSize(): { width: number; height: number };
+  getCornerRadius(): number;
+  getOpacity(): number;
+  isLoading(): boolean;
+  isLoaded(): boolean;
+}
+
+/**
+ * Handle for VideoNode
+ */
+export interface VideoNodeHandle extends NodeHandle {
+  setSrc(url: string, options?: Record<string, unknown>): Promise<unknown>;
+  play(): Promise<unknown>;
+  pause(): this;
+  stop(): this;
+  setCurrentTime(time: number): this;
+  getCurrentTime(): number;
+  getDuration(): number;
+  setVolume(volume: number): this;
+  getVolume(): number;
+  setMuted(muted: boolean): this;
+  isMuted(): boolean;
+  setLoop(loop: boolean): this;
+  isLoop(): boolean;
+  setPlaybackRate(rate: number): this;
+  getPlaybackRate(): number;
+  isPlaying(): boolean;
+  isLoaded(): boolean;
+  getVideoElement(): HTMLVideoElement | null;
+  setSize(size: { width: number; height: number }): this;
+  setCornerRadius(radius: number | number[]): this;
+  setOpacity(opacity: number): this;
+  getSize(): { width: number; height: number };
+  getCornerRadius(): number;
+  getOpacity(): number;
+}
+
+/**
+ * Handle for GifNode
+ */
+export interface GifNodeHandle extends NodeHandle {
+  setSrc(url: string, options?: Record<string, unknown>): Promise<unknown>;
+  play(): this;
+  pause(): this;
+  isPlaying(): boolean;
+  isLoaded(): boolean;
+  getFrameIndex(): number;
+  getCanvas(): HTMLCanvasElement | null;
+  setSize(size: { width: number; height: number }): this;
+  setCornerRadius(radius: number | number[]): this;
+  setOpacity(opacity: number): this;
+  getSize(): { width: number; height: number };
+  getCornerRadius(): number;
+  getOpacity(): number;
+}

@@ -1,5 +1,6 @@
 import Konva from 'konva';
 
+import { VideoOverlayAddon, type VideoOverlayAddonOptions } from '../addons/VideoOverlayAddon';
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
@@ -33,6 +34,9 @@ export interface SelectionPluginOptions {
   autoPanEdgePx?: number;
   // Max auto-pan speed in px/frame
   autoPanMaxSpeedPx?: number;
+
+  // Enable DOM video controls overlay for VideoNode on selection
+  enableVideoOverlay?: boolean | VideoOverlayAddonOptions;
 }
 
 /**
@@ -242,7 +246,14 @@ export class SelectionPlugin extends Plugin {
       autoPanEnabled: options.autoPanEnabled ?? true,
       autoPanEdgePx: options.autoPanEdgePx ?? 40,
       autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
+      enableVideoOverlay: options.enableVideoOverlay ?? false,
     };
+
+    if (options.enableVideoOverlay) {
+      const addonOptions =
+        typeof options.enableVideoOverlay === 'object' ? options.enableVideoOverlay : {};
+      this.addons.add(new VideoOverlayAddon(addonOptions));
+    }
 
     // Initialize auto-pan private fields from options
     this._autoPanEdgePx = this._options.autoPanEdgePx;
@@ -656,12 +667,14 @@ export class SelectionPlugin extends Plugin {
     if (!this._options.selectablePredicate(target)) return;
 
     // Basic search (usually group)
-    let baseNode = this._findBaseNodeByTarget(target);
-    if (!baseNode) return;
+    const foundBaseNode = this._findBaseNodeByTarget(target);
+    if (!foundBaseNode) return;
+    let baseNode = foundBaseNode;
 
     // If there's selection and click came inside already selected node — drag it
-    if (this._selected) {
-      const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
+    const selected = this._selected;
+    if (selected) {
+      const selKonva = selected.getKonvaNode() as unknown as Konva.Node;
       const isAncestor = (a: Konva.Node, b: Konva.Node): boolean => {
         let cur: Konva.Node | null = b;
         while (cur) {
@@ -671,7 +684,7 @@ export class SelectionPlugin extends Plugin {
         return false;
       };
       if (isAncestor(selKonva, target)) {
-        baseNode = this._selected;
+        baseNode = selected;
       }
       // Otherwise — remains group (baseNode found above)
     }
@@ -1089,6 +1102,7 @@ export class SelectionPlugin extends Plugin {
     const layer = this._core.nodes.layer;
 
     // Fill set for correct size check on commit (important for lasso)
+    // IMPORTANT: do not lose the set when we need to recreate overlay due to composition change
     this._tempMultiSet.clear();
     for (const b of nodes) this._tempMultiSet.add(b);
 
@@ -1102,7 +1116,10 @@ export class SelectionPlugin extends Plugin {
         konvaNodes.every((n) => this._tempMultiNodes.includes(n));
       if (same) return; // No change in composition
       // Composition changed — destroy and recreate
-      this._destroyTempMulti();
+      this._destroyTempMultiOverlayOnly();
+      // Restore set because overlay-only destroy should not affect it, but keep it safe
+      this._tempMultiSet.clear();
+      for (const b of nodes) this._tempMultiSet.add(b);
     }
 
     // Compute union bounding box in world-local coordinates
@@ -1253,6 +1270,27 @@ export class SelectionPlugin extends Plugin {
 
     // Event: temporary multi-selection created
     this._core.eventBus.emit('selection:multi:created', nodes);
+  }
+
+  private _destroyTempMultiOverlayOnly() {
+    if (!this._core) return;
+    if (!this._tempMultiGroup) return;
+
+    if (this._tempOverlay) {
+      this._tempOverlay.detach();
+      this._tempOverlay = null;
+    }
+
+    this._tempMultiGroup.off('.tempMulti');
+    this._tempMultiGroup.destroy();
+    this._tempMultiGroup = null;
+
+    this._tempMultiNodes = [];
+    this._tempMultiInitialTransforms.clear();
+
+    this._core.nodes.layer.batchDraw();
+
+    this._core.eventBus.emit('selection:multi:destroyed');
   }
 
   private _destroyTempMulti() {
@@ -1716,6 +1754,8 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesSuppressed = true;
       this._cornerHandlesGroup?.visible(false);
       this._hideRadiusLabel();
+      // Start auto-pan during resize
+      this._startAutoPanLoop();
 
       // Save the absolute position of a reference point on the opposite corner/edge
       const node = this._selected?.getKonvaNode() as unknown as Konva.Node | undefined;
@@ -1785,6 +1825,8 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesSuppressed = false;
       this._transformOppositeCorner = null;
       this._restyleSideAnchors();
+      // Stop auto-pan after resize
+      this._stopAutoPanLoop();
       // OPTIMIZATION: use debounced UI update
       this._scheduleUIUpdate();
       this._core?.nodes.layer.batchDraw();
@@ -1820,7 +1862,6 @@ export class SelectionPlugin extends Plugin {
     this._destroyRotateHandles();
     const group = new Konva.Group({ name: 'rotate-handles-group', listening: true });
     layer.add(group);
-    group.moveToTop();
     this._rotateHandlesGroup = group;
     const tl = makeRotateHandle('rotate-tl');
     const tr = makeRotateHandle('rotate-tr');
@@ -1848,8 +1889,9 @@ export class SelectionPlugin extends Plugin {
         // Disable drag on the stage and the node
         if (typeof node.draggable === 'function') node.draggable(false);
         this._core?.stage.draggable(false);
-        // Cursor: show 'grabbing' during rotation
-        if (this._core) this._core.stage.container().style.cursor = 'grabbing';
+        // Set initial cursor rotation based on current angle
+        const cursorAngle = start + 90;
+        this._applyRotatedCursor(cursorAngle);
       });
       h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
         if (!this._core || !this._selected || !this._rotateDragState) return;
@@ -1859,6 +1901,10 @@ export class SelectionPlugin extends Plugin {
         const pointer = this._core.stage.getPointerPosition() ?? h.getAbsolutePosition();
         const curr = (Math.atan2(pointer.y - centerRef.y, pointer.x - centerRef.x) * 180) / Math.PI;
         let rot = this._rotateDragState.base + (curr - this._rotateDragState.start);
+
+        // Update cursor rotation dynamically during drag
+        const cursorAngle = curr + 45;
+        this._applyRotatedCursor(cursorAngle);
         // Snapping as in Transformer, but with correct angle normalization
         const norm = (deg: number) => {
           let x = deg % 360;
@@ -1958,42 +2004,40 @@ export class SelectionPlugin extends Plugin {
     bindRotate(br);
     bindRotate(bl);
 
-    // Hover cursors for rotation handles
+    // Hover cursors for rotation handles with dynamic rotation
     const setCursor = (c: string) => {
       if (this._core) this._core.stage.container().style.cursor = c;
     };
-    if (this._rotateHandles.tl) {
-      this._rotateHandles.tl.on('mouseenter.rotate-cursor', () => {
-        setCursor('pointer');
+
+    // Helper to calculate cursor angle based on handle position relative to node center
+    const setupRotateCursorForHandle = (handle: Konva.Circle) => {
+      handle.on('mouseenter.rotate-cursor', () => {
+        if (!this._core || !this._selected) return;
+        const node = this._selected.getKonvaNode() as unknown as Konva.Node;
+        const center = this._getNodeCenterAbs(node);
+        const handlePos = handle.getAbsolutePosition();
+
+        // Calculate angle from center to handle (in degrees)
+        const dx = handlePos.x - center.x;
+        const dy = handlePos.y - center.y;
+        const angleRad = Math.atan2(dy, dx);
+        const angleDeg = (angleRad * 180) / Math.PI;
+
+        // Adjust angle to point cursor toward handle (add 90 degrees for proper orientation)
+        const cursorAngle = angleDeg + 45;
+
+        this._setRotateCursor(cursorAngle);
       });
-      this._rotateHandles.tl.on('mouseleave.rotate-cursor', () => {
+
+      handle.on('mouseleave.rotate-cursor', () => {
         setCursor('default');
       });
-    }
-    if (this._rotateHandles.tr) {
-      this._rotateHandles.tr.on('mouseenter.rotate-cursor', () => {
-        setCursor('pointer');
-      });
-      this._rotateHandles.tr.on('mouseleave.rotate-cursor', () => {
-        setCursor('default');
-      });
-    }
-    if (this._rotateHandles.br) {
-      this._rotateHandles.br.on('mouseenter.rotate-cursor', () => {
-        setCursor('pointer');
-      });
-      this._rotateHandles.br.on('mouseleave.rotate-cursor', () => {
-        setCursor('default');
-      });
-    }
-    if (this._rotateHandles.bl) {
-      this._rotateHandles.bl.on('mouseenter.rotate-cursor', () => {
-        setCursor('pointer');
-      });
-      this._rotateHandles.bl.on('mouseleave.rotate-cursor', () => {
-        setCursor('default');
-      });
-    }
+    };
+
+    if (this._rotateHandles.tl) setupRotateCursorForHandle(this._rotateHandles.tl);
+    if (this._rotateHandles.tr) setupRotateCursorForHandle(this._rotateHandles.tr);
+    if (this._rotateHandles.br) setupRotateCursorForHandle(this._rotateHandles.br);
+    if (this._rotateHandles.bl) setupRotateCursorForHandle(this._rotateHandles.bl);
 
     this._updateRotateHandlesPosition();
   }
@@ -2011,6 +2055,82 @@ export class SelectionPlugin extends Plugin {
     const tr = node.getAbsoluteTransform().copy();
     const local = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: false });
     return tr.point({ x: local.x + local.width / 2, y: local.y + local.height / 2 });
+  }
+
+  /**
+   * Set custom rotation cursor with dynamic angle based on handle position
+   */
+  private _setRotateCursor(angle: number) {
+    if (!this._core) return;
+    this._applyRotatedCursor(angle);
+  }
+
+  /**
+   * Apply rotated cursor by creating a rotated SVG data URL
+   */
+  private _applyRotatedCursor(angle: number) {
+    if (!this._core) return;
+    // Create rotated SVG cursor
+    const svg = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="rotate(${angle.toString()} 12 12)">
+          <g clip-path="url(#clip0_36_31)">
+            <g filter="url(#filter0_d_36_31)">
+              <path d="M4 6.15927C4 6.15927 9.71429 2.49547 15.4286 8.19463C21.1429 13.8938 18.2857 20 18.2857 20" stroke="white" stroke-width="2"/>
+            </g>
+            <g filter="url(#filter1_d_36_31)">
+              <path d="M0.724195 7.73427L3.27834 2.11403L6.69072 9.31897L0.724195 7.73427Z" fill="black"/>
+              <path d="M3.28396 2.82664L6.14311 8.86349L1.1435 7.53589L3.28396 2.82664Z" stroke="white" stroke-width="0.6"/>
+            </g>
+            <g filter="url(#filter2_d_36_31)">
+              <path d="M17.26 22.5868L15.3995 16.7004L22.7553 19.774L17.26 22.5868Z" fill="black"/>
+              <path d="M15.8803 17.2264L22.0436 19.8017L17.439 22.1588L15.8803 17.2264Z" stroke="white" stroke-width="0.6"/>
+            </g>
+            <path d="M4 6.15927C4 6.15927 9.71429 2.49547 15.4286 8.19463C21.1429 13.8938 18.2857 20 18.2857 20" stroke="black"/>
+          </g>
+          <defs>
+            <filter id="filter0_d_36_31" x="-0.539062" y="2" width="22.5391" height="22.4229" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="-1" dy="1"/>
+              <feGaussianBlur stdDeviation="1.5"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <filter id="filter1_d_36_31" x="-0.275879" y="2.11426" width="9.96631" height="11.2046" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="1" dy="2"/>
+              <feGaussianBlur stdDeviation="1"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <filter id="filter2_d_36_31" x="12.3994" y="15.7002" width="11.3555" height="9.88672" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="-1" dy="1"/>
+              <feGaussianBlur stdDeviation="1"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <clipPath id="clip0_36_31">
+              <rect width="24" height="24" fill="white"/>
+            </clipPath>
+          </defs>
+        </g>
+      </svg>
+    `.trim();
+
+    const encoded = encodeURIComponent(svg);
+    const dataUrl = `data:image/svg+xml,${encoded}`;
+    const container = this._core.stage.container();
+    container.style.cursor = `url("${dataUrl}") 12 12, grab`;
   }
 
   private _updateRotateHandlesPosition() {
@@ -2058,7 +2178,6 @@ export class SelectionPlugin extends Plugin {
       if (this._rotateHandles.br) this._rotateHandles.br.scale({ x: invX, y: invY });
       if (this._rotateHandles.bl) this._rotateHandles.bl.scale({ x: invX, y: invY });
     }
-    this._rotateHandlesGroup.moveToTop();
   }
 
   // ===================== Size Label (width × height) =====================
@@ -2627,11 +2746,15 @@ export class SelectionPlugin extends Plugin {
       if (!this._selected) return;
       const n = this._selected.getKonvaNode() as unknown as Konva.Node;
       n.draggable(false);
+      // Repaint side anchors after draggable change
+      this._restyleSideAnchors();
     };
     const onUp = () => {
       if (!this._selected) return;
       const n = this._selected.getKonvaNode() as unknown as Konva.Node;
       if (this._options.dragEnabled) n.draggable(true);
+      // Repaint side anchors after draggable change
+      this._restyleSideAnchors();
     };
     tl.on('mousedown.corner-radius touchstart.corner-radius', onDown);
     tr.on('mousedown.corner-radius touchstart.corner-radius', onDown);

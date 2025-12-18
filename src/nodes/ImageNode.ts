@@ -1,5 +1,7 @@
 import Konva from 'konva';
 
+import { MediaPlaceholder, type MediaPlaceholderOptions } from '../utils/MediaPlaceholder';
+
 import { BaseNode, type BaseNodeOptions } from './BaseNode';
 
 export type ImageSource = HTMLImageElement;
@@ -9,9 +11,13 @@ export interface ImageNodeOptions extends BaseNodeOptions {
   src?: string; // if src is provided, it will be loaded async and set to node
   width?: number;
   height?: number;
+  cornerRadius?: number | number[];
+  placeholder?: Partial<MediaPlaceholderOptions>;
 }
 
 export class ImageNode extends BaseNode<Konva.Image> {
+  private _placeholder: MediaPlaceholder;
+
   constructor(options: ImageNodeOptions = {}) {
     const node = new Konva.Image({} as Konva.ImageConfig);
     node.x(options.x ?? 0);
@@ -19,10 +25,15 @@ export class ImageNode extends BaseNode<Konva.Image> {
     node.width(options.width ?? 150);
     node.height(options.height ?? 150);
     node.image(options.image ?? null);
+    node.cornerRadius(options.cornerRadius ?? 0);
+    node.setAttr('placeholder', options.placeholder ?? {});
     super(node, options);
+
+    this._placeholder = new MediaPlaceholder(this.konvaNode, options.placeholder);
 
     // If src is provided, it will be loaded async and set to node
     if (!options.image && options.src) {
+      this.konvaNode.setAttr('src', options.src);
       void this.setSrc(options.src);
     }
   }
@@ -40,7 +51,10 @@ export class ImageNode extends BaseNode<Konva.Image> {
     url: string,
     crossOrigin: '' | 'anonymous' | 'use-credentials' | undefined = 'anonymous',
   ) {
+    this.konvaNode.setAttr('src', url);
+    this._placeholder.start();
     const img = await this._loadHTMLImage(url, crossOrigin);
+    this._placeholder.stop();
     this.konvaNode.image(img);
 
     // If sizes are not set, Konva will use natural sizes from image
@@ -72,7 +86,6 @@ export class ImageNode extends BaseNode<Konva.Image> {
     return this.konvaNode.cornerRadius() as number;
   }
 
-  
   // ===== Static helpers =====
   private _loadHTMLImage(
     url: string,
@@ -97,5 +110,10 @@ export class ImageNode extends BaseNode<Konva.Image> {
       };
       img.src = url;
     });
+  }
+
+  public override remove(): void {
+    this._placeholder.stop();
+    super.remove();
   }
 }

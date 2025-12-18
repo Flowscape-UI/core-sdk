@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/html';
 import {
   AreaSelectionPlugin,
   CameraHotkeysPlugin,
+  ContentFromClipboardPlugin,
   CoreEngine,
   GridPlugin,
   HistoryPlugin,
@@ -44,10 +45,36 @@ const styles = `
   .sidebar {
     width: 320px;
     background: #161b22;
-    border-right: 1px solid #30363d;
+    border-left: 1px solid #30363d;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+  }
+
+  .playground-container.sidebar-collapsed .sidebar {
+    width: 0;
+    border-left: none;
+    overflow: hidden;
+  }
+
+  .sidebar-toggle-btn {
+    appearance: none;
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #e6edf3;
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .sidebar-toggle-btn:hover {
+    border-color: #58a6ff;
+  }
+
+  .panel-toggle {
+    display: inline-flex;
   }
 
   .sidebar-header {
@@ -105,7 +132,7 @@ const styles = `
 
   .stats-bar {
     position: absolute;
-    top: 16px;
+    top: 38px;
     right: 16px;
     background: rgba(22, 27, 34, 0.95);
     border: 1px solid #30363d;
@@ -424,6 +451,51 @@ const styles = `
     margin-top: 8px;
   }
 
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .media-btn {
+    height: 64px;
+    border-radius: 8px;
+    border: 1px solid #30363d;
+    background: #0d1117;
+    color: #e6edf3;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.15s;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .media-btn:hover {
+    border-color: #58a6ff;
+    transform: translateY(-1px);
+  }
+
+  .media-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(13,17,23,0.2) 0%, rgba(13,17,23,0.85) 100%);
+    pointer-events: none;
+  }
+
+  .media-btn > span {
+    position: relative;
+    z-index: 1;
+  }
+
   .icon-btn {
     aspect-ratio: 1;
     padding: 8px;
@@ -452,7 +524,7 @@ const styles = `
   .property-panel {
     position: absolute;
     bottom: 16px;
-    left: 16px;
+    right: 16px;
     background: rgba(22, 27, 34, 0.95);
     border: 1px solid #30363d;
     border-radius: 8px;
@@ -635,11 +707,25 @@ export const InteractivePlayground: Story = {
     document.head.appendChild(styleEl);
 
     const { sidebar, canvasArea } = createLayout();
-    container.appendChild(sidebar);
+    // Sidebar should be on the right
     container.appendChild(canvasArea);
+    container.appendChild(sidebar);
+
+    // Sidebar toggle (floating button)
+    const syncSidebarToggleUi = () => {
+      const collapsed = container.classList.contains('sidebar-collapsed');
+      const panelToggleBtn = container.querySelector('#panel-toggle') as HTMLButtonElement | null;
+
+      if (panelToggleBtn) panelToggleBtn.textContent = collapsed ? '☰ Panel' : 'Hide';
+    };
+
+    const toggleSidebar = () => {
+      container.classList.toggle('sidebar-collapsed');
+      syncSidebarToggleUi();
+    };
 
     setTimeout(() => {
-      initializePlayground(sidebar, canvasArea);
+      initializePlayground(sidebar, canvasArea, toggleSidebar, syncSidebarToggleUi);
     }, 0);
 
     return container;
@@ -654,7 +740,9 @@ function createLayout() {
   const sidebarHeader = document.createElement('div');
   sidebarHeader.className = 'sidebar-header';
   sidebarHeader.innerHTML = `
-    <h2 class="sidebar-title">🎨 Flowscape Playground</h2>
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h2 class="sidebar-title">🎨 Flowscape Playground</h2>
+    </div>
   `;
 
   const sidebarContent = document.createElement('div');
@@ -711,7 +799,12 @@ function createLayout() {
   };
 }
 
-function initializePlayground(sidebar: HTMLElement, canvasArea: HTMLElement) {
+function initializePlayground(
+  sidebar: HTMLElement,
+  canvasArea: HTMLElement,
+  toggleSidebar: () => void,
+  syncSidebarToggleUi: () => void,
+) {
   const canvasContainer = canvasArea.querySelector('.canvas-wrapper > div') as HTMLDivElement;
   const sidebarContent = sidebar.querySelector('#sidebar-content') as HTMLElement;
   // const toolbar = canvasArea.querySelector('#toolbar') as HTMLElement;
@@ -722,7 +815,13 @@ function initializePlayground(sidebar: HTMLElement, canvasArea: HTMLElement) {
   // Initialize plugins
   const pluginInstances = {
     grid: new GridPlugin({ color: '#3d3d3d', enableSnap: true }),
-    selection: new SelectionPlugin(),
+    selection: new SelectionPlugin({
+      enableVideoOverlay: {
+        uiAccentColor: '#ff8a00',
+        uiTrackFilledColor: '#ff8a00',
+        uiBackgroundColor: 'rgba(18,18,18,0.92)',
+      },
+    }),
     nodeHotkeys: new NodeHotkeysPlugin(),
     cameraHotkeys: new CameraHotkeysPlugin(),
     areaSelection: new AreaSelectionPlugin(),
@@ -730,6 +829,11 @@ function initializePlayground(sidebar: HTMLElement, canvasArea: HTMLElement) {
     history: new HistoryPlugin(),
     ruler: new RulerPlugin(),
     logo: new LogoPlugin({ src: '/images/logo.png', width: 200, height: 200, opacity: 0.3 }),
+    clipboard: new ContentFromClipboardPlugin({
+      ignoreEditableTargets: true,
+      maxImageSize: 1200,
+      enableDragDrop: true,
+    }),
   };
 
   pluginInstances.ruler.addons.add([
@@ -760,7 +864,7 @@ function initializePlayground(sidebar: HTMLElement, canvasArea: HTMLElement) {
   setupSidebar(sidebarContent, core, state, pluginInstances);
   setupStatsBar(statsBar, core);
   setupPropertyPanel(propertyPanel, core, state);
-  setupQuickActions(quickActions, core);
+  setupQuickActions(quickActions, core, toggleSidebar, syncSidebarToggleUi);
   setupEventListeners(core, state, propertyPanel);
 
   // Add welcome content
@@ -863,7 +967,7 @@ function setupSidebar(sidebar: HTMLElement, core: CoreEngine, state: any, plugin
   sidebar.innerHTML = `
     <div class="tabs">
       <button class="tab active" data-tab="shapes">Shapes</button>
-      <button class="tab" data-tab="icons">Icons</button>
+      <button class="tab" data-tab="icons">Assets</button>
       <button class="tab" data-tab="plugins">Plugins</button>
       <button class="tab" data-tab="presets">Presets</button>
     </div>
@@ -1033,6 +1137,54 @@ function createIconsTab(core: CoreEngine, state: any) {
 
   return `
     <div class="section">
+      <div class="section-title">Images</div>
+      <div class="media-grid">
+        <button class="media-btn" data-image="https://picsum.photos/id/1011/800/600" style="background-image:url('https://picsum.photos/id/1011/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1025/800/600" style="background-image:url('https://picsum.photos/id/1025/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1035/800/600" style="background-image:url('https://picsum.photos/id/1035/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1043/800/600" style="background-image:url('https://picsum.photos/id/1043/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1050/800/600" style="background-image:url('https://picsum.photos/id/1050/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1069/800/600" style="background-image:url('https://picsum.photos/id/1069/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1084/800/600" style="background-image:url('https://picsum.photos/id/1084/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1080/800/600" style="background-image:url('https://picsum.photos/id/1080/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1074/800/600" style="background-image:url('https://picsum.photos/id/1074/400/300')"><span></span></button>
+        <button class="media-btn" data-image="https://picsum.photos/id/1060/800/600" style="background-image:url('https://picsum.photos/id/1060/400/300')"><span></span></button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">GIF</div>
+      <div class="media-grid">
+        <button class="media-btn" data-gif="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHI0MGZ2M3l3N2g3d3I3aTdlcTJrYTY0ZjJycXZ4ZjRrNDhrMXJudiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/100QWMdxQJzQC4/giphy.gif" style="background-image:url('https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExdHI0MGZ2M3l3N2g3d3I3aTdlcTJrYTY0ZjJycXZ4ZjRrNDhrMXJudiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/100QWMdxQJzQC4/giphy.gif')"><span></span></button>
+        <button class="media-btn" data-gif="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXdrbXVsZnQxeXIxaGlpc3hiNmx1cndzdXhkbzJvZnpjMDNmcnN2cCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/aGVvqGKFOXIvC/giphy.gif" style="background-image:url('https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXdrbXVsZnQxeXIxaGlpc3hiNmx1cndzdXhkbzJvZnpjMDNmcnN2cCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/aGVvqGKFOXIvC/giphy.gif')"><span></span></button>
+        <button class="media-btn" data-gif="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXl4a2NobzJkaDVqYjlheG1zN2g3bmZ0dXB1a2xjMTBmOGttODZkZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/VOPK1BqsMEJRS/giphy.gif" style="background-image:url('https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExNXl4a2NobzJkaDVqYjlheG1zN2g3bmZ0dXB1a2xjMTBmOGttODZkZyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/VOPK1BqsMEJRS/giphy.gif')"><span></span></button>
+        <button class="media-btn" data-gif="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGdmZDBuM2ZoeHhrYmVvZWs4cmhmcmloMjJmZ2lxZWsxa2RrcG9uMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/12HZukMBlutpoQ/giphy.gif" style="background-image:url('https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExOGdmZDBuM2ZoeHhrYmVvZWs4cmhmcmloMjJmZ2lxZWsxa2RrcG9uMiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/12HZukMBlutpoQ/giphy.gif')"><span></span></button>
+        <button class="media-btn" data-gif="https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZzhnanNhNGRjMXJlcm1iOWZzMjlmMnNuNXJkNzcxYWUxYnpzNGRtdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YaKf7ZtM3yAhdgQ5XZ/giphy.gif" style="background-image:url('https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExZzhnanNhNGRjMXJlcm1iOWZzMjlmMnNuNXJkNzcxYWUxYnpzNGRtdiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/YaKf7ZtM3yAhdgQ5XZ/giphy.gif')"><span></span></button>
+        <button class="media-btn" data-gif="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDdvbG5peHNoMjI2Mjh5YWtqYzQzYzY2MzZoMXJ3ZXZvZXI0dHA3diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uvVzR1UfU2RqDISUCS/giphy.gif" style="background-image:url('https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDdvbG5peHNoMjI2Mjh5YWtqYzQzYzY2MzZoMXJ3ZXZvZXI0dHA3diZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/uvVzR1UfU2RqDISUCS/giphy.gif')"><span></span></button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SVG</div>
+      <div class="media-grid">
+        <button class="media-btn" data-svg="https://konvajs.org/assets/tiger.svg" style="background-image:url('https://konvajs.org/assets/tiger.svg')"><span></span></button>
+        <button class="media-btn" data-svg="https://upload.wikimedia.org/wikipedia/commons/6/6b/Bitmap_VS_SVG.svg" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/6/6b/Bitmap_VS_SVG.svg')"><span></span></button>
+        <button class="media-btn" data-svg="https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/0/02/SVG_logo.svg')"><span></span></button>
+        <button class="media-btn" data-svg="https://upload.wikimedia.org/wikipedia/commons/3/36/Logo.min.svg" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/3/36/Logo.min.svg')"><span></span></button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Videos</div>
+      <div class="media-grid">
+        <button class="media-btn" data-video="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" style="background-image:url('https://picsum.photos/id/1059/400/300')"><span></span></button>
+        <button class="media-btn" data-video="https://media.w3.org/2010/05/sintel/trailer.mp4" style="background-image:url('https://picsum.photos/id/1015/400/300')"><span></span></button>
+        <button class="media-btn" data-video="https://media.w3.org/2010/05/video/movie_300.mp4" style="background-image:url('https://picsum.photos/id/1024/400/300')"><span></span></button>
+        <button class="media-btn" data-video="https://archive.org/download/apple-september-2017-key-note-at-the-steve-jobs-theater-full-1080p-720p-30fps-h-264-128kbit-aac/Apple%20September%2C%202017%20Key%20Note%20at%20the%20Steve%20Jobs%20Theater%20Full%2C%201080p%20%28720p_30fps_H264-128kbit_AAC%29.mp4" style="background-image:url('https://picsum.photos/id/1039/400/300')"><span></span></button>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">Emoji Icons</div>
       <div class="icon-grid">
         ${icons
@@ -1044,6 +1196,8 @@ function createIconsTab(core: CoreEngine, state: any) {
           .join('')}
       </div>
     </div>
+
+    <div class="divider"></div>
 
     <div class="section">
       <div class="section-title">Custom Text</div>
@@ -1061,6 +1215,7 @@ function createPluginsTab(plugins: any) {
   const pluginInfo: Record<string, string> = {
     grid: 'Adaptive grid with snap',
     selection: 'Select and transform nodes',
+    clipboard: 'Paste (Ctrl+V) + drag & drop files',
     nodeHotkeys: 'Copy/paste shortcuts',
     cameraHotkeys: 'Zoom and pan controls',
     areaSelection: 'Area selection frame',
@@ -1087,6 +1242,28 @@ function createPluginsTab(plugins: any) {
         )
         .join('')}
     </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-title">Plugin Options</div>
+
+      <div class="plugin-item">
+        <div class="plugin-info">
+          <div class="plugin-name">Drag & Drop (Clipboard Plugin)</div>
+          <div class="plugin-desc">Enable dropping files from desktop onto canvas</div>
+        </div>
+        <div class="toggle-switch active" data-plugin-option="clipboard-dragdrop"></div>
+      </div>
+
+      <div class="plugin-item">
+        <div class="plugin-info">
+          <div class="plugin-name">Video Overlay (Selection Plugin)</div>
+          <div class="plugin-desc">DOM controls overlay for selected VideoNode</div>
+        </div>
+        <div class="toggle-switch active" data-plugin-option="selection-video-overlay"></div>
+      </div>
+    </div>
   `;
 }
 
@@ -1111,6 +1288,23 @@ function createPresetsTab(core: CoreEngine) {
           <div class="preset-name">🧠 Mind Map</div>
           <div class="preset-desc">Idea organization</div>
         </div>
+
+        <div class="preset-card" data-preset="media-gallery">
+          <div class="preset-name">🖼️ Media Gallery</div>
+          <div class="preset-desc">Images + SVG + GIF</div>
+        </div>
+        <div class="preset-card" data-preset="video-wall">
+          <div class="preset-name">🎬 Video Wall</div>
+          <div class="preset-desc">Remote videos + placeholders</div>
+        </div>
+        <div class="preset-card" data-preset="svg-stickers">
+          <div class="preset-name">✨ SVG Stickers</div>
+          <div class="preset-desc">Sharp vector assets</div>
+        </div>
+        <div class="preset-card" data-preset="mixed-media-board">
+          <div class="preset-name">🎭 Mixed Media</div>
+          <div class="preset-desc">SVG + Image + GIF + Video</div>
+        </div>
       </div>
     </div>
   `;
@@ -1121,6 +1315,19 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     x: Math.random() * 800 + 100,
     y: Math.random() * 400 + 100,
   });
+
+  const applyToMultiSelected = (apply: (konvaNode: any) => void) => {
+    const selected = Array.isArray(state.selectedNodes) ? state.selectedNodes : [];
+    if (selected.length <= 1) return false;
+    for (const node of selected) {
+      if (!node || typeof node.getKonvaNode !== 'function') continue;
+      const kn = node.getKonvaNode();
+      if (!kn) continue;
+      apply(kn);
+      if (typeof kn.getLayer === 'function') kn.getLayer()?.batchDraw();
+    }
+    return true;
+  };
 
   const shapeActions: Record<string, () => void> = {
     rect: () => {
@@ -1267,37 +1474,65 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
   const fillColor = sidebar.querySelector('#fill-color') as HTMLInputElement;
   const fillPreview = sidebar.querySelector('#fill-color-preview') as HTMLElement;
   fillColor?.addEventListener('input', (e) => {
-    state.currentColor = (e.target as HTMLInputElement).value;
-    if (fillPreview) fillPreview.style.background = state.currentColor;
+    const v = (e.target as HTMLInputElement).value;
+    const applied = applyToMultiSelected((kn) => {
+      if (typeof kn.fill === 'function') kn.fill(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('fill', v);
+    });
+
+    // If no multi-selection - treat as defaults for next nodes
+    if (!applied) state.currentColor = v;
+    if (fillPreview) fillPreview.style.background = v;
   });
 
   const strokeColor = sidebar.querySelector('#stroke-color') as HTMLInputElement;
   const strokePreview = sidebar.querySelector('#stroke-color-preview') as HTMLElement;
   strokeColor?.addEventListener('input', (e) => {
-    state.currentStrokeColor = (e.target as HTMLInputElement).value;
-    if (strokePreview) strokePreview.style.background = state.currentStrokeColor;
+    const v = (e.target as HTMLInputElement).value;
+    const applied = applyToMultiSelected((kn) => {
+      if (typeof kn.stroke === 'function') kn.stroke(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('stroke', v);
+    });
+    if (!applied) state.currentStrokeColor = v;
+    if (strokePreview) strokePreview.style.background = v;
   });
 
   // Sliders
   const strokeWidth = sidebar.querySelector('#stroke-width') as HTMLInputElement;
   const strokeWidthValue = sidebar.querySelector('#stroke-width-value')!;
   strokeWidth?.addEventListener('input', (e) => {
-    state.currentStrokeWidth = parseInt((e.target as HTMLInputElement).value);
-    strokeWidthValue.textContent = state.currentStrokeWidth.toString();
+    const v = parseInt((e.target as HTMLInputElement).value);
+    const applied = applyToMultiSelected((kn) => {
+      if (typeof kn.strokeWidth === 'function') kn.strokeWidth(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('strokeWidth', v);
+    });
+    if (!applied) state.currentStrokeWidth = v;
+    strokeWidthValue.textContent = v.toString();
   });
 
   const opacity = sidebar.querySelector('#opacity') as HTMLInputElement;
   const opacityValue = sidebar.querySelector('#opacity-value')!;
   opacity?.addEventListener('input', (e) => {
-    state.currentOpacity = parseInt((e.target as HTMLInputElement).value) / 100;
-    opacityValue.textContent = `${Math.round(state.currentOpacity * 100)}%`;
+    const pct = parseInt((e.target as HTMLInputElement).value);
+    const v = pct / 100;
+    const applied = applyToMultiSelected((kn) => {
+      if (typeof kn.opacity === 'function') kn.opacity(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('opacity', v);
+    });
+    if (!applied) state.currentOpacity = v;
+    opacityValue.textContent = `${pct}%`;
   });
 
   const fontSize = sidebar.querySelector('#font-size') as HTMLInputElement;
   const fontSizeValue = sidebar.querySelector('#font-size-value')!;
   fontSize?.addEventListener('input', (e) => {
-    state.currentFontSize = parseInt((e.target as HTMLInputElement).value);
-    fontSizeValue.textContent = `${state.currentFontSize}px`;
+    const v = parseInt((e.target as HTMLInputElement).value);
+    const applied = applyToMultiSelected((kn) => {
+      if (typeof kn.fontSize === 'function') kn.fontSize(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('fontSize', v);
+    });
+    if (!applied) state.currentFontSize = v;
+    fontSizeValue.textContent = `${v}px`;
   });
 }
 
@@ -1310,6 +1545,74 @@ function setupIconsTabListeners(sidebar: HTMLElement, core: CoreEngine, state: a
         y: Math.random() * 400 + 100,
         text: icon,
         fontSize: 48,
+      });
+    });
+  });
+
+  const addAtRandom = () => ({
+    x: Math.random() * 900 + 100,
+    y: Math.random() * 500 + 100,
+  });
+
+  sidebar.querySelectorAll('[data-image]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const src = btn.getAttribute('data-image');
+      if (!src) return;
+      const pos = addAtRandom();
+      core.nodes.addImage({
+        ...pos,
+        width: 320,
+        height: 220,
+        src,
+      });
+    });
+  });
+
+  sidebar.querySelectorAll('[data-gif]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const src = btn.getAttribute('data-gif');
+      if (!src) return;
+      const pos = addAtRandom();
+      core.nodes.addGif({
+        ...pos,
+        width: 260,
+        height: 200,
+        src,
+        autoplay: true,
+        placeholder: { accentSpinnerColor: 'red' },
+      });
+    });
+  });
+
+  sidebar.querySelectorAll('[data-svg]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const src = btn.getAttribute('data-svg');
+      if (!src) return;
+      const pos = addAtRandom();
+      core.nodes.addSvg({
+        ...pos,
+        width: 260,
+        height: 200,
+        src,
+        placeholder: { accentSpinnerColor: '#58a6ff' },
+      });
+    });
+  });
+
+  sidebar.querySelectorAll('[data-video]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const src = btn.getAttribute('data-video');
+      if (!src) return;
+      const pos = addAtRandom();
+      core.nodes.addVideo({
+        ...pos,
+        width: 360,
+        height: 220,
+        src,
+        autoplay: true,
+        loop: true,
+        muted: true,
+        placeholder: { accentSpinnerColor: 'yellow' },
       });
     });
   });
@@ -1333,6 +1636,61 @@ function setupIconsTabListeners(sidebar: HTMLElement, core: CoreEngine, state: a
 function setupPluginsTabListeners(sidebar: HTMLElement, core: CoreEngine, plugins: any) {
   sidebar.querySelectorAll('.toggle-switch').forEach((toggle) => {
     toggle.addEventListener('click', () => {
+      const optionKey = toggle.getAttribute('data-plugin-option');
+      if (optionKey) {
+        const isActive = toggle.classList.contains('active');
+
+        if (optionKey === 'clipboard-dragdrop') {
+          const clipboard = plugins.clipboard as ContentFromClipboardPlugin | undefined;
+          if (!clipboard) return;
+
+          const currentlyEnabled = isActive;
+          const nextEnabled = !currentlyEnabled;
+          toggle.classList.toggle('active', nextEnabled);
+
+          // Recreate plugin because enableDragDrop is an option handled at construction time
+          const wasActive = core.plugins.list().includes(clipboard);
+          if (wasActive) core.plugins.removePlugins([clipboard]);
+
+          const next = new ContentFromClipboardPlugin({
+            ignoreEditableTargets: true,
+            maxImageSize: 1200,
+            enableDragDrop: nextEnabled,
+          });
+          plugins.clipboard = next;
+          if (wasActive) core.plugins.addPlugins([next]);
+          return;
+        }
+
+        if (optionKey === 'selection-video-overlay') {
+          const selection = plugins.selection as SelectionPlugin | undefined;
+          if (!selection || typeof selection.setOptions !== 'function') return;
+
+          const currentlyEnabled = isActive;
+          const nextEnabled = !currentlyEnabled;
+          toggle.classList.toggle('active', nextEnabled);
+
+          // Recreate SelectionPlugin to ensure overlay addon is really attached/detached
+          const wasActive = core.plugins.list().includes(selection);
+          if (wasActive) core.plugins.removePlugins([selection]);
+
+          const next = new SelectionPlugin(
+            nextEnabled
+              ? {
+                  enableVideoOverlay: {
+                    uiAccentColor: '#ff8a00',
+                    uiTrackFilledColor: '#ff8a00',
+                    uiBackgroundColor: 'rgba(18,18,18,0.92)',
+                  },
+                }
+              : {},
+          );
+          plugins.selection = next;
+          if (wasActive) core.plugins.addPlugins([next]);
+          return;
+        }
+      }
+
       const pluginKey = toggle.getAttribute('data-plugin');
       const isActive = toggle.classList.contains('active');
 
@@ -1503,6 +1861,139 @@ function setupPresetsTabListeners(sidebar: HTMLElement, core: CoreEngine) {
         });
       });
     },
+
+    'media-gallery': () => {
+      const allNodes = core.nodes.list();
+      allNodes.forEach((node) => core.nodes.remove(node));
+
+      core.nodes.addText({ x: 60, y: 40, text: 'Media Gallery', fontSize: 32, fill: '#e6edf3' });
+
+      // Public URLs (no local assets)
+      const img1 = 'https://picsum.photos/id/1069/640/420';
+      const img2 = 'https://picsum.photos/id/1025/640/420';
+      const svg1 = 'https://konvajs.org/assets/tiger.svg';
+      const gif1 = 'https://konvajs.org/assets/yoda.gif';
+
+      core.nodes.addImage({ x: 60, y: 100, width: 360, height: 240, src: img1 });
+      core.nodes.addImage({ x: 450, y: 100, width: 360, height: 240, src: img2 });
+      core.nodes.addSvg({
+        x: 840,
+        y: 100,
+        width: 240,
+        height: 240,
+        src: svg1,
+        placeholder: { accentSpinnerColor: '#58a6ff' },
+      });
+      core.nodes.addGif({
+        x: 60,
+        y: 380,
+        width: 320,
+        height: 240,
+        src: gif1,
+        autoplay: true,
+        placeholder: { accentSpinnerColor: 'red' },
+      });
+    },
+
+    'video-wall': () => {
+      const allNodes = core.nodes.list();
+      allNodes.forEach((node) => core.nodes.remove(node));
+
+      core.nodes.addText({ x: 60, y: 40, text: 'Video Wall', fontSize: 32, fill: '#e6edf3' });
+
+      const video1 =
+        'https://archive.org/download/apple-september-2017-key-note-at-the-steve-jobs-theater-full-1080p-720p-30fps-h-264-128kbit-aac/Apple%20September%2C%202017%20Key%20Note%20at%20the%20Steve%20Jobs%20Theater%20Full%2C%201080p%20%28720p_30fps_H264-128kbit_AAC%29.mp4';
+      const video2 = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+
+      core.nodes.addVideo({
+        x: 60,
+        y: 100,
+        width: 480,
+        height: 270,
+        src: video1,
+        autoplay: true,
+        loop: true,
+        muted: true,
+        placeholder: { accentSpinnerColor: 'yellow' },
+      });
+
+      core.nodes.addVideo({
+        x: 580,
+        y: 100,
+        width: 480,
+        height: 270,
+        src: video2,
+        autoplay: true,
+        loop: true,
+        muted: true,
+        placeholder: { accentSpinnerColor: '#58a6ff' },
+      });
+    },
+
+    'svg-stickers': () => {
+      const allNodes = core.nodes.list();
+      allNodes.forEach((node) => core.nodes.remove(node));
+
+      core.nodes.addText({ x: 60, y: 40, text: 'SVG Stickers', fontSize: 32, fill: '#e6edf3' });
+
+      const svgs = [
+        'https://konvajs.org/assets/tiger.svg',
+        'https://upload.wikimedia.org/wikipedia/commons/3/36/Logo.min.svg',
+        'https://upload.wikimedia.org/wikipedia/commons/6/6b/Bitmap_VS_SVG.svg',
+      ];
+
+      svgs.forEach((src, i) => {
+        core.nodes.addSvg({
+          x: 60 + i * 360,
+          y: 120,
+          width: 300,
+          height: 220,
+          src,
+          placeholder: { accentSpinnerColor: '#58a6ff' },
+        });
+      });
+    },
+
+    'mixed-media-board': () => {
+      const allNodes = core.nodes.list();
+      allNodes.forEach((node) => core.nodes.remove(node));
+
+      core.nodes.addText({
+        x: 60,
+        y: 40,
+        text: 'Mixed Media Board',
+        fontSize: 32,
+        fill: '#e6edf3',
+      });
+
+      const img = 'https://picsum.photos/id/1084/900/600';
+      const gif = 'https://konvajs.org/assets/yoda.gif';
+      const svg = 'https://konvajs.org/assets/tiger.svg';
+      const video = 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+
+      core.nodes.addImage({ x: 60, y: 100, width: 520, height: 340, src: img });
+      core.nodes.addSvg({ x: 610, y: 100, width: 260, height: 260, src: svg });
+      core.nodes.addGif({
+        x: 900,
+        y: 100,
+        width: 220,
+        height: 220,
+        src: gif,
+        autoplay: true,
+        placeholder: { accentSpinnerColor: 'red' },
+      });
+      core.nodes.addVideo({
+        x: 610,
+        y: 380,
+        width: 510,
+        height: 290,
+        src: video,
+        autoplay: true,
+        loop: true,
+        muted: true,
+        placeholder: { accentSpinnerColor: 'yellow' },
+      });
+    },
   };
 
   sidebar.querySelectorAll('[data-preset]').forEach((card) => {
@@ -1580,9 +2071,205 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       <p style="color: #8b949e; font-size: 12px;">Select a node to edit properties</p>
     </div>
   `;
+
+  const content = propertyPanel.querySelector('#property-content') as HTMLElement | null;
+  if (!content) return;
+
+  content.innerHTML = `
+    <div class="section" style="margin-bottom: 12px;">
+      <div class="section-title">Selection</div>
+      <div style="font-size: 12px; color: #8b949e; line-height: 1.4;">
+        Selected: <span id="pp-selected-count" style="color:#58a6ff; font-weight:600;">0</span>
+      </div>
+    </div>
+
+    <div class="section" style="margin-bottom: 12px;">
+      <div class="section-title">Appearance</div>
+
+      <div class="input-group">
+        <label class="input-label">Fill</label>
+        <div class="color-picker-wrapper">
+          <div class="color-preview" id="pp-fill-preview" style="background: #3b82f6"></div>
+          <input type="color" class="input-field" id="pp-fill" value="#3b82f6">
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Stroke</label>
+        <div class="color-picker-wrapper">
+          <div class="color-preview" id="pp-stroke-preview" style="background: #1e40af"></div>
+          <input type="color" class="input-field" id="pp-stroke" value="#1e40af">
+        </div>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Stroke Width</span>
+          <span class="slider-value" id="pp-stroke-width-value">2</span>
+        </div>
+        <input type="range" class="slider" id="pp-stroke-width" min="0" max="20" value="2">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Opacity</span>
+          <span class="slider-value" id="pp-opacity-value">100%</span>
+        </div>
+        <input type="range" class="slider" id="pp-opacity" min="0" max="100" value="100">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-label">Font Size (Text)</span>
+          <span class="slider-value" id="pp-font-size-value">24px</span>
+        </div>
+        <input type="range" class="slider" id="pp-font-size" min="12" max="120" value="24">
+      </div>
+    </div>
+  `;
+
+  const applyToSelected = (apply: (konvaNode: any) => void) => {
+    const selected = Array.isArray(state.selectedNodes) ? state.selectedNodes : [];
+    if (selected.length !== 1) return;
+    const node = selected[0];
+    if (!node || typeof node.getKonvaNode !== 'function') return;
+    const kn = node.getKonvaNode();
+    if (!kn) return;
+    apply(kn);
+    if (typeof kn.getLayer === 'function') kn.getLayer()?.batchDraw();
+  };
+
+  const fillInput = propertyPanel.querySelector('#pp-fill') as HTMLInputElement | null;
+  const fillPreview = propertyPanel.querySelector('#pp-fill-preview') as HTMLElement | null;
+  fillInput?.addEventListener('input', (e) => {
+    const v = (e.target as HTMLInputElement).value;
+    if (fillPreview) fillPreview.style.background = v;
+    applyToSelected((kn) => {
+      if (typeof kn.fill === 'function') kn.fill(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('fill', v);
+    });
+  });
+
+  const strokeInput = propertyPanel.querySelector('#pp-stroke') as HTMLInputElement | null;
+  const strokePreview = propertyPanel.querySelector('#pp-stroke-preview') as HTMLElement | null;
+  strokeInput?.addEventListener('input', (e) => {
+    const v = (e.target as HTMLInputElement).value;
+    if (strokePreview) strokePreview.style.background = v;
+    applyToSelected((kn) => {
+      if (typeof kn.stroke === 'function') kn.stroke(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('stroke', v);
+    });
+  });
+
+  const strokeWidthInput = propertyPanel.querySelector(
+    '#pp-stroke-width',
+  ) as HTMLInputElement | null;
+  const strokeWidthValue = propertyPanel.querySelector(
+    '#pp-stroke-width-value',
+  ) as HTMLElement | null;
+  strokeWidthInput?.addEventListener('input', (e) => {
+    const v = Number.parseInt((e.target as HTMLInputElement).value);
+    if (strokeWidthValue) strokeWidthValue.textContent = v.toString();
+    applyToSelected((kn) => {
+      if (typeof kn.strokeWidth === 'function') kn.strokeWidth(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('strokeWidth', v);
+    });
+  });
+
+  const opacityInput = propertyPanel.querySelector('#pp-opacity') as HTMLInputElement | null;
+  const opacityValue = propertyPanel.querySelector('#pp-opacity-value') as HTMLElement | null;
+  opacityInput?.addEventListener('input', (e) => {
+    const pct = Number.parseInt((e.target as HTMLInputElement).value);
+    if (opacityValue) opacityValue.textContent = `${pct}%`;
+    const v = Math.max(0, Math.min(1, pct / 100));
+    applyToSelected((kn) => {
+      if (typeof kn.opacity === 'function') kn.opacity(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('opacity', v);
+    });
+  });
+
+  const fontSizeInput = propertyPanel.querySelector('#pp-font-size') as HTMLInputElement | null;
+  const fontSizeValue = propertyPanel.querySelector('#pp-font-size-value') as HTMLElement | null;
+  fontSizeInput?.addEventListener('input', (e) => {
+    const v = Number.parseInt((e.target as HTMLInputElement).value);
+    if (fontSizeValue) fontSizeValue.textContent = `${v}px`;
+    applyToSelected((kn) => {
+      if (typeof kn.fontSize === 'function') kn.fontSize(v);
+      else if (typeof kn.setAttr === 'function') kn.setAttr('fontSize', v);
+    });
+  });
+
+  const syncFromFirstSelected = () => {
+    const selected = Array.isArray(state.selectedNodes) ? state.selectedNodes : [];
+    const first = selected[0];
+    const count = selected.length;
+
+    const cntEl = propertyPanel.querySelector('#pp-selected-count');
+    if (cntEl) cntEl.textContent = count.toString();
+
+    // This panel is meant for single-node editing only
+    if (count !== 1) return;
+
+    if (!first || typeof first.getKonvaNode !== 'function') return;
+    const kn: any = first.getKonvaNode();
+    if (!kn) return;
+
+    const fill = typeof kn.fill === 'function' ? kn.fill() : kn.getAttr?.('fill');
+    const stroke = typeof kn.stroke === 'function' ? kn.stroke() : kn.getAttr?.('stroke');
+    const sw =
+      typeof kn.strokeWidth === 'function'
+        ? kn.strokeWidth()
+        : (kn.getAttr?.('strokeWidth') as number | undefined);
+    const op = typeof kn.opacity === 'function' ? kn.opacity() : kn.getAttr?.('opacity');
+    const fs =
+      typeof kn.fontSize === 'function'
+        ? kn.fontSize()
+        : (kn.getAttr?.('fontSize') as number | undefined);
+
+    if (fillInput && typeof fill === 'string' && fill.startsWith('#')) {
+      fillInput.value = fill;
+      if (fillPreview) fillPreview.style.background = fill;
+    }
+    if (strokeInput && typeof stroke === 'string' && stroke.startsWith('#')) {
+      strokeInput.value = stroke;
+      if (strokePreview) strokePreview.style.background = stroke;
+    }
+    if (strokeWidthInput && Number.isFinite(sw)) {
+      strokeWidthInput.value = String(sw);
+      if (strokeWidthValue) strokeWidthValue.textContent = String(sw);
+    }
+    if (opacityInput && typeof op === 'number' && Number.isFinite(op)) {
+      const pct = Math.round(op * 100);
+      opacityInput.value = String(pct);
+      if (opacityValue) opacityValue.textContent = `${pct}%`;
+    }
+    if (fontSizeInput && Number.isFinite(fs)) {
+      fontSizeInput.value = String(fs);
+      if (fontSizeValue) fontSizeValue.textContent = `${fs}px`;
+    }
+  };
+
+  (state as any)._syncPropertyPanel = syncFromFirstSelected;
 }
 
-function setupQuickActions(quickActions: HTMLElement, core: CoreEngine) {
+function setupQuickActions(
+  quickActions: HTMLElement,
+  core: CoreEngine,
+  toggleSidebar: () => void,
+  syncSidebarToggleUi: () => void,
+) {
+  // quickActions.innerHTML = `
+  //   <button class="btn tooltip panel-toggle" id="panel-toggle" type="button" data-tooltip="Show Panel">
+  //     ☰ Panel
+  //   </button>
+  //   <button class="btn tooltip" data-action="export" data-tooltip="Export as PNG">
+  //     📸 Export
+  //   </button>
+  //   <button class="btn tooltip" data-action="fullscreen" data-tooltip="Toggle Fullscreen">
+  //     ⛶ Fullscreen
+  //   </button>
+  // `;
+
   quickActions.innerHTML = `
     <button class="btn tooltip" data-action="export" data-tooltip="Export as PNG">
       📸 Export
@@ -1591,6 +2278,15 @@ function setupQuickActions(quickActions: HTMLElement, core: CoreEngine) {
       ⛶ Fullscreen
     </button>
   `;
+
+  const panelToggleBtn = quickActions.querySelector('#panel-toggle') as HTMLButtonElement | null;
+  if (panelToggleBtn) {
+    panelToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleSidebar();
+    });
+    syncSidebarToggleUi();
+  }
 
   quickActions.querySelector('[data-action="export"]')?.addEventListener('click', () => {
     const stage = core.stage;
@@ -1611,18 +2307,45 @@ function setupQuickActions(quickActions: HTMLElement, core: CoreEngine) {
 }
 
 function setupEventListeners(core: CoreEngine, state: any, propertyPanel: HTMLElement) {
+  const updateSelectedUi = () => {
+    const selected = Array.isArray(state.selectedNodes) ? state.selectedNodes : [];
+    const count = selected.length;
+    const selectedCountEl = document.querySelector('#selected-count');
+    if (selectedCountEl) selectedCountEl.textContent = count.toString();
+
+    // Properties panel should appear only for single-node selection
+    if (count === 1) propertyPanel.classList.add('visible');
+    else propertyPanel.classList.remove('visible');
+
+    const sync = (state as any)._syncPropertyPanel as (() => void) | undefined;
+    sync?.();
+  };
+
   core.eventBus.on('node:selected', (node: any) => {
     state.selectedNodes = [node];
-    const selectedCountEl = document.querySelector('#selected-count');
-    if (selectedCountEl) selectedCountEl.textContent = '1';
-    propertyPanel.classList.add('visible');
+    updateSelectedUi();
+  });
+
+  core.eventBus.on('selection:multi:created', (nodes: any[]) => {
+    state.selectedNodes = Array.isArray(nodes) ? nodes : [];
+    updateSelectedUi();
+  });
+
+  core.eventBus.on('selection:multi:destroyed', () => {
+    // Multi-selection was destroyed (e.g. user clicked away) -> clear UI.
+    // If SelectionPlugin selects a single node afterwards, it will emit node:selected.
+    state.selectedNodes = [];
+    updateSelectedUi();
   });
 
   core.eventBus.on('node:deselected', () => {
     state.selectedNodes = [];
-    const selectedCountEl = document.querySelector('#selected-count');
-    if (selectedCountEl) selectedCountEl.textContent = '0';
-    propertyPanel.classList.remove('visible');
+    updateSelectedUi();
+  });
+
+  core.eventBus.on('selection:cleared', () => {
+    state.selectedNodes = [];
+    updateSelectedUi();
   });
 }
 
