@@ -72,6 +72,8 @@ export class SelectionPlugin extends Plugin {
   private _cornerHandlesSuppressed = false;
   // Saved opposite corner position at transformation start (to fix origin)
   private _transformOppositeCorner: { x: number; y: number } | null = null;
+  // True while Transformer-based resize/transform is active (not node drag)
+  private _isTransforming = false;
   // Label with selected node dimensions (width × height)
   private _sizeLabel: Konva.Label | null = null;
   // Label for displaying radius on hover/drag of corner handles
@@ -178,11 +180,40 @@ export class SelectionPlugin extends Plugin {
           // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
+          // If auto-pan is running during Transformer-based resize, keep the saved
+          // reference point in sync with the world shift. Otherwise corner-sync will
+          // start compensating position and cause jumps.
+          if (this._isTransforming && this._transformOppositeCorner) {
+            this._transformOppositeCorner = {
+              x: this._transformOppositeCorner.x - vx,
+              y: this._transformOppositeCorner.y - vy,
+            };
+          }
           // Compensation for dragged node: keep under cursor
           if (this._draggingNode && typeof this._draggingNode.setAbsolutePosition === 'function') {
             const abs = this._draggingNode.getAbsolutePosition();
             this._draggingNode.setAbsolutePosition({ x: abs.x + vx, y: abs.y + vy });
             this._transformer?.forceUpdate();
+          }
+
+          if (this._isTransforming) {
+            const p = stage.getPointerPosition();
+            if (p) {
+              const c = stage.container();
+              const r = c.getBoundingClientRect();
+              try {
+                c.dispatchEvent(
+                  new MouseEvent('mousemove', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: r.left + p.x,
+                    clientY: r.top + p.y,
+                  }),
+                );
+              } catch {
+                // ignore
+              }
+            }
           }
           this._core.nodes.layer.batchDraw();
         }
@@ -1754,6 +1785,8 @@ export class SelectionPlugin extends Plugin {
       this._cornerHandlesSuppressed = true;
       this._cornerHandlesGroup?.visible(false);
       this._hideRadiusLabel();
+      // Mark transformer-based resize active (affects auto-pan and corner-sync logic)
+      this._isTransforming = true;
       // Start auto-pan during resize
       this._startAutoPanLoop();
 
@@ -1765,6 +1798,7 @@ export class SelectionPlugin extends Plugin {
 
       if (!node) {
         this._transformOppositeCorner = null;
+        this._isTransforming = false;
         return;
       }
 
@@ -1772,6 +1806,7 @@ export class SelectionPlugin extends Plugin {
       const refPoint = getResizeReferencePoint(activeAnchor, rect);
       if (!refPoint) {
         this._transformOppositeCorner = null;
+        this._isTransforming = false;
         return;
       }
 
@@ -1786,7 +1821,9 @@ export class SelectionPlugin extends Plugin {
       if (n) {
         this._bakeRectScale(n);
 
-        // Correct the node position to keep the reference point (corner/edge center) in place
+        // Correct the node position to keep the reference point (corner/edge center) in place.
+        // This is required for stable resize (including with auto-pan). The saved reference point
+        // is updated during auto-pan ticks.
         if (this._transformOppositeCorner) {
           const rawAnchor =
             typeof transformer.getActiveAnchor === 'function' ? transformer.getActiveAnchor() : '';
@@ -1824,6 +1861,7 @@ export class SelectionPlugin extends Plugin {
       // Reset the flag suppressing corner-radius handlers and saved angle
       this._cornerHandlesSuppressed = false;
       this._transformOppositeCorner = null;
+      this._isTransforming = false;
       this._restyleSideAnchors();
       // Stop auto-pan after resize
       this._stopAutoPanLoop();
