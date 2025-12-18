@@ -13,6 +13,9 @@ Nodes are the building blocks of your canvas. Flowscape SDK provides various nod
 - **Ellipse** — Oval shapes
 - **Text** — Text elements with formatting
 - **Image** — Images from URLs or data
+- **SVG** — SVG images (as data URI or URL)
+- **Video** — Video nodes (HTMLVideoElement-backed)
+- **GIF** — Animated GIF nodes
 - **Arc** — Arc segments
 - **Arrow** — Arrows with customizable pointers
 - **Star** — Star shapes with configurable points
@@ -148,6 +151,8 @@ const text = core.nodes.addText({
 
 Display images from URLs or data URIs.
 
+`src` can be a local path, a remote URL, or a data URI.
+
 ```typescript
 const image = core.nodes.addImage({
   x: 500,
@@ -174,6 +179,90 @@ image.setSrc('/new/image.jpg');
 
 // Get current source
 const src = image.getSrc();
+```
+
+## SVG Node
+
+Render SVG content on the canvas.
+
+`src` can be a local path, a remote URL, or a data URI.
+
+```typescript
+const svg = core.nodes.addSvg({
+  x: 200,
+  y: 200,
+  width: 240,
+  height: 240,
+  src:
+    'data:image/svg+xml;charset=utf-8,' +
+    encodeURIComponent(
+      '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="red"/></svg>',
+    ),
+});
+```
+
+### SVG Options
+
+| Property | Type     | Default | Description |
+| -------- | -------- | ------- | ----------- |
+| `src`    | `string` | `''`    | SVG source  |
+| `width`  | `number` | `150`   | Width       |
+| `height` | `number` | `150`   | Height      |
+
+## Video Node
+
+Render videos on the canvas.
+
+`src` can be a local path or a remote URL.
+
+```typescript
+const video = core.nodes.addVideo({
+  x: 300,
+  y: 300,
+  width: 320,
+  height: 240,
+  placeholder: {
+    accentSpinnerColor: 'yellow',
+  },
+  autoplay: true,
+  loop: true,
+  muted: true,
+  volume: 1,
+});
+
+await video.setSrc('/videos/demo.mp4', {
+  autoplay: true,
+  loop: true,
+  muted: true,
+  volume: 1,
+});
+```
+
+### Video Methods
+
+```typescript
+const el = video.getVideoElement();
+video.play();
+video.pause();
+```
+
+## GIF Node
+
+Render animated GIFs on the canvas.
+
+`src` can be a local path or a remote URL.
+
+```typescript
+const gif = core.nodes.addGif({
+  x: 400,
+  y: 400,
+  width: 240,
+  height: 180,
+  placeholder: {
+    accentSpinnerColor: 'red',
+  },
+  src: '/images/animation.gif',
+});
 ```
 
 ## Arc Node

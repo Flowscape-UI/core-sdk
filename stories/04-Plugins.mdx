@@ -40,6 +40,14 @@ const selection = new SelectionPlugin({
   dragEnabled: true,
   rotateEnabled: true,
   keepRatio: false,
+
+  // DOM video controls overlay for selected VideoNode
+  // enableVideoOverlay: true,
+  enableVideoOverlay: {
+    uiAccentColor: '#ff8a00',
+    uiTrackFilledColor: '#ff8a00',
+    uiBackgroundColor: 'rgba(18,18,18,0.92)',
+  },
 });
 ```
 
@@ -48,8 +56,10 @@ const selection = new SelectionPlugin({
 - Multi-selection (Shift+Click)
 - Drag & drop
 - Rotation handles
+- Custom rotation cursor (improved UX during rotation)
 - Resize with aspect ratio lock (Shift)
 - Grouping (Ctrl+G)
+- Video overlay controls (optional)
 
 ## NodeHotkeysPlugin
 
@@ -60,6 +70,42 @@ import { NodeHotkeysPlugin } from '@flowscape-ui/core-sdk';
 
 const hotkeys = new NodeHotkeysPlugin();
 ```
+
+## ContentFromClipboardPlugin
+
+Paste and drop external content directly into the canvas.
+
+Supports:
+
+- Images (any browser-supported formats)
+- GIFs
+- Videos (any browser-supported formats)
+- SVG files
+- Text
+- Drag & drop from desktop (optional)
+
+```typescript
+import { ContentFromClipboardPlugin } from '@flowscape-ui/core-sdk';
+
+const contentFromClipboard = new ContentFromClipboardPlugin({
+  // Where to listen for paste events
+  // target: window,
+
+  // Ignore paste events from inputs/textarea/contenteditable
+  ignoreEditableTargets: true,
+
+  // Fit pasted media into max size (in px)
+  maxImageSize: 1200,
+
+  // Enable drag & drop of files onto the canvas container
+  enableDragDrop: true,
+});
+```
+
+**Notes:**
+
+- Pasting uses the current pointer position if it is on the canvas; otherwise it falls back to the screen center.
+- Drag & drop places content at the actual drop point (world coordinates).
 
 **Shortcuts:**
 
