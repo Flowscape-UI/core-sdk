@@ -5,7 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.3] - 2025-01-13
+# Changelog
+
+## [1.0.4] - 2025-12-18
+
+### ✨ New Features
+
+- **Paste from Clipboard (Ctrl+C / Ctrl+V)**
+  - Paste **images of any browser-supported format** directly into the canvas
+  - Paste **GIFs**
+  - Paste **videos of any browser-supported format**
+  - Paste **SVG files**
+  - Paste **text**
+  - Works the same way as in Figma — copy from any source, paste into the canvas
+
+- **Drag & Drop from Desktop**
+  - Drag & drop all supported file types directly from your computer into the canvas
+
+- **Custom Rotation Cursor**
+  - Added a custom cursor when rotating objects, improving UX and precision
+
+---
+
+### 🐛 Fixes
+
+- Fixed an issue where **resizing non-standard shapes** could break their geometry
+- Improved **text component behavior**
+  - Text now **auto-resizes correctly**
+  - Fixed a bug where text would jump out when entering text edit mode
+- Fixed **lasso selection** behavior
+  - Lasso continues to work correctly even when dragged outside the canvas bounds
+- Fixed a bug with **multi-selection using Shift**
+  - Selection state is now consistent and predictable
+
+---
+
+### 🛠 Improvements
+
+- Overall stability and interaction polish across selection, resizing, and editing workflows
+
+
+## [1.0.3] - 2025-12-13
 
 ### Added
 
