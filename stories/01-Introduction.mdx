@@ -4,7 +4,7 @@ import { Meta } from '@storybook/blocks';
 
 # 🎨 Flowscape Core SDK
 
-**Powerful 2D canvas engine built on Konva**
+**High-performance 2D canvas engine for an interactive infinite canvas with nodes, pan/zoom, selection, history, and a plugin-friendly architecture built on Konva**
 
 Welcome to the interactive documentation for Flowscape Core SDK! Here you can test all library features in real-time.
 
@@ -105,6 +105,18 @@ Flowscape Core SDK is built on a modular architecture:
 │  └──────────────────────────────┘   │
 └─────────────────────────────────────┘
 ```
+
+## 🎉 What's New in 1.0.5
+
+### 🐛 Fixes
+
+    - Temp-multi selection with auto-pan, rotation, and virtualization
+    - Keep temp-multi nodes visible during viewport culling to prevent visual "loss" of group members
+    - Prevent culling of real Konva.Group children to maintain stable group transforms
+    - Apply temp-multi transforms in world-local coordinates to isolate from camera pan/zoom
+    - Shift overlay transform reference point during auto-pan to keep resize deltas consistent
+    - Enable auto-pan loop for temp-multi resize operations
+    - Add rotation support
 
 ## 🎉 What's New in 1.0.4
 

@@ -2,7 +2,7 @@
 
 # 🎨 @flowscape-ui/core-sdk
 
-**Powerful 2D canvas engine built on Konva**
+**High-performance 2D canvas engine for an interactive infinite canvas with nodes, pan/zoom, selection, history, and a plugin-friendly architecture built on Konva**
 
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -12,16 +12,12 @@
 [![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
 [![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
 
-  <img 
-    src="./assets/readme/cover-image.png" 
-    alt="Flowscape Canvas Demo" 
-    width="900"
-  />
-  <img 
+<img 
     src="./assets/readme/preview.gif" 
     alt="Flowscape Canvas Demo" 
     width="900"
   />
+
 </div>
 
 ---
@@ -51,7 +47,6 @@ bun add @flowscape-ui/core-sdk
 - 📦 **TypeScript-first** - full typing out of the box
 - 🚀 **High performance** - handles 1000+ nodes without FPS drops
 - 🎨 **Addons API** - extend any component with custom functionality
-
 
 ## 🚀 Quick Start
 
