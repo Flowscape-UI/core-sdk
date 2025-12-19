@@ -72,6 +72,7 @@ export class OverlayFrameManager {
     });
     layer.add(tr);
     tr.nodes([node]);
+    tr.forceUpdate();
     // Global size constraint: prevent collapsing to 0
     tr.boundBoxFunc((_, newBox) => {
       const MIN = 1; // px
@@ -83,6 +84,15 @@ export class OverlayFrameManager {
 
     // Side anchors in a unified style
     restyleSideAnchorsForTr(this.core, tr, node);
+
+    // Konva may not have computed anchors' internal geometry until the next microtask/frame.
+    // Re-apply stretching to guarantee full-side hit-areas right after creation.
+    globalThis.queueMicrotask(() => {
+      if (!this.tr || !this.boundNode) return;
+      this.tr.forceUpdate();
+      restyleSideAnchorsForTr(this.core, this.tr, this.boundNode);
+      this.core.nodes.layer.batchDraw();
+    });
 
     // Dynamic keepRatio by Shift for corner anchors
     const updateKeepRatio = () => {
@@ -188,6 +198,14 @@ export class OverlayFrameManager {
     this.tr.moveToTop();
 
     layer.batchDraw();
+  }
+
+  public shiftTransformReferencePoint(dx: number, dy: number): void {
+    if (!this.transformOppositeCorner) return;
+    this.transformOppositeCorner = {
+      x: this.transformOppositeCorner.x + dx,
+      y: this.transformOppositeCorner.y + dy,
+    };
   }
 
   public detach() {

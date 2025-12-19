@@ -108,6 +108,9 @@ export class SelectionPlugin extends Plugin {
   private _autoPanMaxSpeedPx: number; // max auto-pan speed in px/frame
   private _draggingNode: Konva.Node | null = null; // current node being dragged
 
+  // Temp-multi: while transforming overlay group we must keep initial transform in sync with auto-pan
+  private _tempMultiTransformingGroup: Konva.Group | null = null;
+
   // --- Proportional resize with Shift for corner handles ---
   private _ratioKeyPressed = false;
   private _onGlobalKeyDown: ((e: KeyboardEvent) => void) | null = null;
@@ -189,6 +192,13 @@ export class SelectionPlugin extends Plugin {
               y: this._transformOppositeCorner.y - vy,
             };
           }
+
+          // Temp-multi overlay resize uses its own transformer (OverlayFrameManager) and its own
+          // delta math based on overlayInitialTransform. Auto-pan changes world transform, so we need
+          // to keep both the overlay reference point and overlayInitialTransform consistent.
+          if (this._tempMultiTransformingGroup && this._tempOverlay) {
+            this._tempOverlay.shiftTransformReferencePoint(-vx, -vy);
+          }
           // Compensation for dragged node: keep under cursor
           if (this._draggingNode && typeof this._draggingNode.setAbsolutePosition === 'function') {
             const abs = this._draggingNode.getAbsolutePosition();
@@ -197,6 +207,27 @@ export class SelectionPlugin extends Plugin {
           }
 
           if (this._isTransforming) {
+            const p = stage.getPointerPosition();
+            if (p) {
+              const c = stage.container();
+              const r = c.getBoundingClientRect();
+              try {
+                c.dispatchEvent(
+                  new MouseEvent('mousemove', {
+                    bubbles: true,
+                    cancelable: true,
+                    clientX: r.left + p.x,
+                    clientY: r.top + p.y,
+                  }),
+                );
+              } catch {
+                // ignore
+              }
+            }
+          }
+
+          // Same idea for temp-multi: keep transformer updating while pointer is at edge.
+          if (this._tempMultiTransformingGroup) {
             const p = stage.getPointerPosition();
             if (p) {
               const c = stage.container();
@@ -1010,19 +1041,27 @@ export class SelectionPlugin extends Plugin {
   ): void {
     if (!this._core) return;
 
-    // Compute delta: how overlay group transformed from initial state
-    const overlayCurrent = overlayGroup.getAbsoluteTransform().copy();
-    const overlayInitial = overlayInitialTransform.copy();
-    overlayInitial.invert();
-    const overlayDelta = overlayCurrent.multiply(overlayInitial);
+    // Compute delta in WORLD-local coordinates so that camera pan/zoom doesn't leak into node transforms.
+    // This is critical for temp-multi overlay because auto-pan changes world transform while resizing.
+    const world = this._core.nodes.world;
+    const worldAbsNow = world.getAbsoluteTransform().copy();
+    const worldInvNow = worldAbsNow.copy().invert();
+
+    // Compute delta: how overlay group transformed from initial state (WORLD-local)
+    const overlayCurrentWorld = worldInvNow.multiply(overlayGroup.getAbsoluteTransform().copy());
+    const overlayInitialWorldInv = overlayInitialTransform.copy();
+    overlayInitialWorldInv.invert();
+    const overlayDeltaWorld = overlayCurrentWorld.multiply(overlayInitialWorldInv);
 
     // Apply delta to each node
     for (const kn of this._tempMultiNodes) {
       const initialTransform = this._tempMultiInitialTransforms.get(kn);
       if (!initialTransform) continue;
 
-      // Compute new absolute transform: delta * initial (apply delta as global transform)
-      const newAbsTransform = overlayDelta.copy().multiply(initialTransform);
+      // Compute new WORLD-local transform: deltaWorld * initialWorld
+      const newWorldTransform = overlayDeltaWorld.copy().multiply(initialTransform);
+      // Back to ABS coordinates using current world transform
+      const newAbsTransform = worldAbsNow.copy().multiply(newWorldTransform);
 
       // Convert to parent-local coordinates
       const parent = kn.getParent();
@@ -1184,6 +1223,7 @@ export class SelectionPlugin extends Plugin {
     // Attach OverlayFrameManager to show visual frame/transformer
     this._tempOverlay ??= new OverlayFrameManager(this._core);
     this._tempOverlay.attach(overlayGrp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
+    this._tempOverlay.forceUpdate();
 
     // Enable dragging on overlay group
     const stage = this._core.stage;
@@ -1197,13 +1237,25 @@ export class SelectionPlugin extends Plugin {
     overlayGrp.on('dragstart.tempMulti', () => {
       // Save initial transforms for all nodes
       this._tempMultiInitialTransforms.clear();
+      const worldInvStart = this._core?.nodes.world.getAbsoluteTransform().copy().invert();
       for (const kn of this._tempMultiNodes) {
-        this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+        if (worldInvStart) {
+          const initialWorld = worldInvStart.copy().multiply(kn.getAbsoluteTransform().copy());
+          this._tempMultiInitialTransforms.set(kn, initialWorld);
+        } else {
+          this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+        }
       }
-      overlayInitialTransform = overlayGrp.getAbsoluteTransform().copy();
+      overlayInitialTransform = worldInvStart
+        ? worldInvStart.copy().multiply(overlayGrp.getAbsoluteTransform().copy())
+        : overlayGrp.getAbsoluteTransform().copy();
 
       stage.draggable(false);
       this._draggingNode = overlayGrp;
+      // Treat temp-multi drag the same as transform for auto-pan purposes,
+      // so that auto-pan loop dispatches synthetic mousemove events and keeps
+      // drag updates flowing even when the cursor is held at the edge.
+      this._tempMultiTransformingGroup = overlayGrp;
       this._startAutoPanLoop();
       this._tempOverlay?.hideOverlaysForDrag();
     });
@@ -1215,12 +1267,55 @@ export class SelectionPlugin extends Plugin {
       this._tempOverlay?.forceUpdate();
       this._scheduleBatchDraw();
     });
+    // Rotation via OverlayFrameManager's RotateHandlesController does not
+    // go through Konva.Transformer's transform events. Instead, the overlay
+    // group receives custom rotate:* events that we use to apply the same
+    // matrix-based temp-multi transform logic.
+
+    overlayGrp.on('rotate:start.tempMulti', () => {
+      // Save initial transforms for all nodes, identical to transformstart
+      this._tempMultiInitialTransforms.clear();
+      const worldInvStart = this._core?.nodes.world.getAbsoluteTransform().copy().invert();
+      for (const kn of this._tempMultiNodes) {
+        if (worldInvStart) {
+          const initialWorld = worldInvStart.copy().multiply(kn.getAbsoluteTransform().copy());
+          this._tempMultiInitialTransforms.set(kn, initialWorld);
+        } else {
+          this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+        }
+      }
+      overlayInitialTransform = worldInvStart
+        ? worldInvStart.copy().multiply(overlayGrp.getAbsoluteTransform().copy())
+        : overlayGrp.getAbsoluteTransform().copy();
+
+      // During rotation we explicitly do NOT start auto-pan loop — rotating
+      // should not move the camera automatically.
+    });
+
+    overlayGrp.on('rotate:move.tempMulti', () => {
+      if (!overlayInitialTransform) return;
+      this._applyOverlayTransformToNodes(overlayGrp, overlayInitialTransform);
+      this._tempOverlay?.forceUpdate();
+      this._scheduleBatchDraw();
+    });
+
+    overlayGrp.on('rotate:end.tempMulti', () => {
+      // Reuse the same finalize logic as for resize: emit node:transformed,
+      // normalize overlay transform, recompute bbox and reattach overlay.
+      overlayGrp.fire('transformend.tempMulti');
+    });
 
     overlayGrp.on('dragend.tempMulti', () => {
       stage.draggable(prevStageDraggable);
       this._draggingNode = null;
       this._stopAutoPanLoop();
+      this._tempMultiTransformingGroup = null;
       this._tempOverlay?.restoreOverlaysAfterDrag();
+
+      // Reset overlay transform to avoid accumulation between operations
+      overlayGrp.scale({ x: 1, y: 1 });
+      overlayGrp.rotation(0);
+      overlayGrp.skew({ x: 0, y: 0 });
 
       // Emit node:transformed for each node
       if (this._core) {
@@ -1241,11 +1336,12 @@ export class SelectionPlugin extends Plugin {
         }
       }
 
-      // Update overlay bbox to match new node positions
+      // Update overlay bbox to match new node positions (after reset transform)
       this._updateTempMultiOverlayBBox();
 
-      overlayInitialTransform = null;
       this._tempMultiInitialTransforms.clear();
+      this._tempMultiTransformingGroup = null;
+      this._stopAutoPanLoop();
       this._tempOverlay?.forceUpdate();
       this._scheduleBatchDraw();
     });
@@ -1254,10 +1350,22 @@ export class SelectionPlugin extends Plugin {
     overlayGrp.on('transformstart.tempMulti', () => {
       // Save initial transforms for all nodes
       this._tempMultiInitialTransforms.clear();
+      const worldInvStart = this._core?.nodes.world.getAbsoluteTransform().copy().invert();
       for (const kn of this._tempMultiNodes) {
-        this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+        if (worldInvStart) {
+          const initialWorld = worldInvStart.copy().multiply(kn.getAbsoluteTransform().copy());
+          this._tempMultiInitialTransforms.set(kn, initialWorld);
+        } else {
+          this._tempMultiInitialTransforms.set(kn, kn.getAbsoluteTransform().copy());
+        }
       }
-      overlayInitialTransform = overlayGrp.getAbsoluteTransform().copy();
+      overlayInitialTransform = worldInvStart
+        ? worldInvStart.copy().multiply(overlayGrp.getAbsoluteTransform().copy())
+        : overlayGrp.getAbsoluteTransform().copy();
+
+      // Enable resize auto-pan for temp multi as well
+      this._tempMultiTransformingGroup = overlayGrp;
+      this._startAutoPanLoop();
     });
 
     overlayGrp.on('transform.tempMulti', () => {
@@ -1288,11 +1396,35 @@ export class SelectionPlugin extends Plugin {
         }
       }
 
-      // Update overlay bbox to match new node positions
-      this._updateTempMultiOverlayBBox();
+      // IMPORTANT (temp-multi only): Transformer finalizes geometry on transformend.
+      // If we immediately reset overlayGrp transform and recompute bbox while the Transformer is still attached,
+      // frame may jump (especially on shrink). Detach overlays first, then normalize in the next frame.
+      const overlayRef = this._tempOverlay;
+      overlayRef?.detach();
+
+      // Reset overlay transform to avoid accumulation between operations
+      globalThis.requestAnimationFrame(() => {
+        if (!this._core) return;
+        if (!this._tempMultiGroup || this._tempMultiGroup !== overlayGrp) return;
+
+        overlayGrp.scale({ x: 1, y: 1 });
+        overlayGrp.rotation(0);
+        overlayGrp.skew({ x: 0, y: 0 });
+
+        // Update overlay bbox to match new node positions (after reset transform)
+        this._updateTempMultiOverlayBBox();
+
+        // Re-attach overlay manager
+        const mgr = overlayRef ?? (this._tempOverlay ??= new OverlayFrameManager(this._core));
+        mgr.attach(overlayGrp, { keepRatioCornerOnlyShift: () => this._ratioKeyPressed });
+        mgr.forceUpdate();
+        this._scheduleBatchDraw();
+      });
 
       overlayInitialTransform = null;
       this._tempMultiInitialTransforms.clear();
+      this._tempMultiTransformingGroup = null;
+      this._stopAutoPanLoop();
       this._tempOverlay?.forceUpdate();
       this._scheduleBatchDraw();
     });

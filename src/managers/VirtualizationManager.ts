@@ -3,8 +3,8 @@ import Konva from 'konva';
 import type { BaseNode } from '../nodes/BaseNode';
 import { ThrottleHelper } from '../utils/ThrottleHelper';
 
-import type { NodeManager } from './NodeManager';
 import { LODManager, type LODOptions } from './LODManager';
+import type { NodeManager } from './NodeManager';
 
 export interface VirtualizationStats {
   total: number;
@@ -52,6 +52,12 @@ export class VirtualizationManager {
 
   private _visibleNodes = new Set<string>();
   private _hiddenNodes = new Set<string>();
+
+  // Nodes that currently belong to an active temporary multi-selection.
+  // They must remain visible even if they go outside the viewport while
+  // the temp-multi overlay is active (drag/resize), otherwise the group
+  // appears to "lose" members during interaction.
+  private _tempMultiNodeIds = new Set<string>();
 
   private _updateScheduled = false;
 
@@ -129,6 +135,25 @@ export class VirtualizationManager {
    * Checks if node is within viewport
    */
   private _isNodeVisible(node: BaseNode): boolean {
+    const konvaNode = node.getKonvaNode();
+
+    // Do not cull nodes that are part of an active temp-multi selection
+    // (SelectionPlugin emits selection:multi:created/destroyed).
+    if (this._tempMultiNodeIds.has(node.id)) {
+      return true;
+    }
+
+    // IMPORTANT: do not cull children of real groups.
+    // If a node belongs to a Konva.Group (other than the world group),
+    // we keep it visible so that group composition and transforms stay stable
+    // even when some children are outside the viewport. This prevents
+    // grouped shapes from "exploding" in size or visually leaving the group
+    // during long resizes or when zooming into a single child.
+    const parent = konvaNode.getParent();
+    if (parent && parent instanceof Konva.Group && parent !== this._world) {
+      return true;
+    }
+
     const box = this._getNodeBBox(node);
 
     // Check intersection with viewport
@@ -222,6 +247,18 @@ export class VirtualizationManager {
     this._nodeManager.eventBus.on('node:removed', (node: BaseNode) => {
       this._visibleNodes.delete(node.id);
       this._hiddenNodes.delete(node.id);
+      this._tempMultiNodeIds.delete(node.id);
+    });
+
+    // Keep track of nodes participating in temporary multi-selection so that
+    // virtualization does not hide them while temp-multi is active.
+    this._nodeManager.eventBus.on('selection:multi:created', (nodes: BaseNode[]) => {
+      this._tempMultiNodeIds.clear();
+      for (const n of nodes) this._tempMultiNodeIds.add(n.id);
+    });
+
+    this._nodeManager.eventBus.on('selection:multi:destroyed', () => {
+      this._tempMultiNodeIds.clear();
     });
   }
 

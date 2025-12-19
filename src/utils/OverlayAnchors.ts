@@ -115,8 +115,20 @@ export function restyleSideAnchorsForTr(
 ): void {
   if (!core || !tr || !node) return;
 
-  const bbox = node.getClientRect({ skipShadow: true, skipStroke: false });
-  const localRect = node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: true });
+  // For temp-multi overlay we want stable dimensions based on the inner invisible rect.
+  // Group.getClientRect() may be unstable here and causes short side anchors.
+  const isTempMultiOverlay =
+    node instanceof Konva.Group &&
+    typeof node.name === 'function' &&
+    node.name().includes('temp-multi-overlay');
+  const overlayRect = isTempMultiOverlay ? node.findOne('.temp-multi-overlay-rect') : null;
+
+  const bbox = overlayRect
+    ? overlayRect.getClientRect({ skipShadow: true, skipStroke: true })
+    : node.getClientRect({ skipShadow: true, skipStroke: false });
+  const localRect = overlayRect
+    ? overlayRect.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: true })
+    : node.getClientRect({ skipTransform: true, skipShadow: true, skipStroke: true });
   const abs = node.getAbsoluteScale();
   const absX = Math.abs(abs.x) || 1;
   const absY = Math.abs(abs.y) || 1;
