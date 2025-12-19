@@ -47,6 +47,11 @@ export class VisualGuidesPlugin extends Plugin {
   private _options: Required<VisualGuidesPluginOptions>;
   private _layer: Konva.Layer | null = null;
 
+  // Maximum distance (in world pixels) at which helper lines are drawn
+  // between the dragged node and other nodes. Beyond this range guides
+  // are suppressed so lines appear only "near" other nodes.
+  private _maxGuideDistancePx = 1200;
+
   private _dragMoveHandler: ((e: Konva.KonvaEventObject<DragEvent>) => void) | null = null;
   private _dragEndHandler: ((e: Konva.KonvaEventObject<DragEvent>) => void) | null = null;
   private _nodesAddHandler: ((e: Konva.KonvaEventObject<Event>) => void) | null = null;
@@ -560,6 +565,13 @@ export class VisualGuidesPlugin extends Plugin {
     if (!this._core) return result;
 
     const nodes = this._core.nodes.list();
+
+    // Bounding box of the dragged node (or group) to measure distances
+    const refBox = skipShape.getClientRect({ skipShadow: true, skipStroke: false });
+    const refCx = refBox.x + refBox.width / 2;
+    const refCy = refBox.y + refBox.height / 2;
+
+    const worldGroup = this._core.nodes.world as unknown as Konva.Node;
     for (const bn of nodes) {
       const kn = bn.getKonvaNode() as unknown as Konva.Node;
 
@@ -578,7 +590,36 @@ export class VisualGuidesPlugin extends Plugin {
         continue;
       }
 
+      // Do not show helper lines between nodes that belong to the same
+      // real Konva.Group (excluding the world group). When dragging a
+      // group or any of its children, helper lines between siblings
+      // inside that group are not useful and create visual noise.
+      const parent = kn.getParent();
+      const skipParent = skipShape.getParent();
+      if (
+        parent &&
+        skipParent &&
+        parent === skipParent &&
+        parent !== worldGroup &&
+        parent instanceof Konva.Group
+      ) {
+        continue;
+      }
+
       const box = kn.getClientRect({ skipShadow: true, skipStroke: false });
+
+      // Suppress guides to nodes that are too far away from the dragged
+      // node. This keeps helper lines local: if the user drags a node
+      // far from the rest of the scene, the lines disappear and will
+      // re-appear only when the node comes close again.
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      const dx = cx - refCx;
+      const dy = cy - refCy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > this._maxGuideDistancePx) {
+        continue;
+      }
       result.push({
         node: kn,
         box: { x: box.x, y: box.y, width: box.width, height: box.height },

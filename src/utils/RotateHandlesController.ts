@@ -10,6 +10,13 @@ export interface RotateHandlesControllerOpts {
   getNode: () => Konva.Node | null;
   getTransformer: () => Konva.Transformer | null;
   onUpdate?: () => void;
+  // Optional callbacks for custom rotated cursor
+  setRotateCursor?: (angle: number) => void;
+  clearRotateCursor?: () => void;
+  // Optional callbacks to notify external code about rotation lifecycle
+  onRotateStart?: () => void;
+  onRotateMove?: () => void;
+  onRotateEnd?: () => void;
 }
 
 export class RotateHandlesController {
@@ -17,6 +24,11 @@ export class RotateHandlesController {
   private getKonvaNode: () => Konva.Node | null;
   private getTransformer: () => Konva.Transformer | null;
   private onUpdate?: () => void;
+  private setRotateCursor?: (angle: number) => void;
+  private clearRotateCursor?: () => void;
+  private onRotateStart?: () => void;
+  private onRotateMove?: () => void;
+  private onRotateEnd?: () => void;
 
   private group: Konva.Group | null = null;
   private handles: {
@@ -32,6 +44,8 @@ export class RotateHandlesController {
   };
   private dragState: { base: number; start: number } | null = null;
   private centerAbsStart: Konva.Vector2d | null = null;
+  // Cached SVG cursor data URL for rotated rotate-cursor icon
+  private cursorSvgCache: { angle: number; url: string } | null = null;
 
   constructor(opts: RotateHandlesControllerOpts) {
     this.core = opts.core;
@@ -40,6 +54,11 @@ export class RotateHandlesController {
     if (opts.onUpdate) {
       this.onUpdate = opts.onUpdate;
     }
+    if (opts.setRotateCursor) this.setRotateCursor = opts.setRotateCursor;
+    if (opts.clearRotateCursor) this.clearRotateCursor = opts.clearRotateCursor;
+    if (opts.onRotateStart) this.onRotateStart = opts.onRotateStart;
+    if (opts.onRotateMove) this.onRotateMove = opts.onRotateMove;
+    if (opts.onRotateEnd) this.onRotateEnd = opts.onRotateEnd;
   }
 
   public attach(): void {
@@ -64,11 +83,36 @@ export class RotateHandlesController {
     const bindRotate = (h: Konva.Circle) => {
       // Cursor: pointer on hover
       h.on('mouseenter.rotate', () => {
-        this.core.stage.container().style.cursor = 'pointer';
+        const n = this.getKonvaNode();
+        if (!n) {
+          this.core.stage.container().style.cursor = 'pointer';
+          return;
+        }
+
+        // Compute angle from node center to handle and either delegate to
+        // external cursor callback or use the built-in rotated SVG cursor,
+        // matching SelectionPlugin._applyRotatedCursor visuals.
+        const center = this.getNodeCenterAbs(n);
+        const handlePos = h.getAbsolutePosition();
+        const dx = handlePos.x - center.x;
+        const dy = handlePos.y - center.y;
+        const angleRad = Math.atan2(dy, dx);
+        const angleDeg = (angleRad * 180) / Math.PI;
+        const cursorAngle = angleDeg + 45;
+
+        if (this.setRotateCursor) {
+          this.setRotateCursor(cursorAngle);
+        } else {
+          this.applyRotatedCursor(cursorAngle);
+        }
       });
       h.on('mouseleave.rotate', () => {
-        // Return cursor to default
-        this.core.stage.container().style.cursor = 'default';
+        // Return cursor to default or delegate to external clearer
+        if (this.clearRotateCursor) {
+          this.clearRotateCursor();
+        } else {
+          this.core.stage.container().style.cursor = 'default';
+        }
       });
       h.on('dragstart.rotate', () => {
         const n = this.getKonvaNode();
@@ -79,11 +123,24 @@ export class RotateHandlesController {
         const start =
           (Math.atan2(p.y - this.centerAbsStart.y, p.x - this.centerAbsStart.x) * 180) / Math.PI;
         this.dragState = { base: dec.rotation || 0, start };
-        this.core.stage.draggable(false);
-        this.core.stage.container().style.cursor = 'grabbing';
+        // this.core.stage.draggable(false);
+        // this.core.stage.container().style.cursor = 'grabbing';
+
+        // Apply initial rotated cursor (same visual as in SelectionPlugin)
+        const cursorAngle = start + 90;
+        if (this.setRotateCursor) {
+          this.setRotateCursor(cursorAngle);
+        } else {
+          this.applyRotatedCursor(cursorAngle);
+        }
+
         // гарантируем правильный z-порядок: рамка сверху, кружки ниже
         this.getTransformer()?.moveToTop();
         this.placeBelowTransformer();
+
+        // Notify external listeners (e.g., temp-multi controller)
+        if (this.onRotateStart) this.onRotateStart();
+        n.fire('rotate:start');
       });
       h.on('dragmove.rotate', (e: Konva.KonvaEventObject<DragEvent>) => {
         const n = this.getKonvaNode();
@@ -92,6 +149,15 @@ export class RotateHandlesController {
         const pointer = this.core.stage.getPointerPosition() ?? h.getAbsolutePosition();
         const curr = (Math.atan2(pointer.y - centerRef.y, pointer.x - centerRef.x) * 180) / Math.PI;
         let rot = this.dragState.base + (curr - this.dragState.start);
+
+        // Update rotated cursor dynamically during drag
+        const cursorAngle = curr + 45;
+        if (this.setRotateCursor) {
+          this.setRotateCursor(cursorAngle);
+        } else {
+          this.applyRotatedCursor(cursorAngle);
+        }
+
         // Shift snaps через Transformer
         const tr = this.getTransformer();
         if (e.evt.shiftKey && tr) {
@@ -146,6 +212,10 @@ export class RotateHandlesController {
         this.core.nodes.layer.batchDraw();
         // Notify OverlayFrameManager to update the label below
         if (this.onUpdate) this.onUpdate();
+
+        // Notify listeners that rotation is in progress.
+        if (this.onRotateMove) this.onRotateMove();
+        n.fire('rotate:move');
       });
       h.on('dragend.rotate', () => {
         this.dragState = null;
@@ -154,8 +224,17 @@ export class RotateHandlesController {
         this.core.stage.draggable(false);
         this.updatePosition();
         this.placeBelowTransformer();
-        this.core.stage.container().style.cursor = 'pointer';
+        // this.core.stage.container().style.cursor = 'pointer';
+
+        // Restore cursor to grab (as in SelectionPlugin after rotation handler drag end)
+        const container = this.core.stage.container();
+        container.style.cursor = 'grab';
+
         if (this.onUpdate) this.onUpdate();
+
+        const n = this.getKonvaNode();
+        if (this.onRotateEnd) this.onRotateEnd();
+        if (n) n.fire('rotate:end');
       });
     };
 
@@ -166,6 +245,79 @@ export class RotateHandlesController {
     // initial layout: circles below transformer
     this.updatePosition();
     this.placeBelowTransformer();
+  }
+
+  // Apply rotated cursor using the same SVG icon as in SelectionPlugin.
+  // Cached per angle to avoid re-encoding SVG on every hover.
+  private applyRotatedCursor(angle: number): void {
+    const container = this.core.stage.container();
+
+    const normalized = ((angle % 360) + 360) % 360;
+    if (this.cursorSvgCache && this.cursorSvgCache.angle === normalized) {
+      container.style.cursor = this.cursorSvgCache.url;
+      return;
+    }
+
+    const svg = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g transform="rotate(${normalized.toString()} 12 12)">
+          <g clip-path="url(#clip0_36_31)">
+            <g filter="url(#filter0_d_36_31)">
+              <path d="M4 6.15927C4 6.15927 9.71429 2.49547 15.4286 8.19463C21.1429 13.8938 18.2857 20 18.2857 20" stroke="white" stroke-width="2"/>
+            </g>
+            <g filter="url(#filter1_d_36_31)">
+              <path d="M0.724195 7.73427L3.27834 2.11403L6.69072 9.31897L0.724195 7.73427Z" fill="black"/>
+              <path d="M3.28396 2.82664L6.14311 8.86349L1.1435 7.53589L3.28396 2.82664Z" stroke="white" stroke-width="0.6"/>
+            </g>
+            <g filter="url(#filter2_d_36_31)">
+              <path d="M17.26 22.5868L15.3995 16.7004L22.7553 19.774L17.26 22.5868Z" fill="black"/>
+              <path d="M15.8803 17.2264L22.0436 19.8017L17.439 22.1588L15.8803 17.2264Z" stroke="white" stroke-width="0.6"/>
+            </g>
+            <path d="M4 6.15927C4 6.15927 9.71429 2.49547 15.4286 8.19463C21.1429 13.8938 18.2857 20 18.2857 20" stroke="black"/>
+          </g>
+          <defs>
+            <filter id="filter0_d_36_31" x="-0.539062" y="2" width="22.5391" height="22.4229" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="-1" dy="1"/>
+              <feGaussianBlur stdDeviation="1.5"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <filter id="filter1_d_36_31" x="-0.275879" y="2.11426" width="9.96631" height="11.2046" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="1" dy="2"/>
+              <feGaussianBlur stdDeviation="1"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <filter id="filter2_d_36_31" x="12.3994" y="15.7002" width="11.3555" height="9.88672" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+              <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+              <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+              <feOffset dx="-1" dy="1"/>
+              <feGaussianBlur stdDeviation="1"/>
+              <feComposite in2="hardAlpha" operator="out"/>
+              <feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0"/>
+              <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_36_31"/>
+              <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_36_31" result="shape"/>
+            </filter>
+            <clipPath id="clip0_36_31">
+              <rect width="24" height="24" fill="white"/>
+            </clipPath>
+          </defs>
+        </g>
+      </svg>
+    `.trim();
+
+    const encoded = encodeURIComponent(svg);
+    const dataUrl = `url("data:image/svg+xml,${encoded}") 12 12, grab`;
+    container.style.cursor = dataUrl;
+    this.cursorSvgCache = { angle: normalized, url: dataUrl };
   }
 
   public detach(): void {

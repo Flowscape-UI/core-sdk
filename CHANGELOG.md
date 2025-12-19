@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-# Changelog
+## [1.0.5] - 2025-12-19
+
+### 🐛 Fixes
+
+    - Temp-multi selection with auto-pan, rotation, and virtualization
+    - Keep temp-multi nodes visible during viewport culling to prevent visual "loss" of group members
+    - Prevent culling of real Konva.Group children to maintain stable group transforms
+    - Apply temp-multi transforms in world-local coordinates to isolate from camera pan/zoom
+    - Shift overlay transform reference point during auto-pan to keep resize deltas consistent
+    - Enable auto-pan loop for temp-multi resize operations
+    - Add rotation support
+
+---
 
 ## [1.0.4] - 2025-12-18
 
@@ -43,7 +55,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🛠 Improvements
 
 - Overall stability and interaction polish across selection, resizing, and editing workflows
-
 
 ## [1.0.3] - 2025-12-13
 

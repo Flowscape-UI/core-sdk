@@ -847,6 +847,8 @@ function initializePlayground(
     plugins: Object.values(pluginInstances),
   });
 
+  setupStorybookClipboardFocusFix(core);
+
   const state = {
     selectedNodes: [] as any[],
     currentTool: 'select',
@@ -869,6 +871,44 @@ function initializePlayground(
 
   // Add welcome content
   addWelcomeContent(core);
+}
+
+function setupStorybookClipboardFocusFix(core: CoreEngine): void {
+  const stageContainer = core.stage.container();
+
+  // Make the Konva container focusable so that paste/keyboard shortcuts can reliably target
+  // the Storybook iframe document (after TextNode edit textarea is removed).
+  if (typeof stageContainer.tabIndex !== 'number' || stageContainer.tabIndex < 0) {
+    stageContainer.tabIndex = 0;
+  }
+
+  // Avoid focus ring artifacts inside the canvas.
+  stageContainer.style.outline = 'none';
+
+  const isEditableTarget = (el: Element | null): boolean => {
+    if (!el || !(el instanceof HTMLElement)) return false;
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return true;
+    return el.isContentEditable;
+  };
+
+  const onKeyDownCapture = (e: KeyboardEvent): void => {
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl) return;
+
+    // Only special-case paste; do not interfere with other shortcuts.
+    if (e.code !== 'KeyV') return;
+
+    const active = globalThis.document.activeElement;
+    if (isEditableTarget(active)) return;
+
+    // Ensure focus is on canvas before the subsequent `paste` event is dispatched.
+    if (active !== stageContainer) {
+      stageContainer.focus({ preventScroll: true });
+    }
+  };
+
+  globalThis.addEventListener('keydown', onKeyDownCapture, { capture: true });
 }
 
 // function setupToolbar(toolbar: HTMLElement, core: CoreEngine, state: any) {
@@ -1801,7 +1841,6 @@ function setupPresetsTabListeners(sidebar: HTMLElement, core: CoreEngine) {
       const allNodes = core.nodes.list();
       allNodes.forEach((node) => core.nodes.remove(node));
 
-      // Start
       core.nodes.addCircle({ x: 500, y: 100, radius: 40, fill: '#10b981' });
       core.nodes.addText({ x: 480, y: 95, text: 'Start', fontSize: 16, fill: 'white' });
 
@@ -1825,7 +1864,6 @@ function setupPresetsTabListeners(sidebar: HTMLElement, core: CoreEngine) {
         });
       });
 
-      // End
       core.nodes.addCircle({ x: 500, y: 560, radius: 40, fill: '#ef4444' });
       core.nodes.addText({ x: 485, y: 555, text: 'End', fontSize: 16, fill: 'white' });
     },
