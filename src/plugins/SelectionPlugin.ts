@@ -529,6 +529,16 @@ export class SelectionPlugin extends Plugin {
     layer.on('dragstart.selectionAutoPan', (e: Konva.KonvaEventObject<DragEvent>) => {
       if (!this._options.autoPanEnabled) return;
       const target = e.target as Konva.Node;
+
+      const parent = target.getParent();
+      const getName = (n: Konva.Node | null) =>
+        n && typeof (n as unknown as { name?: () => string }).name === 'function'
+          ? (n as unknown as { name: () => string }).name() || ''
+          : '';
+      const targetName = getName(target);
+      const parentName = getName(parent);
+      if (targetName.startsWith('rotate-') || parentName === 'rotate-handles-group') return;
+
       // Consider custom selectability filter to avoid reacting to service nodes
       if (!this._options.selectablePredicate(target)) return;
       this._draggingNode = target;

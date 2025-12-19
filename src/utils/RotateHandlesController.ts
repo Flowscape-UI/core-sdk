@@ -126,7 +126,6 @@ export class RotateHandlesController {
         // this.core.stage.draggable(false);
         // this.core.stage.container().style.cursor = 'grabbing';
 
-        // start
         // Apply initial rotated cursor (same visual as in SelectionPlugin)
         const cursorAngle = start + 90;
         if (this.setRotateCursor) {
@@ -134,7 +133,6 @@ export class RotateHandlesController {
         } else {
           this.applyRotatedCursor(cursorAngle);
         }
-        //end
 
         // гарантируем правильный z-порядок: рамка сверху, кружки ниже
         this.getTransformer()?.moveToTop();
@@ -152,7 +150,6 @@ export class RotateHandlesController {
         const curr = (Math.atan2(pointer.y - centerRef.y, pointer.x - centerRef.x) * 180) / Math.PI;
         let rot = this.dragState.base + (curr - this.dragState.start);
 
-        // start
         // Update rotated cursor dynamically during drag
         const cursorAngle = curr + 45;
         if (this.setRotateCursor) {
@@ -160,7 +157,6 @@ export class RotateHandlesController {
         } else {
           this.applyRotatedCursor(cursorAngle);
         }
-        //end
 
         // Shift snaps через Transformer
         const tr = this.getTransformer();
@@ -230,11 +226,9 @@ export class RotateHandlesController {
         this.placeBelowTransformer();
         // this.core.stage.container().style.cursor = 'pointer';
 
-        // start
         // Restore cursor to grab (as in SelectionPlugin after rotation handler drag end)
         const container = this.core.stage.container();
         container.style.cursor = 'grab';
-        //end
 
         if (this.onUpdate) this.onUpdate();
 

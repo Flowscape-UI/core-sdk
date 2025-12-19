@@ -1841,7 +1841,6 @@ function setupPresetsTabListeners(sidebar: HTMLElement, core: CoreEngine) {
       const allNodes = core.nodes.list();
       allNodes.forEach((node) => core.nodes.remove(node));
 
-      // Start
       core.nodes.addCircle({ x: 500, y: 100, radius: 40, fill: '#10b981' });
       core.nodes.addText({ x: 480, y: 95, text: 'Start', fontSize: 16, fill: 'white' });
 
@@ -1865,7 +1864,6 @@ function setupPresetsTabListeners(sidebar: HTMLElement, core: CoreEngine) {
         });
       });
 
-      // End
       core.nodes.addCircle({ x: 500, y: 560, radius: 40, fill: '#ef4444' });
       core.nodes.addText({ x: 485, y: 555, text: 'End', fontSize: 16, fill: 'white' });
     },
