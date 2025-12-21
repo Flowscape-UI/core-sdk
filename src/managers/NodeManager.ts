@@ -405,6 +405,14 @@ export class NodeManager {
           if (typeof frameKn.draggable === 'function') {
             frameKn.draggable(!hasChildren);
           }
+
+          // Сообщаем заинтересованным подсистемам (SelectionPlugin и др.), что
+          // состав детей фрейма изменился, чтобы они могли обновить select/drag.
+          (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+            'frame:children-changed',
+            currentFrame,
+            hasChildren,
+          );
         }
         return;
       }
@@ -428,6 +436,13 @@ export class NodeManager {
         if (typeof frameKn.draggable === 'function') {
           frameKn.draggable(!hasChildren);
         }
+
+        // Уведомляем, что у фрейма поменялось наличие детей
+        (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+          'frame:children-changed',
+          targetFrame,
+          hasChildren,
+        );
       }
     });
   }

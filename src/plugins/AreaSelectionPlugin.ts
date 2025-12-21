@@ -136,6 +136,31 @@ export class AreaSelectionPlugin extends Plugin {
         }
 
         if (!allowByFrameException) return;
+
+        // Только для исключения фона FrameNode: если уже есть выбранная нода/группа
+        // и клик пришёл внутрь её bbox — не запускаем лассо, даём SelectionPlugin
+        // обработать drag так же, как в world.
+        const selForFrame = this._getSelectionPlugin();
+        const selectedForFrame = selForFrame?.getSelected();
+        const pInner = stage.getPointerPosition();
+        if (selectedForFrame && pInner) {
+          const kn = selectedForFrame.getKonvaNode() as unknown as Konva.Node;
+          const bbox = kn.getClientRect({ skipShadow: true, skipStroke: false });
+          const insideSel =
+            pInner.x >= bbox.x &&
+            pInner.x <= bbox.x + bbox.width &&
+            pInner.y >= bbox.y &&
+            pInner.y <= bbox.y + bbox.height;
+          if (insideSel) {
+            return;
+          }
+        }
+
+        // Если клик по фону фрейма и не попали в уже выбранную ноду —
+        // сразу снимаем текущее выделение, как при клике по пустому месту в world.
+        if (selForFrame) {
+          selForFrame.clearSelectionFromAreaLasso();
+        }
       }
 
       const p = stage.getPointerPosition();

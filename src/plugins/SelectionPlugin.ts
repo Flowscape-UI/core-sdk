@@ -97,6 +97,11 @@ export class SelectionPlugin extends Plugin {
   private _worldSyncRafId: number | null = null;
   // Reference to camera event handler for on/off
   private _onCameraZoomEvent: (() => void) | null = null;
+  // Handler for FrameNode children changes (enter/leave), used to adjust
+  // selection/drag state when frames become non-empty or empty again.
+  // Stored as a generic (...args) handler to satisfy the loosely-typed
+  // eventBus.on/off signatures.
+  private _onFrameChildrenChangedBound: ((...args: unknown[]) => void) | null = null;
 
   // Minimal hover frame (blue border on hover)
   private _hoverTr: Konva.Transformer | null = null;
@@ -367,6 +372,16 @@ export class SelectionPlugin extends Plugin {
     this._scheduleBatchDraw();
   }
 
+  /**
+   * Clear current selection (single + temp-multi) when starting lasso
+   * in special cases (e.g. inside FrameNode background) to mirror
+   * behavior of clicking on empty space in world.
+   */
+  public clearSelectionFromAreaLasso(): void {
+    this._destroyTempMulti();
+    this._clearSelection();
+  }
+
   protected onAttach(core: CoreEngine): void {
     this._core = core;
     // MultiGroupController will be lazily initialized in getMultiGroupController()
@@ -380,17 +395,22 @@ export class SelectionPlugin extends Plugin {
       const stage = this._core.stage;
       const layer = this._core.nodes.layer;
 
+      // Suppress first click immediately after lasso/marquee drag (AreaSelectionPlugin)
+      // regardless of where it lands (empty stage, FrameNode background, etc.).
+      // AreaSelectionPlugin sets stage._skipSelectionEmptyClickOnce when finishing
+      // a non-trivial drag; here we consume that one click so it doesn't clear
+      // or change selection in SelectionPlugin.
+      const skipOnce = !!stage.getAttr('_skipSelectionEmptyClickOnce');
+      if (skipOnce) {
+        stage.setAttr('_skipSelectionEmptyClickOnce', false);
+        e.cancelBubble = true;
+        return;
+      }
+
       // Left mouse button only
       if (e.evt.button !== 0) return;
 
       if (e.target === stage || e.target.getLayer() !== layer) {
-        // Suppress one-time empty click after lasso/marquee drag
-        const skipOnce = !!stage.getAttr('_skipSelectionEmptyClickOnce');
-        if (skipOnce) {
-          stage.setAttr('_skipSelectionEmptyClickOnce', false);
-          e.cancelBubble = true;
-          return;
-        }
         if (this._options.deselectOnEmptyClick) {
           this._destroyTempMulti();
           this._clearSelection();
@@ -649,6 +669,35 @@ export class SelectionPlugin extends Plugin {
     core.eventBus.on('camera:setZoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
     core.eventBus.on('camera:reset', this._onCameraZoomEvent as unknown as () => void);
 
+    // Следим за изменением состава детей во фреймах, чтобы, например, снять
+    // выделение с фрейма, который стал непустым, и не оставлять его draggable.
+    this._onFrameChildrenChangedBound = (frameRaw: unknown, hasChildrenRaw: unknown) => {
+      const frame = frameRaw as FrameNode;
+      const hasChildren = !!hasChildrenRaw;
+
+      // Нас интересует только случай, когда выбран именно этот фрейм.
+      if (!this._selected) return;
+      if (this._selected !== frame) return;
+
+      const node = this._selected.getKonvaNode();
+      if (typeof node.draggable === 'function') {
+        // Обновляем _prevDraggable перед _clearSelection, чтобы сохранить
+        // актуальное значение, выставленное NodeManager (обычно false).
+        this._prevDraggable = node.draggable();
+      }
+
+      // Как только во фрейме появляются дети, он больше не должен быть
+      // напрямую selectable/dragable. Снимаем текущее выделение.
+      if (hasChildren) {
+        this._clearSelection();
+      }
+    };
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:children-changed', this._onFrameChildrenChangedBound);
+
     // Global listeners for Shift (proportional resize only for corner anchors)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
@@ -698,6 +747,14 @@ export class SelectionPlugin extends Plugin {
       );
       core.eventBus.off('camera:reset', this._onCameraZoomEvent as unknown as () => void);
       this._onCameraZoomEvent = null;
+    }
+    if (this._onFrameChildrenChangedBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:children-changed', this._onFrameChildrenChangedBound);
+      this._onFrameChildrenChangedBound = null;
     }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 
@@ -1642,6 +1699,8 @@ export class SelectionPlugin extends Plugin {
     if (frames.length === 0) return;
 
     for (const baseNode of this._tempMultiSet) {
+      if (baseNode instanceof FrameNode) continue;
+
       const kn = baseNode.getKonvaNode();
       let currentParent = kn.getParent();
       if (!currentParent) continue;
