@@ -141,6 +141,25 @@ export class AreaSelectionPlugin extends Plugin {
       const p = stage.getPointerPosition();
       if (!p || !this._rect) return;
 
+      // SAFETY: только для FrameNode-исключения. Если уже есть выбранная
+      // нода/группа (SelectionPlugin) и клик попал внутрь её bbox, не
+      // запускаем лассо — даём SelectionPlugin обработать drag так же,
+      // как это работает в world.
+      const sel = this._getSelectionPlugin();
+      const selected = sel?.getSelected();
+      if (selected) {
+        const kn = selected.getKonvaNode() as unknown as Konva.Node;
+        const bbox = kn.getClientRect({ skipShadow: true, skipStroke: false });
+        const insideSel =
+          p.x >= bbox.x &&
+          p.x <= bbox.x + bbox.width &&
+          p.y >= bbox.y &&
+          p.y <= bbox.y + bbox.height;
+        if (insideSel) {
+          return;
+        }
+      }
+
       // Ignore clicks on rulers (RulerPlugin)
       const rulerLayer = stage.findOne('.ruler-layer');
       if (rulerLayer && e.target.getLayer() === rulerLayer) {
@@ -365,6 +384,12 @@ export class AreaSelectionPlugin extends Plugin {
           // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
+          const pos = world.position();
+          this._core.eventBus.emit('camera:pan', {
+            dx: -vx,
+            dy: -vy,
+            position: { x: pos.x, y: pos.y },
+          });
           // Expand lasso anchor to reflect additional area revealed by auto-pan
           if (this._start) {
             this._start.x -= vx;

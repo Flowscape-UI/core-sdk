@@ -149,12 +149,12 @@ core.nodes.addFrame({
   ...desktopFrame,
 });
 
-// core.nodes.addFrame({
-//   x: -2500,
-//   y: 200,
-//   ...desktopFrame,
-//   background: 'red',
-// });
+core.nodes.addFrame({
+  x: -2500,
+  y: 200,
+  ...desktopFrame,
+  background: 'red',
+});
 
 const videoNode = core.nodes.addVideo({
   x: 1500,

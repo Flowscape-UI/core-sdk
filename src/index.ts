@@ -11,7 +11,6 @@ export { EventBus } from './utils/EventBus';
 
 // Managers
 export { CameraManager } from './managers/CameraManager';
-export { FrameManager } from './managers/FrameManager';
 export { HistoryManager } from './managers/HistoryManager';
 export type { HistoryAction } from './managers/HistoryManager';
 export { NodeManager } from './managers/NodeManager';

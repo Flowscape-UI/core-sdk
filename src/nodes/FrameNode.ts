@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import type { FrameOptions } from '../types/public/frame';
+
 import { BaseNode, type BaseNodeOptions } from './BaseNode';
 
 // Объединяем опции BaseNode и FrameOptions без конфликтов по наследованию интерфейсов
