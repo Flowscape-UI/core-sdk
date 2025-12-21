@@ -16,6 +16,7 @@ import {
   ShapeHoverHighlightAddon,
   TextAutoTrimAddon,
   VisualGuidesPlugin,
+  frameTemplates,
 } from '@flowscape-ui/core-sdk';
 import TestSvg from './assets/images/cursor-rotation.svg';
 import Image from './assets/images/img.jpg';
@@ -139,6 +140,21 @@ const svgNode = core.nodes.addSvg({
 setTimeout(() => {
   svgNode.setSrc(TestSvg);
 }, 5000);
+
+const { desktopFrame } = frameTemplates;
+
+core.nodes.addFrame({
+  x: -2000,
+  y: 200,
+  ...desktopFrame,
+});
+
+// core.nodes.addFrame({
+//   x: -2500,
+//   y: 200,
+//   ...desktopFrame,
+//   background: 'red',
+// });
 
 const videoNode = core.nodes.addVideo({
   x: 1500,

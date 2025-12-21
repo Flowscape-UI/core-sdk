@@ -5,6 +5,7 @@ import { ArrowNode, type ArrowNodeOptions } from '../nodes/ArrowNode';
 import { BaseNode } from '../nodes/BaseNode';
 import { CircleNode, type CircleNodeOptions } from '../nodes/CircleNode';
 import { EllipseNode, type EllipseNodeOptions } from '../nodes/EllipseNode';
+import { FrameNode, type FrameNodeOptions } from '../nodes/FrameNode';
 import { GifNode, type GifNodeOptions } from '../nodes/GifNode';
 import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
 import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
@@ -16,6 +17,7 @@ import { SvgNode, type SvgNodeOptions } from '../nodes/SvgNode';
 import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
 import { VideoNode, type VideoNodeOptions } from '../nodes/VideoNode';
 import type { CoreEvents } from '../types/core.events.interface';
+import type { FrameHandle } from '../types/public/frame';
 import type {
   ArcNodeHandle,
   ArrowNodeHandle,
@@ -41,6 +43,9 @@ export class NodeManager {
   private _stage: Konva.Stage;
   private _eventBus: EventBus<CoreEvents>;
 
+  // Overlay labels для фреймов (отдельные Konva.Text, не BaseNode)
+  private _frameLabels = new Map<FrameNode, Konva.Text>();
+
   // Cache for optimization
   private _batchDrawScheduled = false;
   private _listCache: BaseNode[] | null = null;
@@ -53,6 +58,38 @@ export class NodeManager {
     this._stage = stage;
     this._stage.add(this._layer);
     this._eventBus = eventBus;
+
+    // Авто-группировка нод во фреймы при перетаскивании
+    this._eventBus.on('node:created', (node) => {
+      this._attachFrameAutogroupHandlers(node);
+    });
+
+    // Удаляем overlay label при удалении фрейма
+    this._eventBus.on('node:removed', (node) => {
+      if (node instanceof FrameNode) {
+        const label = this._frameLabels.get(node);
+        if (label) {
+          label.destroy();
+          this._frameLabels.delete(node);
+        }
+      }
+    });
+
+    // Синхронизация overlay label после трансформаций (resize/rotate)
+    this._eventBus.on('node:transformed', (node) => {
+      if (node instanceof FrameNode) {
+        this._updateFrameLabelsPosition();
+      }
+    });
+
+    // Обновляем позицию overlay label при изменении камеры (масштаб не компенсируем)
+    const updateFrameLabelsOnCamera = () => {
+      this._updateFrameLabelsPosition();
+    };
+    this._eventBus.on('camera:zoom', updateFrameLabelsOnCamera);
+    this._eventBus.on('camera:setZoom', updateFrameLabelsOnCamera);
+    this._eventBus.on('camera:reset', updateFrameLabelsOnCamera);
+    this._eventBus.on('camera:pan', updateFrameLabelsOnCamera);
   }
 
   public get layer(): Konva.Layer {
@@ -70,6 +107,7 @@ export class NodeManager {
   public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
   }
+
   public addShape(options: ShapeNodeOptions): ShapeNodeHandle {
     const shape = new ShapeNode(options);
     this._world.add(shape.getKonvaNode());
@@ -210,6 +248,54 @@ export class NodeManager {
     return gif;
   }
 
+  public addFrame(options: FrameNodeOptions): FrameHandle {
+    const frame = new FrameNode(options);
+    this._world.add(frame.getKonvaNode());
+    this._nodes.set(frame.id, frame);
+    this._listCacheInvalidated = true;
+    this._eventBus.emit('node:created', frame);
+    this._scheduleBatchDraw();
+
+    const labelText = options.label ?? options.name ?? 'Frame';
+    const label = new Konva.Text({
+      text: labelText,
+      fontSize: 12,
+      fill: '#ffffff',
+      // align: 'start',
+      listening: false,
+    } as Konva.TextConfig);
+    // Важно: добавляем label на основной layer, а не в world,
+    // чтобы на него не влиял zoom/pan камеры (масштаб мира).
+    this._layer.add(label);
+    this._frameLabels.set(frame, label);
+
+    // Обновлять позицию при перемещении/трансформации фрейма
+    const kn = frame.getKonvaNode() as unknown as Konva.Node;
+    kn.on('dragmove.frame-label', () => {
+      this._updateFrameLabelsPosition();
+    });
+
+    kn.on('transform.frame-label', () => {
+      this._updateFrameLabelsPosition();
+    });
+
+    // Во время работы Transformer (resize/rotate) Konva шлёт события изменения атрибутов
+    // width/height/scale/rotation/x/y. Подпишемся на них, чтобы обновлять label в realtime,
+    // а не только по окончании трансформации.
+    kn.on(
+      'xChange.frame-label yChange.frame-label widthChange.frame-label heightChange.frame-label ' +
+        'scaleXChange.frame-label scaleYChange.frame-label rotationChange.frame-label',
+      () => {
+        this._updateFrameLabelsPosition();
+      },
+    );
+
+    // Первичная установка позиции
+    this._updateFrameLabelsPosition();
+
+    return { id: frame.id };
+  }
+
   public remove(node: BaseNode) {
     this._eventBus.emit('node:removed', node);
     node.remove();
@@ -244,5 +330,130 @@ export class NodeManager {
       this._batchDrawScheduled = false;
       this._layer.batchDraw();
     });
+  }
+
+  // ==================== Frames auto-grouping ====================
+
+  private _listFrames(): FrameNode[] {
+    const frames: FrameNode[] = [];
+    for (const node of this._nodes.values()) {
+      if (node instanceof FrameNode) {
+        frames.push(node);
+      }
+    }
+    return frames;
+  }
+
+  private _attachFrameAutogroupHandlers(node: BaseNode) {
+    // Не навешиваем обработчики на сами фреймы
+    if (node instanceof FrameNode) return;
+
+    const kn = node.getKonvaNode() as unknown as Konva.Node;
+
+    kn.on('dragmove.frame-autogroup', () => {
+      const pointer = this._stage.getPointerPosition();
+      if (!pointer) return;
+
+      const currentParent = kn.getParent();
+      const world = this._world;
+
+      // Определяем, находится ли нода уже внутри какого-либо фрейма
+      let currentFrame: FrameNode | null = null;
+      outer: for (const frame of this._listFrames()) {
+        let parent: Konva.Node | null = currentParent;
+        const contentGroup = frame.getContentGroup();
+        while (parent && parent !== world) {
+          if (parent === (contentGroup as unknown as Konva.Node)) {
+            currentFrame = frame;
+            break outer;
+          }
+          parent = parent.getParent();
+        }
+      }
+
+      // Ищем фрейм под курсором
+      let targetFrame: FrameNode | null = null;
+      for (const frame of this._listFrames()) {
+        const rect = frame.getRect();
+        const r = rect.getClientRect({ skipShadow: true, skipStroke: true });
+        const inside =
+          pointer.x >= r.x &&
+          pointer.x <= r.x + r.width &&
+          pointer.y >= r.y &&
+          pointer.y <= r.y + r.height;
+        if (inside) {
+          targetFrame = frame;
+          break;
+        }
+      }
+
+      // Уже внутри какого-то фрейма
+      if (currentFrame) {
+        if (!targetFrame || targetFrame !== currentFrame) {
+          // Покидаем фрейм -> возвращаем ноду в world
+          const absPos = kn.getAbsolutePosition();
+          this._world.add(kn as unknown as Konva.Shape | Konva.Group);
+          kn.setAbsolutePosition(absPos);
+          this._layer.batchDraw();
+
+          // Если во фрейме больше не осталось детей — разрешаем его drag/select по клику
+          const contentGroup = currentFrame.getContentGroup();
+          const hasChildren = contentGroup.getChildren().length > 0;
+          const frameKn = currentFrame.getKonvaNode() as unknown as Konva.Node & {
+            draggable?: (value?: boolean) => boolean;
+          };
+          if (typeof frameKn.draggable === 'function') {
+            frameKn.draggable(!hasChildren);
+          }
+        }
+        return;
+      }
+
+      // Нода не во фрейме, но курсор внутри фрейма -> перемещаем в contentGroup
+      if (
+        targetFrame &&
+        currentParent !== (targetFrame.getContentGroup() as unknown as Konva.Node)
+      ) {
+        const absPos = kn.getAbsolutePosition();
+        const contentGroup = targetFrame.getContentGroup();
+        contentGroup.add(kn as unknown as Konva.Shape | Konva.Group);
+        kn.setAbsolutePosition(absPos);
+        this._layer.batchDraw();
+
+        // Как только во фрейме появляется хотя бы один ребёнок — запрещаем drag самого фрейма
+        const hasChildren = contentGroup.getChildren().length > 0;
+        const frameKn = targetFrame.getKonvaNode() as unknown as Konva.Node & {
+          draggable?: (value?: boolean) => boolean;
+        };
+        if (typeof frameKn.draggable === 'function') {
+          frameKn.draggable(!hasChildren);
+        }
+      }
+    });
+  }
+
+  /**
+   * Обновить позицию overlay label над соответствующими фреймами
+   * (используется при создании и drag фреймов)
+   */
+  private _updateFrameLabelsPosition() {
+    for (const [frame, label] of this._frameLabels.entries()) {
+      const frameNode = frame.getKonvaNode() as unknown as Konva.Node;
+
+      // Позиционируем label у левого верхнего угла фрейма,
+      // примерно как старый Konva.Label (x:0, y:-24 относительно фрейма).
+      const bbox = frameNode.getClientRect({ skipShadow: true, skipStroke: false });
+      const verticalOffset = 16; // расстояние вверх от верхней границы фрейма
+
+      const x = bbox.x;
+      const y = bbox.y - verticalOffset;
+
+      label.absolutePosition({ x, y });
+      // Текст рисуем без горизонтального смещения (по левому краю)
+      label.offsetX(0);
+      label.offsetY(0);
+    }
+
+    this._layer.batchDraw();
   }
 }

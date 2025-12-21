@@ -11,6 +11,7 @@ export { EventBus } from './utils/EventBus';
 
 // Managers
 export { CameraManager } from './managers/CameraManager';
+export { FrameManager } from './managers/FrameManager';
 export { HistoryManager } from './managers/HistoryManager';
 export type { HistoryAction } from './managers/HistoryManager';
 export { NodeManager } from './managers/NodeManager';
@@ -82,11 +83,14 @@ export type {
   VideoNodeHandle,
 } from './types/public/node-handles';
 
+export type { FrameHandle, FrameOptions } from './types/public/frame';
+
 export type { ArcNodeOptions } from './nodes/ArcNode';
 export type { ArrowNodeOptions } from './nodes/ArrowNode';
 export type { BaseNodeOptions } from './nodes/BaseNode';
 export type { CircleNodeOptions } from './nodes/CircleNode';
 export type { EllipseNodeOptions } from './nodes/EllipseNode';
+export type { FrameNodeOptions } from './nodes/FrameNode';
 export type { GifNodeOptions } from './nodes/GifNode';
 export type { GroupNodeOptions } from './nodes/GroupNode';
 export type { ImageNodeOptions, ImageSource } from './nodes/ImageNode';
@@ -121,3 +125,5 @@ export type {
   KonvaStar,
   KonvaText,
 } from './types/konva';
+
+export { frameTemplates } from './frames/frameTemplates';

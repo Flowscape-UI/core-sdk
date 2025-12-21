@@ -3,6 +3,7 @@ import Konva from 'konva';
 import { VideoOverlayAddon, type VideoOverlayAddonOptions } from '../addons/VideoOverlayAddon';
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { FrameNode } from '../nodes/FrameNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
 import { MultiGroupController } from '../utils/MultiGroupController';
 import {
@@ -300,11 +301,16 @@ export class SelectionPlugin extends Plugin {
       selectablePredicate,
     } = options;
 
+    const userSelectablePredicate = selectablePredicate ?? (() => true);
+
     this._options = {
       dragEnabled,
       enableTransformer,
       deselectOnEmptyClick,
-      selectablePredicate: selectablePredicate ?? (() => true),
+      selectablePredicate: (node: Konva.Node) => {
+        if (!userSelectablePredicate(node)) return false;
+        return this._isSelectableByFrameRules(node);
+      },
       autoPanEnabled: options.autoPanEnabled ?? true,
       autoPanEdgePx: options.autoPanEdgePx ?? 40,
       autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
@@ -332,6 +338,17 @@ export class SelectionPlugin extends Plugin {
       this._autoPanMaxSpeedPx = patch.autoPanMaxSpeedPx;
     // If auto-pan was disabled — stop the loop
     if (patch.autoPanEnabled === false) this._stopAutoPanLoop();
+  }
+
+  /**
+   * Select a single node from area (lasso) selection, without creating temp-multi.
+   * Used by AreaSelectionPlugin so that single-node selection (including FrameNode)
+   * reuses the same transformer and resize logic as обычный клик.
+   */
+  public selectSingleFromArea(node: BaseNode): void {
+    this._destroyTempMulti();
+    this._select(node);
+    this._scheduleBatchDraw();
   }
 
   protected onAttach(core: CoreEngine): void {
@@ -1668,6 +1685,27 @@ export class SelectionPlugin extends Plugin {
     }
   }
 
+  /**
+   * Frame-specific selectability rules for direct clicks/hover:
+   * - If the owning BaseNode is a FrameNode and it has at least one child inside contentGroup,
+   *   the frame is not directly selectable/hoverable (selection only via lasso).
+   * - Empty frames and all other nodes remain selectable.
+   */
+  private _isSelectableByFrameRules(target: Konva.Node): boolean {
+    // Try to map the visual target (or its ancestor) to a BaseNode
+    const owner = this._findBaseNodeByTarget(target);
+    if (!owner) return true;
+
+    if (owner instanceof FrameNode) {
+      const contentGroup = owner.getContentGroup();
+      const hasChildren = contentGroup.getChildren().length > 0;
+      // Non-empty frames are not directly selectable/hoverable by click; only via lasso
+      return !hasChildren;
+    }
+
+    return true;
+  }
+
   // OPTIMIZATION: Throttled version of _onHoverMove
   private _onHoverMoveThrottled = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!this._hoverThrottle.shouldExecute()) return;
@@ -1958,10 +1996,38 @@ export class SelectionPlugin extends Plugin {
     transformer.on('transform.keepratio', updateKeepRatio);
 
     transformer.on('transform.corner-sync', () => {
-      // «Incorporate» non-uniform scaling into width/height for Rect,
-      const n = this._selected?.getKonvaNode() as unknown as Konva.Node | undefined;
+      // Для обычных нод: «Incorporate» non-uniform scaling into width/height for Rect.
+      // Для FrameNode: изменяем только визуальный rect/clip, не трогая детей.
+      const selected = this._selected;
+      const n = selected?.getKonvaNode() as unknown as Konva.Node | undefined;
       if (n) {
-        this._bakeRectScale(n);
+        if (selected instanceof FrameNode) {
+          const frame = selected;
+
+          // Текущий масштаб группы (фрейма) после действия трансформера
+          const sx = Math.abs((n as unknown as { scaleX?: () => number }).scaleX?.() ?? 1);
+          const sy = Math.abs((n as unknown as { scaleY?: () => number }).scaleY?.() ?? 1);
+
+          const rect = frame.getRect();
+          const baseW = rect.width();
+          const baseH = rect.height();
+
+          const newW = baseW * sx;
+          const newH = baseH * sy;
+
+          // Меняем только размер фрейма и clip, дети не трогаются
+          frame.resize(newW, newH);
+
+          // Сбрасываем масштаб группы обратно в 1, чтобы дети не были заскейлены
+          if (typeof (n as unknown as { scaleX?: (v: number) => void }).scaleX === 'function') {
+            (n as unknown as { scaleX: (v: number) => void }).scaleX(1);
+          }
+          if (typeof (n as unknown as { scaleY?: (v: number) => void }).scaleY === 'function') {
+            (n as unknown as { scaleY: (v: number) => void }).scaleY(1);
+          }
+        } else {
+          this._bakeRectScale(n);
+        }
 
         // Correct the node position to keep the reference point (corner/edge center) in place.
         // This is required for stable resize (including with auto-pan). The saved reference point
@@ -3256,6 +3322,65 @@ export class SelectionPlugin extends Plugin {
         return this._selected;
       }
     }
+
+    // Специальный случай для FrameNode: если target находится внутри contentGroup какого‑то фрейма,
+    // стараемся выбрать ближайший (по иерархии Konva) BaseNode, который НЕ является самим FrameNode.
+    // Это позволяет нормально кликать/hover'ить дочерние ноды внутри фрейма, не блокируя правило
+    // "непустой фрейм по клику не выбирается" (оно по‑прежнему реализовано в _isSelectableByFrameRules).
+    const allBaseNodes: BaseNode[] = this._core.nodes.list();
+    const frameBaseNodes = allBaseNodes.filter((bn) => bn instanceof FrameNode) as FrameNode[];
+
+    let isInsideAnyFrameContent = false;
+    for (const frame of frameBaseNodes) {
+      const contentGroup = frame.getContentGroup() as unknown as Konva.Node;
+      if (
+        target === contentGroup ||
+        (typeof contentGroup.isAncestorOf === 'function' && contentGroup.isAncestorOf(target))
+      ) {
+        isInsideAnyFrameContent = true;
+        break;
+      }
+    }
+
+    if (isInsideAnyFrameContent) {
+      // Среди всех BaseNode, кроме FrameNode, ищем того, чей Konva‑узел является предком target,
+      // и выбираем ближайшего по глубине (минимальное расстояние по parent‑цепочке).
+      let best: BaseNode | null = null;
+      let bestDepth = Number.POSITIVE_INFINITY;
+
+      for (const bn of allBaseNodes) {
+        if (bn instanceof FrameNode) continue;
+        const kn = bn.getKonvaNode() as unknown as Konva.Node;
+        if (kn === target) {
+          // Прямое совпадение — это всегда самый близкий вариант.
+          best = bn;
+          bestDepth = 0;
+          break;
+        }
+        if (typeof kn.isAncestorOf !== 'function' || !kn.isAncestorOf(target)) continue;
+
+        // Считаем расстояние от kn до target по parent‑цепочке.
+        let depth = 0;
+        let cur: Konva.Node | null = target;
+        let found = false;
+        while (cur) {
+          if (cur === kn) {
+            found = true;
+            break;
+          }
+          cur = cur.getParent();
+          depth += 1;
+        }
+        if (!found) continue;
+        if (depth < bestDepth) {
+          bestDepth = depth;
+          best = bn;
+        }
+      }
+
+      if (best) return best;
+    }
+
     let topMostAncestor: BaseNode | null = null;
     for (const n of this._core.nodes.list()) {
       const node = n.getKonvaNode() as unknown as Konva.Node;

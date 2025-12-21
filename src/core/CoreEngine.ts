@@ -1,6 +1,7 @@
 import Konva from 'konva';
 
 import { CameraManager } from '../managers/CameraManager';
+import { FrameManager } from '../managers/FrameManager';
 import { NodeManager } from '../managers/NodeManager';
 import { VirtualizationManager } from '../managers/VirtualizationManager';
 import { Plugin } from '../plugins/Plugin';
@@ -40,6 +41,7 @@ export class CoreEngine {
 
   public readonly container: HTMLDivElement;
   public readonly nodes: NodeManager;
+  public readonly frames: FrameManager;
   public readonly camera: CameraManager;
   public readonly virtualization: VirtualizationManager;
   public readonly plugins: Plugins;
@@ -70,6 +72,7 @@ export class CoreEngine {
     this._stage.add(this._gridLayer);
 
     this.nodes = new NodeManager(this._stage, this._eventBus);
+    this.frames = new FrameManager(this._stage, this._eventBus, this.nodes);
     this.camera = new CameraManager({
       stage: this._stage,
       target: this.nodes.world,

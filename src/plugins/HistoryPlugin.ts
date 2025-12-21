@@ -865,7 +865,11 @@ export class HistoryPlugin extends Plugin {
 
       for (const child of children) {
         const childBase = this._findBaseNodeByKonva(child as Konva.Node);
-        if (childBase) {
+        // Важно: защищаемся от циклов, когда внутренний Group
+        // (например, технический container внутри FrameNode)
+        // маппится обратно на ту же самую BaseNode, что и родитель.
+        // В этом случае повторная сериализация приведёт к бесконечной рекурсии.
+        if (childBase && childBase.id !== node.id) {
           state.children.push(this._serializeNode(childBase));
         }
       }
