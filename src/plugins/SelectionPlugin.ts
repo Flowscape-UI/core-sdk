@@ -1737,6 +1737,7 @@ export class SelectionPlugin extends Plugin {
 
     const nm = this._core.nodes;
     const world = nm.world;
+    const stage = this._core.stage;
 
     const frames = nm.list().filter((n): n is FrameNode => n instanceof FrameNode);
     if (frames.length === 0) return;
@@ -1762,21 +1763,18 @@ export class SelectionPlugin extends Plugin {
         }
       }
 
-      // Ищем фрейм под центром ноды (по финальному bbox после drag)
+      // Ищем фрейм под курсором (как в NodeManager._attachFrameAutogroupHandlers)
       let targetFrame: FrameNode | null = null;
-      const bbox = kn.getClientRect({ skipShadow: true, skipStroke: true });
-      const center = {
-        x: bbox.x + bbox.width / 2,
-        y: bbox.y + bbox.height / 2,
-      };
+      const pointer = stage.getPointerPosition();
+      if (!pointer) continue;
       for (const frame of frames) {
         const rect = frame.getRect();
         const r = rect.getClientRect({ skipShadow: true, skipStroke: true });
         const inside =
-          center.x >= r.x &&
-          center.x <= r.x + r.width &&
-          center.y >= r.y &&
-          center.y <= r.y + r.height;
+          pointer.x >= r.x &&
+          pointer.x <= r.x + r.width &&
+          pointer.y >= r.y &&
+          pointer.y <= r.y + r.height;
         if (inside) {
           targetFrame = frame;
           break;
@@ -2553,6 +2551,17 @@ export class SelectionPlugin extends Plugin {
       'widthChange.overlay-sync heightChange.overlay-sync scaleXChange.overlay-sync scaleYChange.overlay-sync rotationChange.overlay-sync xChange.overlay-sync yChange.overlay-sync',
       syncOverlays,
     );
+
+    globalThis.queueMicrotask(() => {
+      if (!this._core) return;
+      if (!this._selected) return;
+      if (this._transformer !== transformer) return;
+
+      this._transformer.forceUpdate();
+      this._restyleSideAnchors();
+      this._scheduleBatchDraw();
+    });
+
     this._scheduleBatchDraw();
   }
 

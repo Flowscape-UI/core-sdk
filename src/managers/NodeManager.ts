@@ -147,7 +147,9 @@ export class NodeManager {
             const hoverFill = (label as unknown as { _hoverFill?: string })._hoverFill;
             label.fill(hoverFill);
           }
+          // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
           if (!this._selectedFrame) this._selectedFrame = n;
+
           this._hadFrameInLastMultiSelection = true;
         }
       }
