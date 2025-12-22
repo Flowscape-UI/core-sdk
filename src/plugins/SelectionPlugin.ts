@@ -102,6 +102,7 @@ export class SelectionPlugin extends Plugin {
   // Stored as a generic (...args) handler to satisfy the loosely-typed
   // eventBus.on/off signatures.
   private _onFrameChildrenChangedBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelClickedBound: ((...args: unknown[]) => void) | null = null;
 
   // Minimal hover frame (blue border on hover)
   private _hoverTr: Konva.Transformer | null = null;
@@ -568,8 +569,15 @@ export class SelectionPlugin extends Plugin {
         if (nextLevel) {
           this._select(nextLevel);
           const node = nextLevel.getKonvaNode();
-          // Enable dragging for selected node
-          if (typeof node.draggable === 'function') node.draggable(true);
+          // Enable dragging for selected node (never override FrameNode draggable)
+          if (!(nextLevel instanceof FrameNode)) {
+            if (
+              typeof (node as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+              'function'
+            ) {
+              (node as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
+            }
+          }
           // Temporarily disable dragging for parent group
           if (selectedNode instanceof Konva.Group) {
             this._parentGroupDuringChildEdit = selectedNode;
@@ -698,6 +706,18 @@ export class SelectionPlugin extends Plugin {
       }
     ).on('frame:children-changed', this._onFrameChildrenChangedBound);
 
+    this._onFrameLabelClickedBound = (frameRaw: unknown) => {
+      const frame = frameRaw as FrameNode;
+      this._destroyTempMulti();
+      this._select(frame);
+      this._scheduleBatchDraw();
+    };
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-clicked', this._onFrameLabelClickedBound);
+
     // Global listeners for Shift (proportional resize only for corner anchors)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
@@ -756,6 +776,14 @@ export class SelectionPlugin extends Plugin {
       ).off('frame:children-changed', this._onFrameChildrenChangedBound);
       this._onFrameChildrenChangedBound = null;
     }
+    if (this._onFrameLabelClickedBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-clicked', this._onFrameLabelClickedBound);
+      this._onFrameLabelClickedBound = null;
+    }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 
     // Remove hover overlay
@@ -807,15 +835,21 @@ export class SelectionPlugin extends Plugin {
                 const dy = Math.abs(ev.evt.clientY - startY);
                 if (!dragStarted && (dx > threshold || dy > threshold)) {
                   dragStarted = true;
-                  if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
-                    dnode.draggable(true);
+                  // Для FrameNode draggable контролирует NodeManager, поэтому не включаем
+                  // его здесь. Для остальных нод оставляем старое поведение.
+                  if (!(this._selected instanceof FrameNode)) {
+                    if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                      dnode.draggable(true);
+                  }
                   selKonva.on('dragstart.selection-once-bbox', () => {
                     stage.draggable(false);
                   });
                   selKonva.on('dragend.selection-once-bbox', () => {
                     stage.draggable(prevStageDraggable);
-                    if (typeof dnode.draggable === 'function') {
-                      dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                    if (!(this._selected instanceof FrameNode)) {
+                      if (typeof dnode.draggable === 'function') {
+                        dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                      }
                     }
                     // Restore frame after drag
                     if (this._selected) {
@@ -877,15 +911,21 @@ export class SelectionPlugin extends Plugin {
               const dy = Math.abs(ev.evt.clientY - startY);
               if (!dragStarted && (dx > threshold || dy > threshold)) {
                 dragStarted = true;
-                if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
-                  dnode.draggable(true);
+                // Для FrameNode draggable контролирует NodeManager, поэтому не включаем
+                // его здесь. Для остальных нод оставляем старое поведение.
+                if (!(this._selected instanceof FrameNode)) {
+                  if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                    dnode.draggable(true);
+                }
                 selKonva.on('dragstart.selection-once-bbox2', () => {
                   stage.draggable(false);
                 });
                 selKonva.on('dragend.selection-once-bbox2', () => {
                   stage.draggable(prevStageDraggable);
-                  if (typeof dnode.draggable === 'function') {
-                    dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                  if (!(this._selected instanceof FrameNode)) {
+                    if (typeof dnode.draggable === 'function') {
+                      dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                    }
                   }
                   if (this._selected) {
                     this._refreshTransformer();
@@ -972,7 +1012,10 @@ export class SelectionPlugin extends Plugin {
       return;
     }
 
-    const hasDraggable = typeof konvaNode.draggable === 'function';
+    const isFrame = baseNode instanceof FrameNode;
+    // Для FrameNode draggable контролирует NodeManager, поэтому в режиме
+    // "startDragOnce" мы не включаем/выключаем draggable для фреймов.
+    const hasDraggable = typeof konvaNode.draggable === 'function' && !isFrame;
     const prevNodeDraggable = hasDraggable ? konvaNode.draggable() : false;
     const prevStageDraggable = stage.draggable();
 
@@ -1986,19 +2029,20 @@ export class SelectionPlugin extends Plugin {
         });
       }
 
-      // Enable draggable for ungrouped nodes
-      if (
-        typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
-      ) {
-        (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
-      }
-
-      // Find BaseNode for this Konva node
+      // Find BaseNode for this Konva node and enable draggable if it's not a FrameNode
+      let isFrame = false;
       for (const bn of this._core.nodes.list()) {
         if (bn.getKonvaNode() === kn) {
+          if (bn instanceof FrameNode) isFrame = true;
           ungroupedBaseNodes.push(bn);
           break;
         }
+      }
+      if (
+        !isFrame &&
+        typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+      ) {
+        (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
       }
     }
 
@@ -2632,9 +2676,15 @@ export class SelectionPlugin extends Plugin {
         this._rotateCenterAbsStart = null;
         // Restore scene pan, draggable node — according to settings
         if (this._selected) {
-          const node = this._selected.getKonvaNode() as unknown as Konva.Node;
-          if (this._options.dragEnabled && typeof node.draggable === 'function') {
-            node.draggable(true);
+          const base = this._selected;
+          const node = base.getKonvaNode() as unknown as Konva.Node;
+          if (
+            !(base instanceof FrameNode) &&
+            this._options.dragEnabled &&
+            typeof (node as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+              'function'
+          ) {
+            (node as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
           }
           // Emit node:transformed event for rotation
           const changes: {
@@ -3413,8 +3463,15 @@ export class SelectionPlugin extends Plugin {
     };
     const onUp = () => {
       if (!this._selected) return;
-      const n = this._selected.getKonvaNode() as unknown as Konva.Node;
-      if (this._options.dragEnabled) n.draggable(true);
+      const base = this._selected;
+      const n = base.getKonvaNode() as unknown as Konva.Node;
+      if (
+        this._options.dragEnabled &&
+        !(base instanceof FrameNode) &&
+        typeof (n as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+      ) {
+        (n as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
+      }
       // Repaint side anchors after draggable change
       this._restyleSideAnchors();
     };

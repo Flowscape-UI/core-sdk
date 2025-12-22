@@ -154,6 +154,8 @@ core.nodes.addFrame({
   y: 200,
   ...desktopFrame,
   background: 'red',
+  // labelHoverColor: 'black',
+  // labelColor: 'red',
 });
 
 const videoNode = core.nodes.addVideo({

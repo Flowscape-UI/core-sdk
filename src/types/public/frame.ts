@@ -6,6 +6,8 @@ export interface FrameOptions {
   background?: string;
   cornerRadius?: number | number[];
   label?: string;
+  labelColor?: string;
+  labelHoverColor?: string;
   template?: string;
   draggable?: boolean;
   id?: string;

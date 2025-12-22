@@ -45,11 +45,14 @@ export class NodeManager {
 
   // Overlay labels для фреймов (отдельные Konva.Text, не BaseNode)
   private _frameLabels = new Map<FrameNode, Konva.Text>();
+  // Текущий выбранный фрейм (для подсветки его label синим цветом)
+  private _selectedFrame: FrameNode | null = null;
 
   // Cache for optimization
   private _batchDrawScheduled = false;
   private _listCache: BaseNode[] | null = null;
   private _listCacheInvalidated = true;
+  private _hadFrameInLastMultiSelection = false;
 
   constructor(stage: Konva.Stage, eventBus: EventBus<CoreEvents>) {
     this._layer = new Konva.Layer();
@@ -90,6 +93,99 @@ export class NodeManager {
     this._eventBus.on('camera:setZoom', updateFrameLabelsOnCamera);
     this._eventBus.on('camera:reset', updateFrameLabelsOnCamera);
     this._eventBus.on('camera:pan', updateFrameLabelsOnCamera);
+
+    // Подсветка label для FrameNode: синий цвет только если фрейм входит в текущий selection
+    this._eventBus.on('node:selected', (node) => {
+      // Сбрасываем все label в базовый цвет
+      for (const [, label] of this._frameLabels.entries()) {
+        const baseFill = (label as unknown as { _baseFill?: string })._baseFill;
+        label.fill(baseFill);
+      }
+
+      if (node instanceof FrameNode) {
+        this._selectedFrame = node;
+        const label = this._frameLabels.get(node);
+        if (label) {
+          const hoverFill = (label as unknown as { _hoverFill?: string })._hoverFill;
+          label.fill(hoverFill);
+        }
+
+        // ЖЁСТКАЯ ГАРАНТИЯ: как только фрейм становится выбранным, приводим
+        // его draggable в соответствие с инвариантом "draggable = !hasChildren".
+        this._enforceFrameDraggableInvariant(node);
+      } else {
+        this._selectedFrame = null;
+      }
+
+      this._layer.batchDraw();
+    });
+
+    // При снятии выделения с FrameNode также жёстко восстанавливаем инвариант
+    // draggable = !hasChildren, чтобы внешние вызовы draggable(true) не оставались висящими.
+    this._eventBus.on('node:deselected', (node) => {
+      if (node instanceof FrameNode) {
+        this._enforceFrameDraggableInvariant(node);
+      }
+    });
+
+    // Подсветка при мультивыделении: делаем синими только те фреймы,
+    // которые присутствуют в selection:multi:created.
+    this._eventBus.on('selection:multi:created', (nodes) => {
+      // Сначала всем фреймам — базовый цвет
+      for (const [, label] of this._frameLabels.entries()) {
+        const baseFill = (label as unknown as { _baseFill?: string })._baseFill;
+        label.fill(baseFill);
+      }
+
+      this._selectedFrame = null;
+
+      this._hadFrameInLastMultiSelection = false;
+      for (const n of nodes) {
+        if (n instanceof FrameNode) {
+          const label = this._frameLabels.get(n);
+          if (label) {
+            const hoverFill = (label as unknown as { _hoverFill?: string })._hoverFill;
+            label.fill(hoverFill);
+          }
+          if (!this._selectedFrame) this._selectedFrame = n;
+          this._hadFrameInLastMultiSelection = true;
+        }
+      }
+
+      this._layer.batchDraw();
+    });
+
+    this._eventBus.on('selection:multi:destroyed', () => {
+      if (!this._hadFrameInLastMultiSelection) return;
+
+      for (const [, label] of this._frameLabels.entries()) {
+        const baseFill = (label as unknown as { _baseFill?: string })._baseFill;
+        label.fill(baseFill);
+      }
+
+      this._hadFrameInLastMultiSelection = false;
+      this._layer.batchDraw();
+    });
+
+    // Сброс подсветки label при полном снятии выделения
+    (this._eventBus as unknown as { on: (e: string, h: (...args: unknown[]) => void) => void }).on(
+      'selection:cleared',
+      () => {
+        this._selectedFrame = null;
+        for (const [, label] of this._frameLabels.entries()) {
+          const baseFill = (label as unknown as { _baseFill?: string })._baseFill;
+          label.fill(baseFill);
+        }
+        this._layer.batchDraw();
+        // Дополнительно: при полном снятии выделения жёстко приводим
+        // все фреймы к инварианту draggable = !hasChildren.
+        for (const node of this._nodes.values()) {
+          if (node instanceof FrameNode) {
+            this._enforceFrameDraggableInvariant(node);
+          }
+        }
+      },
+    );
   }
 
   public get layer(): Konva.Layer {
@@ -257,17 +353,164 @@ export class NodeManager {
     this._scheduleBatchDraw();
 
     const labelText = options.label ?? options.name ?? 'Frame';
+    const labelBaseColor = options.labelColor ?? '#ffffff';
+    const labelHoverColor = options.labelHoverColor ?? '#2683ff';
+
     const label = new Konva.Text({
       text: labelText,
       fontSize: 12,
-      fill: '#ffffff',
+      fill: labelBaseColor,
       // align: 'start',
-      listening: false,
+      listening: true,
     } as Konva.TextConfig);
+    // Сохраняем базовый цвет и hover-цвет label на самом Konva.Text, чтобы
+    // использовать их при всех последующих сбросах/подсветках
+    // (selection/deselection/multi).
+    (label as unknown as { _baseFill?: string; _hoverFill?: string })._baseFill = labelBaseColor;
+    (label as unknown as { _baseFill?: string; _hoverFill?: string })._hoverFill = labelHoverColor;
     // Важно: добавляем label на основной layer, а не в world,
     // чтобы на него не влиял zoom/pan камеры (масштаб мира).
     this._layer.add(label);
     this._frameLabels.set(frame, label);
+
+    const baseFill = label.fill();
+
+    label.on('mouseenter.frame-label-ui', () => {
+      label.fill(labelHoverColor);
+      this._layer.batchDraw();
+    });
+
+    label.on('mouseleave.frame-label-ui', () => {
+      // Если этот фрейм сейчас выбран, оставляем label синим
+      if (this._selectedFrame === frame) return;
+      label.fill(baseFill);
+      this._layer.batchDraw();
+    });
+
+    label.on('click.frame-label-ui tap.frame-label-ui', () => {
+      (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+        'frame:label-clicked',
+        frame,
+      );
+    });
+
+    label.on('dblclick.frame-label-ui dbltap.frame-label-ui', (e) => {
+      e.cancelBubble = true;
+
+      const stageContainer = this._stage.container();
+      const prevText = label.text();
+
+      const input = globalThis.document.createElement('input');
+      input.type = 'text';
+      input.value = prevText;
+      // Жёсткий лимит по вводу: не более 40 символов
+      input.maxLength = 40;
+      input.style.position = 'absolute';
+      input.style.boxSizing = 'border-box';
+
+      const rect = label.getClientRect({ skipShadow: true, skipStroke: true });
+      input.style.left = String(rect.x) + 'px';
+      input.style.top = String(rect.y) + 'px';
+      input.style.width = String(rect.width || 80) + 'px';
+      input.style.height = String(rect.height || 16) + 'px';
+      input.style.backgroundColor = 'transparent';
+      input.style.color = labelBaseColor;
+      input.style.border = 'none';
+      input.style.outline = 'none';
+
+      const fontSizePx = String(label.fontSize()) + 'px';
+      const fontFamily = label.fontFamily() || 'sans-serif';
+      input.style.fontSize = fontSizePx;
+      input.style.fontFamily = fontFamily;
+
+      // На время редактирования скрываем исходный label, чтобы он не просвечивал,
+      // когда значение input становится пустым.
+      const prevVisible = label.visible();
+      label.visible(false);
+      this._layer.batchDraw();
+
+      // Вспомогательный span для измерения ширины текста и авто-ресайза input
+      const measureSpan = globalThis.document.createElement('span');
+      measureSpan.style.position = 'absolute';
+      measureSpan.style.visibility = 'hidden';
+      measureSpan.style.whiteSpace = 'pre';
+      measureSpan.style.fontSize = fontSizePx;
+      measureSpan.style.fontFamily = fontFamily;
+      stageContainer.appendChild(measureSpan);
+
+      const resizeToContent = () => {
+        const text = input.value || ' ';
+        measureSpan.textContent = text;
+        const spanRect = measureSpan.getBoundingClientRect();
+        const extra = 16; // небольшой отступ справа
+        input.style.width = String(spanRect.width + extra) + 'px';
+      };
+
+      stageContainer.appendChild(input);
+      input.focus();
+      input.select();
+      resizeToContent();
+
+      let finished = false;
+
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        input.removeEventListener('keydown', onKeyDown);
+        input.removeEventListener('blur', onBlur);
+        input.removeEventListener('input', onInput);
+        if (input.parentNode === stageContainer) {
+          stageContainer.removeChild(input);
+        }
+        if (measureSpan.parentNode === stageContainer) {
+          stageContainer.removeChild(measureSpan);
+        }
+        label.visible(prevVisible);
+        this._layer.batchDraw();
+      };
+
+      const commit = () => {
+        if (finished) return;
+        const next = input.value.trim();
+        if (next.length >= 1 && next.length <= 40 && next !== prevText) {
+          label.text(next);
+          (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+            'frame:label-changed',
+            frame,
+            next,
+          );
+          this._layer.batchDraw();
+        }
+        cleanup();
+      };
+
+      const cancel = () => {
+        if (finished) return;
+        cleanup();
+      };
+
+      const onKeyDown = (ev: KeyboardEvent) => {
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          cancel();
+        } else if (ev.key === 'Enter') {
+          ev.preventDefault();
+          commit();
+        }
+      };
+
+      const onInput = () => {
+        resizeToContent();
+      };
+
+      const onBlur = () => {
+        commit();
+      };
+
+      input.addEventListener('keydown', onKeyDown);
+      input.addEventListener('blur', onBlur);
+      input.addEventListener('input', onInput);
+    });
 
     // Обновлять позицию при перемещении/трансформации фрейма
     const kn = frame.getKonvaNode() as unknown as Konva.Node;
@@ -398,7 +641,8 @@ export class NodeManager {
 
           // Если во фрейме больше не осталось детей — разрешаем его drag/select по клику
           const contentGroup = currentFrame.getContentGroup();
-          const hasChildren = contentGroup.getChildren().length > 0;
+          const children = contentGroup.getChildren();
+          const hasChildren = children.length > 0;
           const frameKn = currentFrame.getKonvaNode() as unknown as Konva.Node & {
             draggable?: (value?: boolean) => boolean;
           };
@@ -470,5 +714,19 @@ export class NodeManager {
     }
 
     this._layer.batchDraw();
+  }
+
+  // Жёстко соблюдаем инвариант для FrameNode: если во фрейме есть дети,
+  // он не должен быть draggable. Если детей нет — draggable разрешён.
+  private _enforceFrameDraggableInvariant(frame: FrameNode) {
+    const contentGroup = frame.getContentGroup();
+    const hasChildren = contentGroup.getChildren().length > 0;
+    const frameKn = frame.getKonvaNode() as unknown as Konva.Node & {
+      draggable?: (value?: boolean) => boolean;
+    };
+
+    if (typeof frameKn.draggable === 'function') {
+      frameKn.draggable(!hasChildren);
+    }
   }
 }
