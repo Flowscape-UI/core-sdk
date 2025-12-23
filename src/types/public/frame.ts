@@ -4,7 +4,6 @@ export interface FrameOptions {
   width: number;
   height: number;
   background?: string;
-  cornerRadius?: number | number[];
   label?: string;
   labelColor?: string;
   labelHoverColor?: string;

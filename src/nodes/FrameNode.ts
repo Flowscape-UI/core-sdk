@@ -46,10 +46,6 @@ export class FrameNode extends BaseNode<Konva.Group> {
       fill: background,
     };
 
-    if (options.cornerRadius !== undefined) {
-      rectConfig.cornerRadius = options.cornerRadius;
-    }
-
     const rect = new Konva.Rect(rectConfig);
 
     const contentGroup = new Konva.Group();

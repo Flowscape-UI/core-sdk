@@ -103,6 +103,8 @@ export class SelectionPlugin extends Plugin {
   // eventBus.on/off signatures.
   private _onFrameChildrenChangedBound: ((...args: unknown[]) => void) | null = null;
   private _onFrameLabelClickedBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelDragStartBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelDragEndBound: ((...args: unknown[]) => void) | null = null;
 
   // Minimal hover frame (blue border on hover)
   private _hoverTr: Konva.Transformer | null = null;
@@ -622,9 +624,38 @@ export class SelectionPlugin extends Plugin {
       const parentName = getName(parent);
       if (targetName.startsWith('rotate-') || parentName === 'rotate-handles-group') return;
 
-      // Consider custom selectability filter to avoid reacting to service nodes
-      if (!this._options.selectablePredicate(target)) return;
-      this._draggingNode = target;
+      // Consider custom selectability filter to avoid reacting to service nodes.
+      // Специальное правило для FrameNode: автопан включаем даже если
+      // selectablePredicate возвращает false (например, для непустых фреймов).
+      // let isFrameOwner = false;
+      // const owner = this._findBaseNodeByTarget(target);
+      // if (owner instanceof FrameNode) {
+      //   isFrameOwner = true;
+      // }
+
+      // if (!isFrameOwner && !this._options.selectablePredicate(target)) return;
+
+      // Специальный случай для FrameNode: если сейчас выбран фрейм и курсор
+      // находится внутри его bbox, то автопан должен считать "таскаемым"
+      // именно FrameNode, а не дочернюю ноду под курсором.
+      let draggingNode: Konva.Node = target;
+      if (this._selected instanceof FrameNode) {
+        const pos = stage.getPointerPosition();
+        if (pos) {
+          const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
+          const bbox = selKonva.getClientRect({ skipShadow: true, skipStroke: false });
+          const inside =
+            pos.x >= bbox.x &&
+            pos.x <= bbox.x + bbox.width &&
+            pos.y >= bbox.y &&
+            pos.y <= bbox.y + bbox.height;
+          if (inside) {
+            draggingNode = selKonva;
+          }
+        }
+      }
+
+      this._draggingNode = draggingNode;
       this._startAutoPanLoop();
     });
     layer.on('dragend.selectionAutoPan', () => {
@@ -718,6 +749,48 @@ export class SelectionPlugin extends Plugin {
       }
     ).on('frame:label-clicked', this._onFrameLabelClickedBound);
 
+    // Временное скрытие selection overlays во время drag FrameNode за label
+    this._onFrameLabelDragStartBound = () => {
+      if (!this._core) return;
+
+      // Single-selection overlays
+      if (this._transformer) this._transformer.visible(false);
+      if (this._cornerHandlesGroup) this._cornerHandlesGroup.visible(false);
+      if (this._rotateHandlesGroup) this._rotateHandlesGroup.visible(false);
+      if (this._sizeLabel) this._sizeLabel.visible(false);
+      if (this._hoverTr) this._hoverTr.visible(false);
+
+      // Temp-multi overlays (через OverlayFrameManager)
+      this._tempOverlay?.hideOverlaysForDrag();
+
+      this._core.stage.batchDraw();
+    };
+
+    this._onFrameLabelDragEndBound = () => {
+      if (!this._core) return;
+
+      // Восстанавливаем single-selection overlays в соответствии с текущим _selected
+      if (this._selected) {
+        this._refreshTransformer();
+      }
+
+      // Возвращаем temp-multi overlays, если активны
+      this._tempOverlay?.restoreOverlaysAfterDrag();
+
+      this._core.stage.batchDraw();
+    };
+
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-dragstart', this._onFrameLabelDragStartBound);
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-dragend', this._onFrameLabelDragEndBound);
+
     // Global listeners for Shift (proportional resize only for corner anchors)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
@@ -783,6 +856,22 @@ export class SelectionPlugin extends Plugin {
         }
       ).off('frame:label-clicked', this._onFrameLabelClickedBound);
       this._onFrameLabelClickedBound = null;
+    }
+    if (this._onFrameLabelDragStartBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-dragstart', this._onFrameLabelDragStartBound);
+      this._onFrameLabelDragStartBound = null;
+    }
+    if (this._onFrameLabelDragEndBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-dragend', this._onFrameLabelDragEndBound);
+      this._onFrameLabelDragEndBound = null;
     }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 

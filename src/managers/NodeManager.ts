@@ -389,11 +389,89 @@ export class NodeManager {
       this._layer.batchDraw();
     });
 
-    label.on('click.frame-label-ui tap.frame-label-ui', () => {
+    label.on('click.frame-label-ui tap.frame-label-ui', (e: Konva.KonvaEventObject<MouseEvent>) => {
+      const evt = e.evt;
+      const shiftKey = evt.shiftKey;
+      const ctrlKey = evt.ctrlKey || evt.metaKey;
+
       (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
         'frame:label-clicked',
         frame,
+        { shiftKey, ctrlKey },
       );
+    });
+
+    // Drag фрейма при зажатии на его label (overlay‑текст над фреймом).
+    // ВАЖНО: уважаем инвариант draggable для FrameNode — если фрейм
+    // не draggable (есть дети), drag по label не запускаем.
+    label.on('mousedown.frame-label-drag', (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (e.evt.button !== 0) return;
+
+      const stage = this._stage;
+      const frameKn = frame.getKonvaNode() as unknown as Konva.Node & {
+        draggable?: (value?: boolean) => boolean;
+        startDrag?: () => void;
+      };
+
+      // Если у фрейма сейчас запрещён drag — выходим, оставляя поведение
+      // click/dblclick без изменений.
+      // if (typeof frameKn.draggable !== 'function' || !frameKn.draggable()) {
+      //   return;
+      // }
+
+      const threshold = 3;
+      const startX = e.evt.clientX;
+      const startY = e.evt.clientY;
+      const prevStageDraggable = stage.draggable();
+      let dragStarted = false;
+
+      const onMove = (ev: Konva.KonvaEventObject<MouseEvent>) => {
+        const dx = Math.abs(ev.evt.clientX - startX);
+        const dy = Math.abs(ev.evt.clientY - startY);
+        if (!dragStarted && (dx > threshold || dy > threshold)) {
+          dragStarted = true;
+
+          frameKn.on('dragstart.frame-label-drag-once', () => {
+            stage.draggable(false);
+            (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+              'frame:label-dragstart',
+              frame,
+            );
+          });
+          frameKn.on('dragend.frame-label-drag-once', () => {
+            stage.draggable(prevStageDraggable);
+            frameKn.off('.frame-label-drag-once');
+
+            // По окончании drag по label явно эмулируем "клик по label",
+            // чтобы SelectionPlugin выбрал этот фрейм.
+            (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+              'frame:label-clicked',
+              frame,
+            );
+
+            (this._eventBus as unknown as { emit: (...args: unknown[]) => void }).emit(
+              'frame:label-dragend',
+              frame,
+            );
+          });
+
+          if (typeof frameKn.startDrag === 'function') {
+            frameKn.startDrag();
+          }
+
+          // Как только пошёл drag — не даём событию всплыть дальше,
+          // чтобы не срабатывали click‑обработчики.
+          e.cancelBubble = true;
+        }
+      };
+
+      const onUp = () => {
+        stage.off('mousemove.frame-label-drag-temp', onMove);
+        stage.off('mouseup.frame-label-drag-temp', onUp);
+      };
+
+      stage.on('mousemove.frame-label-drag-temp', onMove);
+      stage.on('mouseup.frame-label-drag-temp', onUp);
     });
 
     label.on('dblclick.frame-label-ui dbltap.frame-label-ui', (e) => {
