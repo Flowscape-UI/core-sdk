@@ -4,9 +4,9 @@ This file lists the authors of the Flowscape project.
 
 ## Project Founders
 
-* archonishe
-* NiceArti
+- archonishe
+- NiceArti
 
 ## Lead Developer
 
-* binary-shadow
+- Mutex0x40

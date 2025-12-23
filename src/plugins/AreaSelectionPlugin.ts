@@ -2,6 +2,7 @@ import Konva from 'konva';
 
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { FrameNode } from '../nodes/FrameNode';
 import { GroupNode } from '../nodes/GroupNode';
 
 import { Plugin } from './Plugin';
@@ -81,10 +82,108 @@ export class AreaSelectionPlugin extends Plugin {
     stage.on('mousedown.area', (e: Konva.KonvaEventObject<MouseEvent>) => {
       // Only LKM and only click on empty space (outside nodes layer)
       if (e.evt.button !== 0) return;
-      if (e.target !== stage && e.target.getLayer() === core.nodes.layer) return;
+
+      const target = e.target as Konva.Node;
+      const nodesLayer = core.nodes.layer;
+
+      // По умолчанию запрещаем старт лассо по нодам в nodesLayer, чтобы не мешать обычному selection/drag.
+      // Исключение: клик по фону непустого FrameNode, у которого уже отключён drag (draggable: false) —
+      // в этом случае разрешаем начинать лассо внутри фрейма для выбора его детей. Клик по дочерним нодам
+      // фрейма остаётся под контролем SelectionPlugin (обычный select/drag).
+      if (target !== stage && target.getLayer() === nodesLayer) {
+        const allNodes: BaseNode[] = this._core?.nodes.list() ?? [];
+        let allowByFrameException = false;
+
+        for (const bn of allNodes) {
+          if (!(bn instanceof FrameNode)) continue;
+          const frameNode = bn.getKonvaNode() as unknown as Konva.Node;
+          const contentGroup = bn.getContentGroup();
+
+          // Проверяем, что текущий target относится к этому фрейму
+          let cur: Konva.Node | null = target;
+          let belongsToFrame = false;
+          while (cur) {
+            if (cur === frameNode) {
+              belongsToFrame = true;
+              break;
+            }
+            cur = cur.getParent();
+          }
+
+          if (!belongsToFrame) continue;
+
+          // Если target лежит внутри contentGroup (дочерние ноды фрейма) — не считаем это кликом по фону,
+          // отдаём его SelectionPlugin.
+          const insideContent =
+            target === (contentGroup as unknown as Konva.Node) ||
+            (contentGroup as unknown as Konva.Node).isAncestorOf(target);
+          if (insideContent) {
+            continue;
+          }
+
+          const hasChildren = contentGroup.getChildren().length > 0;
+          const frameGroup = frameNode as unknown as Konva.Node & {
+            draggable?: (value?: boolean) => boolean;
+          };
+          const frameDraggable =
+            typeof frameGroup.draggable === 'function' ? frameGroup.draggable() : true;
+
+          if (hasChildren && !frameDraggable) {
+            // Непустой, не‑draggable FrameNode: разрешаем старт лассо по его фону
+            allowByFrameException = true;
+            break;
+          }
+        }
+
+        if (!allowByFrameException) return;
+
+        // Только для исключения фона FrameNode: если уже есть выбранная нода/группа
+        // и клик пришёл внутрь её bbox — не запускаем лассо, даём SelectionPlugin
+        // обработать drag так же, как в world.
+        const selForFrame = this._getSelectionPlugin();
+        const selectedForFrame = selForFrame?.getSelected();
+        const pInner = stage.getPointerPosition();
+        if (selectedForFrame && pInner) {
+          const kn = selectedForFrame.getKonvaNode() as unknown as Konva.Node;
+          const bbox = kn.getClientRect({ skipShadow: true, skipStroke: false });
+          const insideSel =
+            pInner.x >= bbox.x &&
+            pInner.x <= bbox.x + bbox.width &&
+            pInner.y >= bbox.y &&
+            pInner.y <= bbox.y + bbox.height;
+          if (insideSel) {
+            return;
+          }
+        }
+
+        // Если клик по фону фрейма и не попали в уже выбранную ноду —
+        // сразу снимаем текущее выделение, как при клике по пустому месту в world.
+        if (selForFrame) {
+          selForFrame.clearSelectionFromAreaLasso();
+        }
+      }
 
       const p = stage.getPointerPosition();
       if (!p || !this._rect) return;
+
+      // SAFETY: только для FrameNode-исключения. Если уже есть выбранная
+      // нода/группа (SelectionPlugin) и клик попал внутрь её bbox, не
+      // запускаем лассо — даём SelectionPlugin обработать drag так же,
+      // как это работает в world.
+      const sel = this._getSelectionPlugin();
+      const selected = sel?.getSelected();
+      if (selected) {
+        const kn = selected.getKonvaNode() as unknown as Konva.Node;
+        const bbox = kn.getClientRect({ skipShadow: true, skipStroke: false });
+        const insideSel =
+          p.x >= bbox.x &&
+          p.x <= bbox.x + bbox.width &&
+          p.y >= bbox.y &&
+          p.y <= bbox.y + bbox.height;
+        if (insideSel) {
+          return;
+        }
+      }
 
       // Ignore clicks on rulers (RulerPlugin)
       const rulerLayer = stage.findOne('.ruler-layer');
@@ -139,11 +238,47 @@ export class AreaSelectionPlugin extends Plugin {
       const bbox = { x, y, width: w, height: h };
       const allNodes: BaseNode[] = this._core?.nodes.list() ?? [];
       const pickedSet = new Set<BaseNode>();
+      const fullyCoveredFrames = new Set<FrameNode>();
+
       for (const bn of allNodes) {
         if (bn instanceof GroupNode) continue;
         const node = bn.getKonvaNode() as unknown as Konva.Node;
         const layer = node.getLayer();
         if (layer !== this._core?.nodes.layer) continue;
+        // Особое правило для FrameNode:
+        // - непустой фрейм попадает в выбор только при 100% покрытии лассо;
+        // - пустой фрейм ведёт себя как обычная нода (достаточно пересечения).
+        if (bn instanceof FrameNode) {
+          const frameRect = bn.getRect();
+          const fr = frameRect.getClientRect({ skipShadow: true, skipStroke: true });
+          const contentGroup = bn.getContentGroup();
+          const hasChildren = contentGroup.getChildren().length > 0;
+
+          if (hasChildren) {
+            if (this._rectContains(bbox, fr)) {
+              pickedSet.add(bn);
+              fullyCoveredFrames.add(bn);
+            }
+          } else {
+            if (this._rectsIntersect(bbox, fr)) {
+              pickedSet.add(bn);
+            }
+          }
+          continue;
+        }
+
+        // Если этот node лежит внутри contentGroup уже выбранного фрейма —
+        // не добавляем его отдельно, чтобы overlay/transformer работали только по фрейму.
+        let insideSelectedFrame = false;
+        for (const frame of fullyCoveredFrames) {
+          const contentGroup = frame.getContentGroup() as unknown as Konva.Node;
+          if (node === contentGroup || contentGroup.isAncestorOf(node)) {
+            insideSelectedFrame = true;
+            break;
+          }
+        }
+        if (insideSelectedFrame) continue;
+
         const r = node.getClientRect({ skipShadow: true, skipStroke: false });
         if (this._rectsIntersect(bbox, r)) {
           const owner = this._findOwningGroupBaseNode(node);
@@ -233,6 +368,19 @@ export class AreaSelectionPlugin extends Plugin {
     this._rect = null;
   }
 
+  /** Проверить, что прямоугольник `inner` полностью содержится внутри `outer`. */
+  private _rectContains(
+    outer: { x: number; y: number; width: number; height: number },
+    inner: { x: number; y: number; width: number; height: number },
+  ): boolean {
+    return (
+      inner.x >= outer.x &&
+      inner.y >= outer.y &&
+      inner.x + inner.width <= outer.x + outer.width &&
+      inner.y + inner.height <= outer.y + outer.height
+    );
+  }
+
   // =================== Auto-pan logic ===================
   private _startAutoPanLoop() {
     if (!this._core) return;
@@ -261,6 +409,12 @@ export class AreaSelectionPlugin extends Plugin {
           // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
+          const pos = world.position();
+          this._core.eventBus.emit('camera:pan', {
+            dx: -vx,
+            dy: -vy,
+            position: { x: pos.x, y: pos.y },
+          });
           // Expand lasso anchor to reflect additional area revealed by auto-pan
           if (this._start) {
             this._start.x -= vx;
@@ -308,6 +462,8 @@ export class AreaSelectionPlugin extends Plugin {
     // Find nodes intersecting with bbox (in client coordinates)
     let baseNodes: BaseNode[] = [];
     if (this._lastPickedBaseNodes.length > 0) {
+      // Если во время mousemove мы уже набрали набор BaseNode (включая специальные правила для FrameNode),
+      // используем его как есть, чтобы не дублировать логику.
       baseNodes = [...this._lastPickedBaseNodes];
     } else {
       const nodes: BaseNode[] = this._core.nodes.list();
@@ -317,6 +473,27 @@ export class AreaSelectionPlugin extends Plugin {
         // Only those actually in the node layer
         const layer = node.getLayer();
         if (layer !== this._core.nodes.layer) continue;
+
+        // Те же правила для FrameNode, что и в mousemove:
+        // - непустой фрейм попадает только при полном покрытии bbox;
+        // - пустой — при простом пересечении.
+        if (n instanceof FrameNode) {
+          const frameRect = n.getRect();
+          const fr = frameRect.getClientRect({ skipShadow: true, skipStroke: true });
+          const contentGroup = n.getContentGroup();
+          const hasChildren = contentGroup.getChildren().length > 0;
+
+          if (hasChildren) {
+            if (this._rectContains(bbox, fr)) {
+              picked.push(node);
+            }
+          } else {
+            const r = node.getClientRect({ skipShadow: true, skipStroke: false });
+            if (this._rectsIntersect(bbox, r)) picked.push(node);
+          }
+          continue;
+        }
+
         const r = node.getClientRect({ skipShadow: true, skipStroke: false });
         if (this._rectsIntersect(bbox, r)) picked.push(node);
       }
@@ -335,7 +512,16 @@ export class AreaSelectionPlugin extends Plugin {
 
     const sel = this._getSelectionPlugin();
     if (sel) {
-      if (baseNodes.length > 0) {
+      if (baseNodes.length === 1) {
+        // Ровно один узел (в т.ч. FrameNode с 100% покрытием) —
+        // используем обычный single‑selection, чтобы работала спец‑логика
+        // ресайза (например, для FrameNode без скейла детей).
+        const only = baseNodes[0];
+        if (only) {
+          sel.selectSingleFromArea(only);
+        }
+      } else if (baseNodes.length > 1) {
+        // 2+ узла — создаём временную группу как и раньше
         sel.getMultiGroupController().ensure(baseNodes);
         this._core.stage.batchDraw();
       } else {

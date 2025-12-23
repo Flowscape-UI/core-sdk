@@ -3,6 +3,7 @@ import Konva from 'konva';
 import { VideoOverlayAddon, type VideoOverlayAddonOptions } from '../addons/VideoOverlayAddon';
 import type { CoreEngine } from '../core/CoreEngine';
 import type { BaseNode } from '../nodes/BaseNode';
+import { FrameNode } from '../nodes/FrameNode';
 import { DebounceHelper } from '../utils/DebounceHelper';
 import { MultiGroupController } from '../utils/MultiGroupController';
 import {
@@ -96,6 +97,14 @@ export class SelectionPlugin extends Plugin {
   private _worldSyncRafId: number | null = null;
   // Reference to camera event handler for on/off
   private _onCameraZoomEvent: (() => void) | null = null;
+  // Handler for FrameNode children changes (enter/leave), used to adjust
+  // selection/drag state when frames become non-empty or empty again.
+  // Stored as a generic (...args) handler to satisfy the loosely-typed
+  // eventBus.on/off signatures.
+  private _onFrameChildrenChangedBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelClickedBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelDragStartBound: ((...args: unknown[]) => void) | null = null;
+  private _onFrameLabelDragEndBound: ((...args: unknown[]) => void) | null = null;
 
   // Minimal hover frame (blue border on hover)
   private _hoverTr: Konva.Transformer | null = null;
@@ -124,6 +133,16 @@ export class SelectionPlugin extends Plugin {
   private _tempMultiInitialTransforms = new Map<Konva.Node, Konva.Transform>();
   private _tempMultiGroup: Konva.Group | null = null;
   private _tempOverlay: OverlayFrameManager | null = null;
+
+  /**
+   * Public readonly access to the currently selected BaseNode
+   * (or null if there is no selection). Mutable selection logic
+   * still lives inside SelectionPlugin; this method is used only
+   * for safe inspection from other plugins.
+   */
+  public getSelected(): BaseNode | null {
+    return this._selected;
+  }
 
   public getMultiGroupController(): MultiGroupController {
     if (!this._core) throw new Error('Core is not attached');
@@ -183,6 +202,12 @@ export class SelectionPlugin extends Plugin {
           // Shift world to "pull" field under cursor (in screen pixels)
           world.x(world.x() - vx);
           world.y(world.y() - vy);
+          const pos = world.position();
+          this._core.eventBus.emit('camera:pan', {
+            dx: -vx,
+            dy: -vy,
+            position: { x: pos.x, y: pos.y },
+          });
           // If auto-pan is running during Transformer-based resize, keep the saved
           // reference point in sync with the world shift. Otherwise corner-sync will
           // start compensating position and cause jumps.
@@ -300,11 +325,16 @@ export class SelectionPlugin extends Plugin {
       selectablePredicate,
     } = options;
 
+    const userSelectablePredicate = selectablePredicate ?? (() => true);
+
     this._options = {
       dragEnabled,
       enableTransformer,
       deselectOnEmptyClick,
-      selectablePredicate: selectablePredicate ?? (() => true),
+      selectablePredicate: (node: Konva.Node) => {
+        if (!userSelectablePredicate(node)) return false;
+        return this._isSelectableByFrameRules(node);
+      },
       autoPanEnabled: options.autoPanEnabled ?? true,
       autoPanEdgePx: options.autoPanEdgePx ?? 40,
       autoPanMaxSpeedPx: options.autoPanMaxSpeedPx ?? 24,
@@ -334,6 +364,27 @@ export class SelectionPlugin extends Plugin {
     if (patch.autoPanEnabled === false) this._stopAutoPanLoop();
   }
 
+  /**
+   * Select a single node from area (lasso) selection, without creating temp-multi.
+   * Used by AreaSelectionPlugin so that single-node selection (including FrameNode)
+   * reuses the same transformer and resize logic as обычный клик.
+   */
+  public selectSingleFromArea(node: BaseNode): void {
+    this._destroyTempMulti();
+    this._select(node);
+    this._scheduleBatchDraw();
+  }
+
+  /**
+   * Clear current selection (single + temp-multi) when starting lasso
+   * in special cases (e.g. inside FrameNode background) to mirror
+   * behavior of clicking on empty space in world.
+   */
+  public clearSelectionFromAreaLasso(): void {
+    this._destroyTempMulti();
+    this._clearSelection();
+  }
+
   protected onAttach(core: CoreEngine): void {
     this._core = core;
     // MultiGroupController will be lazily initialized in getMultiGroupController()
@@ -347,17 +398,22 @@ export class SelectionPlugin extends Plugin {
       const stage = this._core.stage;
       const layer = this._core.nodes.layer;
 
+      // Suppress first click immediately after lasso/marquee drag (AreaSelectionPlugin)
+      // regardless of where it lands (empty stage, FrameNode background, etc.).
+      // AreaSelectionPlugin sets stage._skipSelectionEmptyClickOnce when finishing
+      // a non-trivial drag; here we consume that one click so it doesn't clear
+      // or change selection in SelectionPlugin.
+      const skipOnce = !!stage.getAttr('_skipSelectionEmptyClickOnce');
+      if (skipOnce) {
+        stage.setAttr('_skipSelectionEmptyClickOnce', false);
+        e.cancelBubble = true;
+        return;
+      }
+
       // Left mouse button only
       if (e.evt.button !== 0) return;
 
       if (e.target === stage || e.target.getLayer() !== layer) {
-        // Suppress one-time empty click after lasso/marquee drag
-        const skipOnce = !!stage.getAttr('_skipSelectionEmptyClickOnce');
-        if (skipOnce) {
-          stage.setAttr('_skipSelectionEmptyClickOnce', false);
-          e.cancelBubble = true;
-          return;
-        }
         if (this._options.deselectOnEmptyClick) {
           this._destroyTempMulti();
           this._clearSelection();
@@ -367,7 +423,15 @@ export class SelectionPlugin extends Plugin {
 
       // Normal node selection (for group — group will be selected)
       const target = e.target;
-      if (!this._options.selectablePredicate(target)) return;
+      if (!this._options.selectablePredicate(target)) {
+        // Click on a node that is not selectable by current rules
+        // should behave like click on empty space: clear selection
+        if (this._options.deselectOnEmptyClick) {
+          this._destroyTempMulti();
+          this._clearSelection();
+        }
+        return;
+      }
 
       // Shift+Click or Ctrl+Click: create temporary group (multi-selection)
       if (e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey) {
@@ -375,12 +439,26 @@ export class SelectionPlugin extends Plugin {
 
         if (!base) return;
 
-        // If node is in a group, ignore (group protection)
+        // If node is in a group, ignore (group protection),
+        // НО: contentGroup FrameNode не считаем пользовательской группой, иначе
+        // внутри фрейма полностью ломается мультивыделение по Shift+Click.
         const nodeKonva = base.getKonvaNode();
         const parent = nodeKonva.getParent();
-        if (parent && parent instanceof Konva.Group && parent !== this._core.nodes.world) {
-          // Node in group - don't add to multi-selection
-          return;
+        if (parent && parent instanceof Konva.Group) {
+          const world = this._core.nodes.world;
+          if (parent !== world) {
+            // Проверим, не является ли parent contentGroup какого‑то FrameNode
+            const frames = this._core.nodes.list().filter((bn) => bn instanceof FrameNode);
+            const isFrameContentGroup = frames.some((fr) => {
+              const cg = fr.getContentGroup();
+              return cg === parent;
+            });
+
+            if (!isFrameContentGroup) {
+              // Node in non-world, non-frame-content group - don't add to multi-selection
+              return;
+            }
+          }
         }
 
         if (this._tempMultiSet.size === 0 && this._selected && this._selected !== base) {
@@ -493,8 +571,15 @@ export class SelectionPlugin extends Plugin {
         if (nextLevel) {
           this._select(nextLevel);
           const node = nextLevel.getKonvaNode();
-          // Enable dragging for selected node
-          if (typeof node.draggable === 'function') node.draggable(true);
+          // Enable dragging for selected node (never override FrameNode draggable)
+          if (!(nextLevel instanceof FrameNode)) {
+            if (
+              typeof (node as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+              'function'
+            ) {
+              (node as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
+            }
+          }
           // Temporarily disable dragging for parent group
           if (selectedNode instanceof Konva.Group) {
             this._parentGroupDuringChildEdit = selectedNode;
@@ -539,9 +624,38 @@ export class SelectionPlugin extends Plugin {
       const parentName = getName(parent);
       if (targetName.startsWith('rotate-') || parentName === 'rotate-handles-group') return;
 
-      // Consider custom selectability filter to avoid reacting to service nodes
-      if (!this._options.selectablePredicate(target)) return;
-      this._draggingNode = target;
+      // Consider custom selectability filter to avoid reacting to service nodes.
+      // Специальное правило для FrameNode: автопан включаем даже если
+      // selectablePredicate возвращает false (например, для непустых фреймов).
+      // let isFrameOwner = false;
+      // const owner = this._findBaseNodeByTarget(target);
+      // if (owner instanceof FrameNode) {
+      //   isFrameOwner = true;
+      // }
+
+      // if (!isFrameOwner && !this._options.selectablePredicate(target)) return;
+
+      // Специальный случай для FrameNode: если сейчас выбран фрейм и курсор
+      // находится внутри его bbox, то автопан должен считать "таскаемым"
+      // именно FrameNode, а не дочернюю ноду под курсором.
+      let draggingNode: Konva.Node = target;
+      if (this._selected instanceof FrameNode) {
+        const pos = stage.getPointerPosition();
+        if (pos) {
+          const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
+          const bbox = selKonva.getClientRect({ skipShadow: true, skipStroke: false });
+          const inside =
+            pos.x >= bbox.x &&
+            pos.x <= bbox.x + bbox.width &&
+            pos.y >= bbox.y &&
+            pos.y <= bbox.y + bbox.height;
+          if (inside) {
+            draggingNode = selKonva;
+          }
+        }
+      }
+
+      this._draggingNode = draggingNode;
       this._startAutoPanLoop();
     });
     layer.on('dragend.selectionAutoPan', () => {
@@ -594,6 +708,89 @@ export class SelectionPlugin extends Plugin {
     core.eventBus.on('camera:setZoom', this._onCameraZoomEvent as unknown as (p: unknown) => void);
     core.eventBus.on('camera:reset', this._onCameraZoomEvent as unknown as () => void);
 
+    // Следим за изменением состава детей во фреймах, чтобы, например, снять
+    // выделение с фрейма, который стал непустым, и не оставлять его draggable.
+    this._onFrameChildrenChangedBound = (frameRaw: unknown, hasChildrenRaw: unknown) => {
+      const frame = frameRaw as FrameNode;
+      const hasChildren = !!hasChildrenRaw;
+
+      // Нас интересует только случай, когда выбран именно этот фрейм.
+      if (!this._selected) return;
+      if (this._selected !== frame) return;
+
+      const node = this._selected.getKonvaNode();
+      if (typeof node.draggable === 'function') {
+        // Обновляем _prevDraggable перед _clearSelection, чтобы сохранить
+        // актуальное значение, выставленное NodeManager (обычно false).
+        this._prevDraggable = node.draggable();
+      }
+
+      // Как только во фрейме появляются дети, он больше не должен быть
+      // напрямую selectable/dragable. Снимаем текущее выделение.
+      if (hasChildren) {
+        this._clearSelection();
+      }
+    };
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:children-changed', this._onFrameChildrenChangedBound);
+
+    this._onFrameLabelClickedBound = (frameRaw: unknown) => {
+      const frame = frameRaw as FrameNode;
+      this._destroyTempMulti();
+      this._select(frame);
+      this._scheduleBatchDraw();
+    };
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-clicked', this._onFrameLabelClickedBound);
+
+    // Временное скрытие selection overlays во время drag FrameNode за label
+    this._onFrameLabelDragStartBound = () => {
+      if (!this._core) return;
+
+      // Single-selection overlays
+      if (this._transformer) this._transformer.visible(false);
+      if (this._cornerHandlesGroup) this._cornerHandlesGroup.visible(false);
+      if (this._rotateHandlesGroup) this._rotateHandlesGroup.visible(false);
+      if (this._sizeLabel) this._sizeLabel.visible(false);
+      if (this._hoverTr) this._hoverTr.visible(false);
+
+      // Temp-multi overlays (через OverlayFrameManager)
+      this._tempOverlay?.hideOverlaysForDrag();
+
+      this._core.stage.batchDraw();
+    };
+
+    this._onFrameLabelDragEndBound = () => {
+      if (!this._core) return;
+
+      // Восстанавливаем single-selection overlays в соответствии с текущим _selected
+      if (this._selected) {
+        this._refreshTransformer();
+      }
+
+      // Возвращаем temp-multi overlays, если активны
+      this._tempOverlay?.restoreOverlaysAfterDrag();
+
+      this._core.stage.batchDraw();
+    };
+
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-dragstart', this._onFrameLabelDragStartBound);
+    (
+      core.eventBus as unknown as {
+        on: (event: string, handler: (...args: unknown[]) => void) => void;
+      }
+    ).on('frame:label-dragend', this._onFrameLabelDragEndBound);
+
     // Global listeners for Shift (proportional resize only for corner anchors)
     this._onGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') this._ratioKeyPressed = true;
@@ -643,6 +840,38 @@ export class SelectionPlugin extends Plugin {
       );
       core.eventBus.off('camera:reset', this._onCameraZoomEvent as unknown as () => void);
       this._onCameraZoomEvent = null;
+    }
+    if (this._onFrameChildrenChangedBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:children-changed', this._onFrameChildrenChangedBound);
+      this._onFrameChildrenChangedBound = null;
+    }
+    if (this._onFrameLabelClickedBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-clicked', this._onFrameLabelClickedBound);
+      this._onFrameLabelClickedBound = null;
+    }
+    if (this._onFrameLabelDragStartBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-dragstart', this._onFrameLabelDragStartBound);
+      this._onFrameLabelDragStartBound = null;
+    }
+    if (this._onFrameLabelDragEndBound) {
+      (
+        core.eventBus as unknown as {
+          off: (event: string, handler: (...args: unknown[]) => void) => void;
+        }
+      ).off('frame:label-dragend', this._onFrameLabelDragEndBound);
+      this._onFrameLabelDragEndBound = null;
     }
     core.eventBus.off('node:removed', this._onNodeRemoved);
 
@@ -695,15 +924,21 @@ export class SelectionPlugin extends Plugin {
                 const dy = Math.abs(ev.evt.clientY - startY);
                 if (!dragStarted && (dx > threshold || dy > threshold)) {
                   dragStarted = true;
-                  if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
-                    dnode.draggable(true);
+                  // Для FrameNode draggable контролирует NodeManager, поэтому не включаем
+                  // его здесь. Для остальных нод оставляем старое поведение.
+                  if (!(this._selected instanceof FrameNode)) {
+                    if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                      dnode.draggable(true);
+                  }
                   selKonva.on('dragstart.selection-once-bbox', () => {
                     stage.draggable(false);
                   });
                   selKonva.on('dragend.selection-once-bbox', () => {
                     stage.draggable(prevStageDraggable);
-                    if (typeof dnode.draggable === 'function') {
-                      dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                    if (!(this._selected instanceof FrameNode)) {
+                      if (typeof dnode.draggable === 'function') {
+                        dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                      }
                     }
                     // Restore frame after drag
                     if (this._selected) {
@@ -736,7 +971,73 @@ export class SelectionPlugin extends Plugin {
     }
 
     const target = e.target;
-    if (!this._options.selectablePredicate(target)) return;
+    // If target itself is not selectable (e.g. FrameNode background), but we already have
+    // a selected node and click is inside its bbox, treat this like empty-area drag on
+    // selected node: allow dragging selected node instead of doing nothing.
+    if (!this._options.selectablePredicate(target)) {
+      if (this._selected) {
+        const pos = stage.getPointerPosition();
+        if (pos) {
+          const selKonva = this._selected.getKonvaNode() as unknown as Konva.Node;
+          const bbox = selKonva.getClientRect({ skipShadow: true, skipStroke: false });
+          const inside =
+            pos.x >= bbox.x &&
+            pos.x <= bbox.x + bbox.width &&
+            pos.y >= bbox.y &&
+            pos.y <= bbox.y + bbox.height;
+          if (inside && typeof selKonva.startDrag === 'function') {
+            const dnode = selKonva as DraggableNode;
+            const threshold = 3;
+            const startX = e.evt.clientX;
+            const startY = e.evt.clientY;
+            const prevNodeDraggable =
+              typeof dnode.draggable === 'function' ? dnode.draggable() : false;
+            const prevStageDraggable = stage.draggable();
+            let dragStarted = false;
+
+            const onMove = (ev: Konva.KonvaEventObject<MouseEvent>) => {
+              const dx = Math.abs(ev.evt.clientX - startX);
+              const dy = Math.abs(ev.evt.clientY - startY);
+              if (!dragStarted && (dx > threshold || dy > threshold)) {
+                dragStarted = true;
+                // Для FrameNode draggable контролирует NodeManager, поэтому не включаем
+                // его здесь. Для остальных нод оставляем старое поведение.
+                if (!(this._selected instanceof FrameNode)) {
+                  if (typeof dnode.draggable === 'function' && !prevNodeDraggable)
+                    dnode.draggable(true);
+                }
+                selKonva.on('dragstart.selection-once-bbox2', () => {
+                  stage.draggable(false);
+                });
+                selKonva.on('dragend.selection-once-bbox2', () => {
+                  stage.draggable(prevStageDraggable);
+                  if (!(this._selected instanceof FrameNode)) {
+                    if (typeof dnode.draggable === 'function') {
+                      dnode.draggable(this._options.dragEnabled ? true : prevNodeDraggable);
+                    }
+                  }
+                  if (this._selected) {
+                    this._refreshTransformer();
+                    this._core?.nodes.layer.batchDraw();
+                  }
+                  selKonva.off('.selection-once-bbox2');
+                });
+                selKonva.startDrag();
+                e.cancelBubble = true;
+              }
+            };
+            const onUp = () => {
+              if (!dragStarted && this._options.deselectOnEmptyClick) this._clearSelection();
+              stage.off('mousemove.selection-once-bbox2');
+              stage.off('mouseup.selection-once-bbox2');
+            };
+            stage.on('mousemove.selection-once-bbox2', onMove);
+            stage.on('mouseup.selection-once-bbox2', onUp);
+          }
+        }
+      }
+      return;
+    }
 
     // Basic search (usually group)
     const foundBaseNode = this._findBaseNodeByTarget(target);
@@ -800,7 +1101,10 @@ export class SelectionPlugin extends Plugin {
       return;
     }
 
-    const hasDraggable = typeof konvaNode.draggable === 'function';
+    const isFrame = baseNode instanceof FrameNode;
+    // Для FrameNode draggable контролирует NodeManager, поэтому в режиме
+    // "startDragOnce" мы не включаем/выключаем draggable для фреймов.
+    const hasDraggable = typeof konvaNode.draggable === 'function' && !isFrame;
     const prevNodeDraggable = hasDraggable ? konvaNode.draggable() : false;
     const prevStageDraggable = stage.draggable();
 
@@ -1274,6 +1578,13 @@ export class SelectionPlugin extends Plugin {
       if (!overlayInitialTransform) return;
       // Apply overlay transformation to all nodes
       this._applyOverlayTransformToNodes(overlayGrp, overlayInitialTransform);
+
+      // FRAME-SPECIFIC: во время drag временной группы сразу обновляем
+      // принадлежность нод к FrameNode/миру, чтобы при пересечении границы
+      // фрейма ноды визуально выходили из-под clip, а не "выныривали" только
+      // на dragend. Вне FrameNode это никак не влияет.
+      this._autogroupTempMultiInFrames();
+
       this._tempOverlay?.forceUpdate();
       this._scheduleBatchDraw();
     });
@@ -1344,6 +1655,13 @@ export class SelectionPlugin extends Plugin {
             scaleY: d.scaleY,
           });
         }
+
+        // FRAME-SPECIFIC: после окончания drag временной группы повторяем для
+        // каждого её участника автогруппировку по FrameNode аналогично
+        // NodeManager._attachFrameAutogroupHandlers — ноды, центр которых
+        // оказался внутри фрейма, попадают в его contentGroup, а покинувшие
+        // фрейм возвращаются в world. Остальное поведение world не трогаем.
+        this._autogroupTempMultiInFrames();
       }
 
       // Update overlay bbox to match new node positions (after reset transform)
@@ -1494,17 +1812,184 @@ export class SelectionPlugin extends Plugin {
     this._core.eventBus.emit('selection:multi:destroyed');
   }
 
+  /**
+   * FRAME-SPECIFIC: автогруппировка для временной multi-группы.
+   * Для каждой ноды из tempMultiSet повторяет логику
+   * NodeManager._attachFrameAutogroupHandlers:
+   * - если нода была внутри FrameNode и вышла за его пределы, возвращаем её в world;
+   * - если нода была в world и её центр оказался внутри фрейма, переносим в contentGroup.
+   * Поведение вне FrameNode остаётся без изменений.
+   */
+  private _autogroupTempMultiInFrames() {
+    if (!this._core) return;
+    if (this._tempMultiSet.size === 0) return;
+
+    const nm = this._core.nodes;
+    const world = nm.world;
+    const stage = this._core.stage;
+
+    const frames = nm.list().filter((n): n is FrameNode => n instanceof FrameNode);
+    if (frames.length === 0) return;
+
+    for (const baseNode of this._tempMultiSet) {
+      if (baseNode instanceof FrameNode) continue;
+
+      const kn = baseNode.getKonvaNode();
+      let currentParent = kn.getParent();
+      if (!currentParent) continue;
+
+      // Определяем, находится ли нода уже внутри какого-либо фрейма
+      let currentFrame: FrameNode | null = null;
+      outerCurrent: for (const frame of frames) {
+        let parent: Konva.Node | null = currentParent;
+        const contentGroup = frame.getContentGroup();
+        while (parent && parent !== world) {
+          if (parent === contentGroup) {
+            currentFrame = frame;
+            break outerCurrent;
+          }
+          parent = parent.getParent();
+        }
+      }
+
+      // Ищем фрейм под курсором (как в NodeManager._attachFrameAutogroupHandlers)
+      let targetFrame: FrameNode | null = null;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) continue;
+      for (const frame of frames) {
+        const rect = frame.getRect();
+        const r = rect.getClientRect({ skipShadow: true, skipStroke: true });
+        const inside =
+          pointer.x >= r.x &&
+          pointer.x <= r.x + r.width &&
+          pointer.y >= r.y &&
+          pointer.y <= r.y + r.height;
+        if (inside) {
+          targetFrame = frame;
+          break;
+        }
+      }
+
+      // Уже внутри какого-то фрейма
+      if (currentFrame) {
+        if (!targetFrame || targetFrame !== currentFrame) {
+          // Покидаем фрейм -> возвращаем ноду в world
+          const absPos = kn.getAbsolutePosition();
+          world.add(kn as Konva.Shape | Konva.Group);
+          kn.setAbsolutePosition(absPos);
+
+          // Если во фрейме больше не осталось детей — разрешаем его drag/select по клику
+          const contentGroup = currentFrame.getContentGroup();
+          const hasChildren = contentGroup.getChildren().length > 0;
+          const frameKn = currentFrame.getKonvaNode() as unknown as Konva.Node & {
+            draggable?: (value?: boolean) => boolean;
+          };
+          if (typeof frameKn.draggable === 'function') {
+            frameKn.draggable(!hasChildren);
+          }
+        }
+        continue;
+      }
+
+      // Нода не во фрейме, но её центр внутри фрейма -> перемещаем в contentGroup
+      if (targetFrame && currentParent !== targetFrame.getContentGroup()) {
+        const absPos = kn.getAbsolutePosition();
+        const contentGroup = targetFrame.getContentGroup();
+        contentGroup.add(kn as unknown as Konva.Shape | Konva.Group);
+        kn.setAbsolutePosition(absPos);
+
+        // Как только во фрейме появляется хотя бы один ребёнок — запрещаем drag самого фрейма
+        const hasChildren = contentGroup.getChildren().length > 0;
+        const frameKn = targetFrame.getKonvaNode() as unknown as Konva.Node & {
+          draggable?: (value?: boolean) => boolean;
+        };
+        if (typeof frameKn.draggable === 'function') {
+          frameKn.draggable(!hasChildren);
+        }
+      }
+    }
+  }
+
   private _commitTempMultiToGroup() {
     if (!this._core) return;
     if (!this._tempMultiGroup || this._tempMultiSet.size < 2) return;
+    const nodesArray = Array.from(this._tempMultiSet);
+    const hasFrame = nodesArray.some((bn) => bn instanceof FrameNode);
+    const hasNonFrame = nodesArray.some((bn) => !(bn instanceof FrameNode));
+    if (hasFrame) {
+      if (hasNonFrame) {
+        // Attempt to group FrameNode together with non-frame nodes is forbidden
+        globalThis.console.warn(
+          '[SelectionPlugin] Grouping FrameNode with other nodes is not allowed. Operation is ignored.',
+        );
+      } else {
+        // Attempt to group only FrameNode instances is also forbidden
+        globalThis.console.warn(
+          '[SelectionPlugin] Grouping FrameNode instances into a permanent group is not allowed. Operation is ignored.',
+        );
+      }
+      return;
+    }
     const nm = this._core.nodes;
+    const world = nm.world;
 
     // Compute union bbox for positioning the new group
-    const bbox = this._computeUnionBBox(Array.from(this._tempMultiSet));
+    const bbox = this._computeUnionBBox(nodesArray);
     if (!bbox) return;
+
+    // FRAME-AWARE GROUPING:
+    // If all nodes being grouped are currently inside the same FrameNode contentGroup,
+    // we want the resulting permanent group to live inside that frame (logically and
+    // structurally), not in the world. This keeps FrameNode non-selectable when it has
+    // children and delegates selection/drag to the inner group, matching expected
+    // behavior inside frames while leaving world behavior unchanged.
+
+    // Detect common owning FrameNode (by walking parent chain up to world)
+    const allFrames = nm.list().filter((bn) => bn instanceof FrameNode) as unknown as FrameNode[];
+
+    let commonFrame: FrameNode | null = null;
+    outerFrames: for (const bn of nodesArray) {
+      const kn = bn.getKonvaNode() as unknown as Konva.Node;
+      let frameForNode: FrameNode | null = null;
+      let parent: Konva.Node | null = kn.getParent();
+      while (parent && parent !== (world as unknown as Konva.Node)) {
+        for (const fr of allFrames) {
+          const contentGroup = fr.getContentGroup() as unknown as Konva.Node;
+          if (parent === contentGroup) {
+            frameForNode = fr;
+            break;
+          }
+        }
+        if (frameForNode) break;
+        parent = parent.getParent();
+      }
+
+      // Node is not inside any frame contentGroup -> no common frame case
+      if (!frameForNode) {
+        commonFrame = null;
+        break outerFrames;
+      }
+
+      if (!commonFrame) commonFrame = frameForNode;
+      else if (commonFrame !== frameForNode) {
+        // Nodes belong to different frames -> do not treat as frame-scoped grouping
+        commonFrame = null;
+        break outerFrames;
+      }
+    }
 
     const newGroup = nm.addGroup({ x: bbox.x, y: bbox.y, draggable: true });
     const g = newGroup.getKonvaNode() as unknown as Konva.Group;
+
+    // If all nodes were inside a single frame, move the created group under that
+    // frame's contentGroup while preserving absolute position. This keeps the
+    // logical ownership of nodes inside the frame.
+    if (commonFrame) {
+      const abs = g.getAbsolutePosition();
+      const contentGroup = commonFrame.getContentGroup() as unknown as Konva.Group;
+      contentGroup.add(g as unknown as Konva.Group);
+      g.setAbsolutePosition(abs);
+    }
     const groupedBaseNodes: BaseNode[] = [];
 
     // Sort nodes by their current z-index to preserve relative render order
@@ -1534,7 +2019,6 @@ export class SelectionPlugin extends Plugin {
     }
 
     // Position the group itself in the world with the correct z-index
-    const world = this._core.nodes.world;
     const currentGroupIndex = g.zIndex();
     const targetIndex = maxZIndex;
 
@@ -1575,6 +2059,28 @@ export class SelectionPlugin extends Plugin {
     const children = [...node.getChildren()];
     const world = this._core.nodes.world;
 
+    // FRAME-AWARE UNGROUP:
+    // Если группа находится внутри contentGroup какого-либо FrameNode,
+    // при расформировании возвращаем её детей в этот же contentGroup,
+    // а не в world. Это сохраняет принадлежность нод фрейму и не делает
+    // сам FrameNode вновь draggable. В world поведение остаётся прежним.
+    const nm = this._core.nodes;
+    const frames = nm.list().filter((n): n is FrameNode => n instanceof FrameNode);
+    let parentFrame: FrameNode | null = null;
+    if (frames.length > 0) {
+      outerFrame: for (const frame of frames) {
+        const contentGroup = frame.getContentGroup();
+        let p: Konva.Node | null = node.getParent();
+        while (p && p !== world) {
+          if (p === contentGroup) {
+            parentFrame = frame;
+            break outerFrame;
+          }
+          p = p.getParent();
+        }
+      }
+    }
+
     // Collect BaseNode references for ungrouped children (for event)
     const ungroupedBaseNodes: BaseNode[] = [];
 
@@ -1582,13 +2088,14 @@ export class SelectionPlugin extends Plugin {
       // Save the full absolute transform of the child (position + scale + rotation)
       const absBefore = kn.getAbsoluteTransform().copy();
 
-      // Move to world
-      world.add(kn as unknown as Konva.Group | Konva.Shape);
+      // Move to target root: world (обычный случай) или frame contentGroup
+      const targetRoot: Konva.Container = parentFrame ? parentFrame.getContentGroup() : world;
+      targetRoot.add(kn as unknown as Konva.Group | Konva.Shape);
 
       // Calculate local transform equivalent to the previous absolute transform
-      const worldAbs = world.getAbsoluteTransform().copy();
-      worldAbs.invert();
-      const local = worldAbs.multiply(absBefore);
+      const rootAbs = targetRoot.getAbsoluteTransform().copy();
+      rootAbs.invert();
+      const local = rootAbs.multiply(absBefore);
       const d = local.decompose();
 
       // Apply local x/y/rotation/scale to preserve the visual result
@@ -1609,19 +2116,20 @@ export class SelectionPlugin extends Plugin {
         });
       }
 
-      // Enable draggable for ungrouped nodes
-      if (
-        typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
-      ) {
-        (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
-      }
-
-      // Find BaseNode for this Konva node
+      // Find BaseNode for this Konva node and enable draggable if it's not a FrameNode
+      let isFrame = false;
       for (const bn of this._core.nodes.list()) {
         if (bn.getKonvaNode() === kn) {
+          if (bn instanceof FrameNode) isFrame = true;
           ungroupedBaseNodes.push(bn);
           break;
         }
+      }
+      if (
+        !isFrame &&
+        typeof (kn as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+      ) {
+        (kn as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
       }
     }
 
@@ -1666,6 +2174,27 @@ export class SelectionPlugin extends Plugin {
       this._hoverTr.destroy();
       this._hoverTr = null;
     }
+  }
+
+  /**
+   * Frame-specific selectability rules for direct clicks/hover:
+   * - If the owning BaseNode is a FrameNode and it has at least one child inside contentGroup,
+   *   the frame is not directly selectable/hoverable (selection only via lasso).
+   * - Empty frames and all other nodes remain selectable.
+   */
+  private _isSelectableByFrameRules(target: Konva.Node): boolean {
+    // Try to map the visual target (or its ancestor) to a BaseNode
+    const owner = this._findBaseNodeByTarget(target);
+    if (!owner) return true;
+
+    if (owner instanceof FrameNode) {
+      const contentGroup = owner.getContentGroup();
+      const hasChildren = contentGroup.getChildren().length > 0;
+      // Non-empty frames are not directly selectable/hoverable by click; only via lasso
+      return !hasChildren;
+    }
+
+    return true;
   }
 
   // OPTIMIZATION: Throttled version of _onHoverMove
@@ -1759,6 +2288,64 @@ export class SelectionPlugin extends Plugin {
     let owner: Konva.Node | null = ctrlPressed
       ? (targetOwnerNode ?? targetOwnerGroup)
       : (targetOwnerGroup ?? targetOwnerNode);
+
+    // SAFETY: мировое поведение оставляем как есть. Дополнительно обрабатываем
+    // только случай, когда курсор внутри contentGroup какого‑то FrameNode:
+    // там мы хотим применять те же правила выбора outermost группы, что и в
+    // world, но при этом полностью исключить сам FrameNode из кандидатов.
+    {
+      const frameBaseNodes = this._core.nodes
+        .list()
+        .filter((bn): bn is FrameNode => bn instanceof FrameNode);
+      let insideFrameContent = false;
+      for (const frame of frameBaseNodes) {
+        const contentGroup = frame.getContentGroup();
+        if (
+          target === contentGroup ||
+          (typeof contentGroup.isAncestorOf === 'function' && contentGroup.isAncestorOf(target))
+        ) {
+          insideFrameContent = true;
+          break;
+        }
+      }
+
+      if (insideFrameContent) {
+        // Построим отдельный набор зарегистрированных Konva-нодатель, в который
+        // не попадают FrameNode. Для вложенных групп внутри фрейма это даст
+        // тот же эффект, что и в world: hover по дочке будет подсвечивать
+        // самую внешнюю (outermost) группу, но никогда не сам фрейм.
+        const registeredNonFrameArr = this._core.nodes
+          .list()
+          .filter((bn) => !(bn instanceof FrameNode))
+          .map((n) => n.getKonvaNode() as unknown as Konva.Node);
+        const registeredNonFrame = new Set<Konva.Node>(registeredNonFrameArr);
+
+        const findNearestRegisteredNonFrame = (start: Konva.Node): Konva.Node | null => {
+          let cur: Konva.Node | null = start;
+          while (cur) {
+            if (registeredNonFrame.has(cur)) return cur;
+            cur = cur.getParent();
+          }
+          return null;
+        };
+
+        const findNearestRegisteredGroupNonFrame = (start: Konva.Node): Konva.Node | null => {
+          let cur: Konva.Node | null = start;
+          let lastGroup: Konva.Node | null = null;
+          while (cur) {
+            if (registeredNonFrame.has(cur) && cur instanceof Konva.Group) {
+              lastGroup = cur;
+            }
+            cur = cur.getParent();
+          }
+          return lastGroup;
+        };
+
+        const nonFrameGroup = findNearestRegisteredGroupNonFrame(target);
+        const nonFrameNode = findNearestRegisteredNonFrame(target);
+        owner = ctrlPressed ? (nonFrameNode ?? nonFrameGroup) : (nonFrameGroup ?? nonFrameNode);
+      }
+    }
 
     // Special rule (without Ctrl): if a NODE (not a group) is selected inside a group and hover over another node from the group — highlight this node specifically
     if (
@@ -1958,10 +2545,38 @@ export class SelectionPlugin extends Plugin {
     transformer.on('transform.keepratio', updateKeepRatio);
 
     transformer.on('transform.corner-sync', () => {
-      // «Incorporate» non-uniform scaling into width/height for Rect,
-      const n = this._selected?.getKonvaNode() as unknown as Konva.Node | undefined;
+      // Для обычных нод: «Incorporate» non-uniform scaling into width/height for Rect.
+      // Для FrameNode: изменяем только визуальный rect/clip, не трогая детей.
+      const selected = this._selected;
+      const n = selected?.getKonvaNode() as unknown as Konva.Node | undefined;
       if (n) {
-        this._bakeRectScale(n);
+        if (selected instanceof FrameNode) {
+          const frame = selected;
+
+          // Текущий масштаб группы (фрейма) после действия трансформера
+          const sx = Math.abs((n as unknown as { scaleX?: () => number }).scaleX?.() ?? 1);
+          const sy = Math.abs((n as unknown as { scaleY?: () => number }).scaleY?.() ?? 1);
+
+          const rect = frame.getRect();
+          const baseW = rect.width();
+          const baseH = rect.height();
+
+          const newW = baseW * sx;
+          const newH = baseH * sy;
+
+          // Меняем только размер фрейма и clip, дети не трогаются
+          frame.resize(newW, newH);
+
+          // Сбрасываем масштаб группы обратно в 1, чтобы дети не были заскейлены
+          if (typeof (n as unknown as { scaleX?: (v: number) => void }).scaleX === 'function') {
+            (n as unknown as { scaleX: (v: number) => void }).scaleX(1);
+          }
+          if (typeof (n as unknown as { scaleY?: (v: number) => void }).scaleY === 'function') {
+            (n as unknown as { scaleY: (v: number) => void }).scaleY(1);
+          }
+        } else {
+          this._bakeRectScale(n);
+        }
 
         // Correct the node position to keep the reference point (corner/edge center) in place.
         // This is required for stable resize (including with auto-pan). The saved reference point
@@ -2025,6 +2640,17 @@ export class SelectionPlugin extends Plugin {
       'widthChange.overlay-sync heightChange.overlay-sync scaleXChange.overlay-sync scaleYChange.overlay-sync rotationChange.overlay-sync xChange.overlay-sync yChange.overlay-sync',
       syncOverlays,
     );
+
+    globalThis.queueMicrotask(() => {
+      if (!this._core) return;
+      if (!this._selected) return;
+      if (this._transformer !== transformer) return;
+
+      this._transformer.forceUpdate();
+      this._restyleSideAnchors();
+      this._scheduleBatchDraw();
+    });
+
     this._scheduleBatchDraw();
   }
 
@@ -2148,9 +2774,15 @@ export class SelectionPlugin extends Plugin {
         this._rotateCenterAbsStart = null;
         // Restore scene pan, draggable node — according to settings
         if (this._selected) {
-          const node = this._selected.getKonvaNode() as unknown as Konva.Node;
-          if (this._options.dragEnabled && typeof node.draggable === 'function') {
-            node.draggable(true);
+          const base = this._selected;
+          const node = base.getKonvaNode() as unknown as Konva.Node;
+          if (
+            !(base instanceof FrameNode) &&
+            this._options.dragEnabled &&
+            typeof (node as unknown as { draggable?: (v: boolean) => boolean }).draggable ===
+              'function'
+          ) {
+            (node as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
           }
           // Emit node:transformed event for rotation
           const changes: {
@@ -2370,14 +3002,12 @@ export class SelectionPlugin extends Plugin {
       fill: '#2b83ff',
       cornerRadius: 4,
       shadowColor: '#000',
-      shadowBlur: 6,
-      shadowOpacity: 0.25,
     } as Konva.TagConfig);
     const text = new Konva.Text({
       text: '',
       fontFamily: 'Inter, Calibri, Arial, sans-serif',
       fontSize: 12,
-      padding: 4,
+      padding: 6,
       fill: '#ffffff',
     } as Konva.TextConfig);
     label.add(tag);
@@ -2931,8 +3561,15 @@ export class SelectionPlugin extends Plugin {
     };
     const onUp = () => {
       if (!this._selected) return;
-      const n = this._selected.getKonvaNode() as unknown as Konva.Node;
-      if (this._options.dragEnabled) n.draggable(true);
+      const base = this._selected;
+      const n = base.getKonvaNode() as unknown as Konva.Node;
+      if (
+        this._options.dragEnabled &&
+        !(base instanceof FrameNode) &&
+        typeof (n as unknown as { draggable?: (v: boolean) => boolean }).draggable === 'function'
+      ) {
+        (n as unknown as { draggable: (v: boolean) => boolean }).draggable(true);
+      }
       // Repaint side anchors after draggable change
       this._restyleSideAnchors();
     };
@@ -3256,6 +3893,63 @@ export class SelectionPlugin extends Plugin {
         return this._selected;
       }
     }
+
+    // Специальный случай для FrameNode: если target находится внутри contentGroup какого‑то фрейма,
+    // стараемся выбрать ближайший (по иерархии Konva) BaseNode, который НЕ является самим FrameNode.
+    // Это позволяет нормально кликать/hover'ить дочерние ноды внутри фрейма, не блокируя правило
+    // "непустой фрейм по клику не выбирается" (оно по‑прежнему реализовано в _isSelectableByFrameRules).
+    const allBaseNodes: BaseNode[] = this._core.nodes.list();
+    const frameBaseNodes = allBaseNodes.filter((bn): bn is FrameNode => bn instanceof FrameNode);
+
+    let isInsideAnyFrameContent = false;
+    for (const frame of frameBaseNodes) {
+      const contentGroup = frame.getContentGroup();
+      if (
+        target === contentGroup ||
+        (typeof contentGroup.isAncestorOf === 'function' && contentGroup.isAncestorOf(target))
+      ) {
+        isInsideAnyFrameContent = true;
+        break;
+      }
+    }
+
+    if (isInsideAnyFrameContent) {
+      // Внутри FrameNode хотим поведение как в world: по клику выбирается
+      // "внешняя" (outermost) нода/группа под курсором, но при этом сам
+      // FrameNode не может стать владельцем. Поэтому ищем top-most ancestor
+      // среди всех BaseNode, КРОМЕ FrameNode.
+
+      const nonFrameBaseNodes = allBaseNodes.filter((bn) => !(bn instanceof FrameNode));
+
+      let topMostNonFrame: BaseNode | null = null;
+      for (const n of nonFrameBaseNodes) {
+        const node = n.getKonvaNode() as unknown as Konva.Node;
+        if (typeof node.isAncestorOf !== 'function' || !node.isAncestorOf(target)) continue;
+
+        let isTopMost = true;
+        for (const other of nonFrameBaseNodes) {
+          if (other === n) continue;
+          const otherNode = other.getKonvaNode() as unknown as Konva.Node;
+          if (typeof otherNode.isAncestorOf === 'function' && otherNode.isAncestorOf(node)) {
+            isTopMost = false;
+            break;
+          }
+        }
+
+        if (isTopMost) {
+          topMostNonFrame = n;
+          break;
+        }
+      }
+
+      if (topMostNonFrame) return topMostNonFrame;
+
+      // Если предок не найден, пробуем прямое соответствие target -> BaseNode
+      for (const n of nonFrameBaseNodes) {
+        if (n.getKonvaNode() === target) return n;
+      }
+    }
+
     let topMostAncestor: BaseNode | null = null;
     for (const n of this._core.nodes.list()) {
       const node = n.getKonvaNode() as unknown as Konva.Node;
