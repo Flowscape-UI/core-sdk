@@ -158,6 +158,44 @@ core.nodes.addFrame({
   // labelColor: 'red',
 });
 
+const frame = core.nodes.addFrame({
+  x: -3000,
+  y: 400,
+  width: 400,
+  height: 260,
+  name: 'FrameNode',
+  label: 'Frame',
+});
+
+const contentGroup = frame.getContentGroup();
+
+const widgetRect = core.nodes.addShape({
+  x: 40,
+  y: 40,
+  width: 160,
+  height: 100,
+  fill: '#1d4ed8',
+  cornerRadius: 12,
+});
+widgetRect.getKonvaNode().moveTo(contentGroup);
+
+const widgetText = core.nodes.addText({
+  x: 60,
+  y: 80,
+  text: 'Frame content',
+  fontSize: 18,
+  fill: '#e5e7eb',
+});
+widgetText.getKonvaNode().moveTo(contentGroup);
+
+const badge = core.nodes.addCircle({
+  x: 320,
+  y: 70,
+  radius: 24,
+  fill: '#22c55e',
+});
+badge.getKonvaNode().moveTo(contentGroup);
+
 const videoNode = core.nodes.addVideo({
   x: 1500,
   y: 200,

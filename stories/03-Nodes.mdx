@@ -22,6 +22,7 @@ Nodes are the building blocks of your canvas. Flowscape SDK provides various nod
 - **Ring** — Ring/donut shapes
 - **RegularPolygon** — Regular polygons (triangle, pentagon, hexagon, etc.)
 - **Group** — Container for grouping nodes
+- **Frame (experimental)** — Container node with clipped content area, inspired by Figma frames
 
 ## Common Node Properties
 
@@ -440,6 +441,46 @@ circle2.getKonvaNode().moveTo(group.getKonvaNode());
 | ----------- | --------- | ------- | --------------- |
 | `draggable` | `boolean` | `false` | Can be dragged  |
 | `clip`      | `object`  | `null`  | Clipping region |
+
+## Frame Node (experimental)
+
+FrameNode is a container node type inspired by Figma frames. It provides a visual frame with a clipped content area and label support.
+
+```typescript
+const frame = core.nodes.addFrame({
+  x: 100,
+  y: 100,
+  width: 400,
+  height: 300,
+  background: '#111827',
+  name: 'Dashboard Frame',
+  label: 'Dashboard',
+});
+
+// Add children into the frame's content area using Konva APIs
+const contentGroup = frame.getContentGroup();
+const circle = core.nodes.addCircle({ x: 50, y: 50, radius: 30 });
+circle.getKonvaNode().moveTo(contentGroup);
+```
+
+### FrameNode Behavior
+
+- Frame bbox is defined by its visual rect, not by children inside `contentGroup`
+- Dragging can be started by:
+  - Dragging the label
+  - Dragging inside the frame bbox (even over children)
+- Auto-pan behavior is aware of FrameNode and treats the whole frame as the dragged entity
+
+### Experimental Limitations
+
+FrameNode is **experimental** and has several intentional limitations in `1.0.6`:
+
+- No copy/paste of FrameNode yet
+- No nesting: FrameNode inside another FrameNode is not supported yet
+- No grouping FrameNode with other nodes via `GroupNode`
+- No grouping FrameNode with other FrameNodes
+
+These scenarios are planned for future releases once the API and UX are stabilized.
 
 ## Node Methods
 

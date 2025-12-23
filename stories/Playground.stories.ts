@@ -1061,6 +1061,7 @@ function createShapesTab(core: CoreEngine, state: any) {
         <button class="btn" data-shape="ring">◯ Ring</button>
         <button class="btn" data-shape="arrow">→ Arrow</button>
         <button class="btn" data-shape="text">T Text</button>
+        <button class="btn" data-shape="frame">🧩 Frame (experimental)</button>
       </div>
     </div>
 
@@ -1451,11 +1452,52 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     text: () => {
       const pos = getRandomPos();
       core.nodes.addText({
-        ...pos,
+        x: pos.x,
+        y: pos.y,
         text: 'Hello Flowscape!',
         fontSize: state.currentFontSize,
         fill: state.currentColor,
       });
+    },
+    frame: () => {
+      const pos = getRandomPos();
+      const frame = core.nodes.addFrame({
+        x: pos.x,
+        y: pos.y,
+        width: 400,
+        height: 260,
+        name: 'FrameNode',
+        label: 'Frame',
+      });
+
+      const contentGroup = frame.getContentGroup();
+
+      const widgetRect = core.nodes.addShape({
+        x: 40,
+        y: 40,
+        width: 160,
+        height: 100,
+        fill: '#1d4ed8',
+        cornerRadius: 12,
+      });
+      widgetRect.getKonvaNode().moveTo(contentGroup);
+
+      const widgetText = core.nodes.addText({
+        x: 60,
+        y: 80,
+        text: 'Frame content',
+        fontSize: 18,
+        fill: '#e5e7eb',
+      });
+      widgetText.getKonvaNode().moveTo(contentGroup);
+
+      const badge = core.nodes.addCircle({
+        x: 320,
+        y: 70,
+        radius: 24,
+        fill: '#22c55e',
+      });
+      badge.getKonvaNode().moveTo(contentGroup);
     },
   };
 
@@ -2411,7 +2453,6 @@ function addWelcomeContent(core: CoreEngine) {
     width: 150,
     height: 100,
     fill: '#3b82f6',
-    cornerRadius: 8,
   });
 
   core.nodes.addCircle({

@@ -106,6 +106,23 @@ Flowscape Core SDK is built on a modular architecture:
 └─────────────────────────────────────┘
 ```
 
+## 🎉 What's New in 1.0.6
+
+### ✨ New Features
+
+- **FrameNode (experimental)** — a new container node type inspired by Figma frames
+  - Drag by label and by bbox with auto-pan support
+  - Clipped content area via internal `contentGroup`
+
+### ⚠️ Experimental Status & Limitations
+
+- FrameNode is currently **experimental**, with intentional limitations:
+  - No copy/paste of FrameNode yet
+  - No nesting: FrameNode inside another FrameNode is not supported yet
+  - No grouping FrameNode with other nodes via `GroupNode`
+  - No grouping FrameNode with other FrameNodes
+- These scenarios are planned for future releases once the API and UX are fully stabilized.
+
 ## 🎉 What's New in 1.0.5
 
 ### 🐛 Fixes

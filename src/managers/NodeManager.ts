@@ -17,7 +17,6 @@ import { SvgNode, type SvgNodeOptions } from '../nodes/SvgNode';
 import { TextNode, type TextNodeOptions } from '../nodes/TextNode';
 import { VideoNode, type VideoNodeOptions } from '../nodes/VideoNode';
 import type { CoreEvents } from '../types/core.events.interface';
-import type { FrameHandle } from '../types/public/frame';
 import type {
   ArcNodeHandle,
   ArrowNodeHandle,
@@ -346,7 +345,7 @@ export class NodeManager {
     return gif;
   }
 
-  public addFrame(options: FrameNodeOptions): FrameHandle {
+  public addFrame(options: FrameNodeOptions): FrameNode {
     const frame = new FrameNode(options);
     this._world.add(frame.getKonvaNode());
     this._nodes.set(frame.id, frame);
@@ -616,7 +615,7 @@ export class NodeManager {
     // Первичная установка позиции
     this._updateFrameLabelsPosition();
 
-    return { id: frame.id };
+    return frame;
   }
 
   public remove(node: BaseNode) {

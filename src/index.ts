@@ -82,7 +82,8 @@ export type {
   VideoNodeHandle,
 } from './types/public/node-handles';
 
-export type { FrameHandle, FrameOptions } from './types/public/frame';
+export { FrameNode } from './nodes/FrameNode';
+export type { FrameOptions } from './types/public/frame';
 
 export type { ArcNodeOptions } from './nodes/ArcNode';
 export type { ArrowNodeOptions } from './nodes/ArrowNode';
