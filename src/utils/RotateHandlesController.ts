@@ -253,7 +253,7 @@ export class RotateHandlesController {
     const container = this.core.stage.container();
 
     const normalized = ((angle % 360) + 360) % 360;
-    if (this.cursorSvgCache && this.cursorSvgCache.angle === normalized) {
+    if (this.cursorSvgCache?.angle === normalized) {
       container.style.cursor = this.cursorSvgCache.url;
       return;
     }
@@ -375,7 +375,7 @@ export class RotateHandlesController {
     if (!this.group) return;
     const tr = this.getTransformer();
     const layer = this.core.nodes.layer;
-    if (tr && tr.getLayer() === layer) {
+    if (tr?.getLayer() === layer) {
       // Fix: use moveDown() instead of zIndex(value)
       const trIndex = tr.zIndex();
       const groupIndex = this.group.zIndex();

@@ -9,6 +9,7 @@ export interface BaseNodeOptions {
   y?: number;
   width?: number;
   height?: number;
+  rotation?: number;
 }
 
 export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements NodeHandle<T> {
@@ -25,6 +26,7 @@ export abstract class BaseNode<T extends Konva.Node = Konva.Node> implements Nod
     if (options.y) this.konvaNode.y(options.y);
     if (options.width) this.konvaNode.width(options.width);
     if (options.height) this.konvaNode.height(options.height);
+    if (options.rotation !== undefined) this.konvaNode.rotation(options.rotation);
   }
 
   /**

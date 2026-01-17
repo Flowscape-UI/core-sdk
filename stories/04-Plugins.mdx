@@ -244,6 +244,103 @@ const logo = new LogoPlugin({
 });
 ```
 
+## PersistencePlugin
+
+Auto-save canvas state to IndexedDB with full media support.
+
+```typescript
+import { PersistencePlugin } from '@flowscape-ui/core-sdk';
+
+const persistence = new PersistencePlugin({
+  canvasId: 'my-canvas',
+  debounceMs: 500,
+  autoRestore: true,
+  debug: false,
+});
+
+core.plugins.add(persistence);
+```
+
+**Options:**
+
+- `canvasId` — Unique identifier for this canvas (default: `'default'`)
+- `debounceMs` — Delay before auto-save triggers (default: `300`)
+- `autoRestore` — Automatically restore state on attach (default: `true`)
+- `dbName` — Custom IndexedDB database name
+- `debug` — Enable debug logging
+
+**Features:**
+
+- Automatic save on any canvas change (nodes, camera, transforms)
+- Full support for media nodes (Image, Video, GIF, SVG)
+- Blob URL persistence — media files are stored in IndexedDB
+- Preserves node dimensions, rotation, and z-index
+- Supports GroupNode and FrameNode with nested children
+- Export/import canvas as JSON with embedded blobs
+- Debounced saves to optimize performance
+
+**Methods:**
+
+```typescript
+// Manual save
+await persistence.save();
+
+// Restore from IndexedDB
+await persistence.restore();
+
+// Clear saved state
+await persistence.clear();
+
+// Check if saved state exists
+const hasSaved = await persistence.hasSavedState();
+
+// Export canvas to JSON string (with embedded blobs)
+const json = await persistence.exportToJSON();
+
+// Import canvas from JSON string
+persistence.importFromJSON(json);
+
+// Download canvas as JSON file
+await persistence.downloadJSON('my-canvas.json');
+
+// Upload and import from JSON file (opens file picker)
+await persistence.uploadJSON();
+
+// Get/set canvas ID
+const id = persistence.getCanvasId();
+await persistence.setCanvasId('new-canvas-id');
+```
+
+**Events Triggering Auto-Save:**
+
+- `node:created`, `node:removed`, `node:transformed`
+- `node:zIndexChanged`
+- `group:created`, `group:ungrouped`
+- `clipboard:paste`
+- `camera:zoom`, `camera:pan`, `camera:reset`
+- Konva `dragend`, `transformend`
+
+**Storage Structure:**
+
+The plugin uses IndexedDB with two object stores:
+
+- `canvas` — Serialized canvas state (JSON)
+- `blobs` — Binary media files (images, videos, etc.)
+
+**Example: Manual Export/Import**
+
+```typescript
+// Export current canvas
+const json = await persistence.exportToJSON();
+localStorage.setItem('canvas-backup', json);
+
+// Import from backup
+const backup = localStorage.getItem('canvas-backup');
+if (backup) {
+  persistence.importFromJSON(backup);
+}
+```
+
 ## Creating Custom Plugins
 
 ```typescript

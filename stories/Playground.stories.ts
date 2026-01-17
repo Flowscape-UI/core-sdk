@@ -8,6 +8,7 @@ import {
   HistoryPlugin,
   LogoPlugin,
   NodeHotkeysPlugin,
+  PersistencePlugin,
   RulerGuidesAddon,
   RulerHighlightAddon,
   RulerManagerAddon,
@@ -834,6 +835,9 @@ function initializePlayground(
       maxImageSize: 1200,
       enableDragDrop: true,
     }),
+    persistence: new PersistencePlugin({
+      canvasId: 'storybook-playground',
+    }),
   };
 
   pluginInstances.ruler.addons.add([
@@ -1264,9 +1268,26 @@ function createPluginsTab(plugins: any) {
     history: 'Undo/redo support',
     ruler: 'Rulers with guides',
     logo: 'Watermark overlay',
+    persistence: 'Auto-save to IndexedDB',
   };
 
   return `
+
+    <div class="section">
+      <div class="section-title">Persistence Controls</div>
+      <div class="button-grid">
+        <button class="btn" data-persistence="export">📥 Export JSON</button>
+        <button class="btn" data-persistence="import">📤 Import JSON</button>
+        <button class="btn btn-primary" data-persistence="save">💾 Save Now</button>
+        <button class="btn btn-danger" data-persistence="clear">🗑️ Clear Storage</button>
+      </div>
+      <div id="persistence-status" style="font-size: 11px; color: #8b949e; margin-top: 8px;">
+        Checking saved state...
+      </div>
+    </div>
+
+  <div class="divider"></div>
+
     <div class="section">
       <div class="section-title">Active Plugins</div>
       ${Object.entries(plugins)
@@ -1716,6 +1737,46 @@ function setupIconsTabListeners(sidebar: HTMLElement, core: CoreEngine, state: a
 }
 
 function setupPluginsTabListeners(sidebar: HTMLElement, core: CoreEngine, plugins: any) {
+  // Persistence controls
+  const persistencePlugin = plugins.persistence as PersistencePlugin | undefined;
+
+  if (persistencePlugin) {
+    // Update status indicator
+    const updateStatus = async () => {
+      const statusEl = sidebar.querySelector('#persistence-status');
+      if (statusEl) {
+        const hasSaved = await persistencePlugin.hasSavedState();
+        statusEl.textContent = hasSaved ? '✅ Has saved state' : '⚪ No saved state';
+      }
+    };
+    void updateStatus();
+
+    sidebar.querySelectorAll('[data-persistence]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.getAttribute('data-persistence');
+        switch (action) {
+          case 'export':
+            await persistencePlugin.downloadJSON('canvas-export.json');
+            break;
+          case 'import':
+            await persistencePlugin.uploadJSON();
+            void updateStatus();
+            break;
+          case 'save':
+            await persistencePlugin.save();
+            void updateStatus();
+            break;
+          case 'clear':
+            if (globalThis.confirm('Clear all saved canvas data?')) {
+              await persistencePlugin.clear();
+              void updateStatus();
+            }
+            break;
+        }
+      });
+    });
+  }
+
   sidebar.querySelectorAll('.toggle-switch').forEach((toggle) => {
     toggle.addEventListener('click', () => {
       const optionKey = toggle.getAttribute('data-plugin-option');

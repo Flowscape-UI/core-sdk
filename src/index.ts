@@ -30,6 +30,8 @@ export { LogoPlugin } from './plugins/LogoPlugin';
 export type { LogoOptions } from './plugins/LogoPlugin';
 export { NodeHotkeysPlugin } from './plugins/NodeHotkeysPlugin';
 export type { NodeHotkeysOptions } from './plugins/NodeHotkeysPlugin';
+export { PersistencePlugin } from './plugins/PersistencePlugin';
+export type { PersistencePluginOptions } from './plugins/PersistencePlugin';
 export { RulerGuidesPlugin } from './plugins/RulerGuidesPlugin';
 export type { RulerGuidesPluginOptions } from './plugins/RulerGuidesPlugin';
 export { RulerHighlightPlugin } from './plugins/RulerHighlightPlugin';
@@ -57,9 +59,28 @@ export { VideoOverlayAddon } from './addons/VideoOverlayAddon';
 export type { VideoOverlayAddonOptions } from './addons/VideoOverlayAddon';
 
 // Utils
+export {
+  createBlobUrlMap,
+  deserializeCanvas,
+  exportCanvasToJSON,
+  extractBlobs,
+  importCanvasFromJSON,
+  revokeBlobUrls,
+  serializeCanvas,
+} from './utils/CanvasSerializer';
+export type {
+  DeserializeOptions,
+  ExtractedBlob,
+  SerializedCamera,
+  SerializedCanvas,
+  SerializedNode,
+  SerializeOptions,
+} from './utils/CanvasSerializer';
 export { DebounceHelper } from './utils/DebounceHelper';
 export { MediaPlaceholder } from './utils/MediaPlaceholder';
 export type { MediaPlaceholderOptions } from './utils/MediaPlaceholder';
+export { PersistenceStorage } from './utils/PersistenceStorage';
+export type { StoredBlob, StoredCanvasState } from './utils/PersistenceStorage';
 export { ThrottleHelper } from './utils/ThrottleHelper';
 
 // Public types (handle interfaces and node options)
