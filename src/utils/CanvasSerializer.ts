@@ -596,6 +596,15 @@ export function deserializeCanvas(
     if (node) {
       createdNodes.set(serialized.id, node);
       nodeZIndexMap.set(serialized.id, serialized.zIndex);
+      const konvaNode = node.getKonvaNode();
+      const attrs = serialized.attrs;
+      if (attrs['scaleX'] !== undefined) konvaNode.scaleX(attrs['scaleX'] as number);
+      if (attrs['scaleY'] !== undefined) konvaNode.scaleY(attrs['scaleY'] as number);
+      if (attrs['rotation'] !== undefined) konvaNode.rotation(attrs['rotation'] as number);
+      if (attrs['skewX'] !== undefined) konvaNode.skewX(attrs['skewX'] as number);
+      if (attrs['skewY'] !== undefined) konvaNode.skewY(attrs['skewY'] as number);
+      if (attrs['offsetX'] !== undefined) konvaNode.offsetX(attrs['offsetX'] as number);
+      if (attrs['offsetY'] !== undefined) konvaNode.offsetY(attrs['offsetY'] as number);
     }
   }
 
@@ -612,7 +621,18 @@ export function deserializeCanvas(
     for (const childSerialized of sortedChildren) {
       const childNode = createNode(core, childSerialized, blobUrls);
       if (childNode) {
-        const konvaChild = childNode.getKonvaNode() as unknown as Konva.Node;
+        const konvaChild = childNode.getKonvaNode();
+        const childAttrs = childSerialized.attrs;
+        if (childAttrs['scaleX'] !== undefined) konvaChild.scaleX(childAttrs['scaleX'] as number);
+        if (childAttrs['scaleY'] !== undefined) konvaChild.scaleY(childAttrs['scaleY'] as number);
+        if (childAttrs['rotation'] !== undefined)
+          konvaChild.rotation(childAttrs['rotation'] as number);
+        if (childAttrs['skewX'] !== undefined) konvaChild.skewX(childAttrs['skewX'] as number);
+        if (childAttrs['skewY'] !== undefined) konvaChild.skewY(childAttrs['skewY'] as number);
+        if (childAttrs['offsetX'] !== undefined)
+          konvaChild.offsetX(childAttrs['offsetX'] as number);
+        if (childAttrs['offsetY'] !== undefined)
+          konvaChild.offsetY(childAttrs['offsetY'] as number);
         // Store relative position before moving
         const relX = (childSerialized.attrs['x'] as number | undefined) ?? 0;
         const relY = (childSerialized.attrs['y'] as number | undefined) ?? 0;

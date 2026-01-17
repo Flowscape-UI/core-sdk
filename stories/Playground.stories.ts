@@ -1373,6 +1373,9 @@ function createPresetsTab(core: CoreEngine) {
 }
 
 function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: any) {
+  const persistence = core.plugins.list().find((p) => p instanceof PersistencePlugin) as
+    | PersistencePlugin
+    | undefined;
   const getRandomPos = () => ({
     x: Math.random() * 800 + 100,
     y: Math.random() * 400 + 100,
@@ -1586,6 +1589,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     // If no multi-selection - treat as defaults for next nodes
     if (!applied) state.currentColor = v;
     if (fillPreview) fillPreview.style.background = v;
+    void persistence?.save();
   });
 
   const strokeColor = sidebar.querySelector('#stroke-color') as HTMLInputElement;
@@ -1598,6 +1602,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentStrokeColor = v;
     if (strokePreview) strokePreview.style.background = v;
+    void persistence?.save();
   });
 
   // Sliders
@@ -1611,6 +1616,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentStrokeWidth = v;
     strokeWidthValue.textContent = v.toString();
+    void persistence?.save();
   });
 
   const opacity = sidebar.querySelector('#opacity') as HTMLInputElement;
@@ -1624,6 +1630,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentOpacity = v;
     opacityValue.textContent = `${pct}%`;
+    void persistence?.save();
   });
 
   const fontSize = sidebar.querySelector('#font-size') as HTMLInputElement;
@@ -1636,6 +1643,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentFontSize = v;
     fontSizeValue.textContent = `${v}px`;
+    void persistence?.save();
   });
 }
 
@@ -2216,6 +2224,10 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
   const content = propertyPanel.querySelector('#property-content') as HTMLElement | null;
   if (!content) return;
 
+  const persistence = core.plugins.list().find((p) => p instanceof PersistencePlugin) as
+    | PersistencePlugin
+    | undefined;
+
   content.innerHTML = `
     <div class="section" style="margin-bottom: 12px;">
       <div class="section-title">Selection</div>
@@ -2289,6 +2301,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.fill === 'function') kn.fill(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('fill', v);
     });
+    void persistence?.save();
   });
 
   const strokeInput = propertyPanel.querySelector('#pp-stroke') as HTMLInputElement | null;
@@ -2300,6 +2313,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.stroke === 'function') kn.stroke(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('stroke', v);
     });
+    void persistence?.save();
   });
 
   const strokeWidthInput = propertyPanel.querySelector(
@@ -2315,6 +2329,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.strokeWidth === 'function') kn.strokeWidth(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('strokeWidth', v);
     });
+    void persistence?.save();
   });
 
   const opacityInput = propertyPanel.querySelector('#pp-opacity') as HTMLInputElement | null;
@@ -2327,6 +2342,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.opacity === 'function') kn.opacity(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('opacity', v);
     });
+    void persistence?.save();
   });
 
   const fontSizeInput = propertyPanel.querySelector('#pp-font-size') as HTMLInputElement | null;
@@ -2338,6 +2354,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.fontSize === 'function') kn.fontSize(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('fontSize', v);
     });
+    void persistence?.save();
   });
 
   const syncFromFirstSelected = () => {
