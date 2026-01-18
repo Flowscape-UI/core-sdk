@@ -8,6 +8,7 @@ import {
   ImageHoverFilterAddon,
   LogoPlugin,
   NodeHotkeysPlugin,
+  PersistencePlugin,
   RulerGuidesAddon,
   RulerHighlightAddon,
   RulerManagerAddon,
@@ -98,6 +99,12 @@ const visualGuidesPlugin = new VisualGuidesPlugin({
 
 const cfc = new ContentFromClipboardPlugin();
 
+const persistencePlugin = new PersistencePlugin({
+  canvasId: 'playground-canvas',
+  debounceMs: 500,
+  autoRestore: true,
+});
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
   plugins: [
@@ -114,14 +121,99 @@ const core = new CoreEngine({
     // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
     // rulerManagerPlugin, // Управление видимостью по Shift+R
     historyPlugin, // Undo/Redo: Ctrl+Z / Ctrl+Shift+Z
+    persistencePlugin, // Auto-save to IndexedDB
   ],
 });
 
-const onNodeRemoved = (node: unknown) => {
-  console.log('node removed', node);
+// ==================== Persistence Plugin Test UI ====================
+const createPersistenceUI = () => {
+  const container = document.createElement('div');
+  container.style.cssText = `
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(30, 30, 30, 0.95);
+    border-radius: 8px;
+    font-family: system-ui, sans-serif;
+    font-size: 12px;
+    color: #fff;
+  `;
+
+  const title = document.createElement('div');
+  title.textContent = 'Persistence Plugin';
+  title.style.cssText = 'font-weight: bold; margin-bottom: 4px; color: #ffcc00;';
+  container.appendChild(title);
+
+  const createButton = (text: string, onClick: () => void) => {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.style.cssText = `
+      padding: 6px 12px;
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.2s;
+    `;
+    btn.onmouseenter = () => (btn.style.background = '#444');
+    btn.onmouseleave = () => (btn.style.background = '#333');
+    btn.onclick = onClick;
+    return btn;
+  };
+
+  // Export JSON button
+  container.appendChild(
+    createButton('📥 Export JSON', async () => {
+      await persistencePlugin.downloadJSON('canvas-export.json');
+    }),
+  );
+
+  // Import JSON button
+  container.appendChild(
+    createButton('📤 Import JSON', async () => {
+      await persistencePlugin.uploadJSON();
+    }),
+  );
+
+  // Manual Save button
+  container.appendChild(
+    createButton('💾 Save Now', async () => {
+      await persistencePlugin.save();
+    }),
+  );
+
+  // Clear Storage button
+  container.appendChild(
+    createButton('🗑️ Clear Storage', async () => {
+      if (confirm('Clear all saved canvas data?')) {
+        await persistencePlugin.clear();
+      }
+    }),
+  );
+
+  // Status indicator
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size: 10px; color: #888; margin-top: 4px;';
+  persistencePlugin.hasSavedState().then((hasSaved) => {
+    status.textContent = hasSaved ? '✅ Has saved state' : '⚪ No saved state';
+  });
+  container.appendChild(status);
+
+  document.body.appendChild(container);
 };
 
-core.eventBus.once('node:removed', onNodeRemoved);
+// Create UI after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', createPersistenceUI);
+} else {
+  createPersistenceUI();
+}
 
 const svgNode = core.nodes.addSvg({
   x: 450,
@@ -129,12 +221,6 @@ const svgNode = core.nodes.addSvg({
   width: 200,
   height: 200,
   src: 'https://konvajs.org/assets/tiger.svg',
-  onLoad: (node) => {
-    console.log('SVG загружен!', node);
-  },
-  onError: (error) => {
-    console.error('Ошибка загрузки SVG:', error);
-  },
 });
 
 setTimeout(() => {
@@ -208,19 +294,6 @@ const videoNode = core.nodes.addVideo({
   autoplay: true,
   loop: true,
   muted: true,
-  onLoadedMetadata: (node, videoElement) => {
-    console.log('Видео загружено');
-    console.log('Длительность:', videoElement.duration);
-  },
-  onPlay: (node) => {
-    console.log('Воспроизведение началось');
-  },
-  onPause: (node) => {
-    console.log('Воспроизведение приостановлено');
-  },
-  onEnded: (node) => {
-    console.log('Видео завершено');
-  },
 });
 videoNode.setLoop(true);
 videoNode.setCurrentTime(3000);
@@ -234,17 +307,7 @@ core.nodes.addGif({
   autoplay: true,
   placeholder: {
     accentSpinnerColor: 'red',
-    // backgroundColor: 'transparent',
   },
-  onLoad: (node) => {
-    console.log('GIF загружен!', node);
-  },
-  onError: (error) => {
-    console.error('Ошибка загрузки GIF:', error);
-  },
-  // onFrame: (node, frameIndex) => {
-  //   console.log('Кадр:', frameIndex);
-  // },
 });
 
 core.nodes
@@ -462,6 +525,4 @@ group.addChild(polygon.getKonvaNode());
 
 setTimeout(() => {
   img.setSrc(Image);
-  core.eventBus.off('node:removed', onNodeRemoved);
-  // rulerPlugin.addons.clear();
 }, 5000);

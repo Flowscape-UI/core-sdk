@@ -8,6 +8,7 @@ import {
   HistoryPlugin,
   LogoPlugin,
   NodeHotkeysPlugin,
+  PersistencePlugin,
   RulerGuidesAddon,
   RulerHighlightAddon,
   RulerManagerAddon,
@@ -834,6 +835,9 @@ function initializePlayground(
       maxImageSize: 1200,
       enableDragDrop: true,
     }),
+    persistence: new PersistencePlugin({
+      canvasId: 'storybook-playground',
+    }),
   };
 
   pluginInstances.ruler.addons.add([
@@ -1264,9 +1268,26 @@ function createPluginsTab(plugins: any) {
     history: 'Undo/redo support',
     ruler: 'Rulers with guides',
     logo: 'Watermark overlay',
+    persistence: 'Auto-save to IndexedDB',
   };
 
   return `
+
+    <div class="section">
+      <div class="section-title">Persistence Controls</div>
+      <div class="button-grid">
+        <button class="btn" data-persistence="export">📥 Export JSON</button>
+        <button class="btn" data-persistence="import">📤 Import JSON</button>
+        <button class="btn btn-primary" data-persistence="save">💾 Save Now</button>
+        <button class="btn btn-danger" data-persistence="clear">🗑️ Clear Storage</button>
+      </div>
+      <div id="persistence-status" style="font-size: 11px; color: #8b949e; margin-top: 8px;">
+        Checking saved state...
+      </div>
+    </div>
+
+  <div class="divider"></div>
+
     <div class="section">
       <div class="section-title">Active Plugins</div>
       ${Object.entries(plugins)
@@ -1352,6 +1373,9 @@ function createPresetsTab(core: CoreEngine) {
 }
 
 function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: any) {
+  const persistence = core.plugins.list().find((p) => p instanceof PersistencePlugin) as
+    | PersistencePlugin
+    | undefined;
   const getRandomPos = () => ({
     x: Math.random() * 800 + 100,
     y: Math.random() * 400 + 100,
@@ -1565,6 +1589,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     // If no multi-selection - treat as defaults for next nodes
     if (!applied) state.currentColor = v;
     if (fillPreview) fillPreview.style.background = v;
+    void persistence?.save();
   });
 
   const strokeColor = sidebar.querySelector('#stroke-color') as HTMLInputElement;
@@ -1577,6 +1602,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentStrokeColor = v;
     if (strokePreview) strokePreview.style.background = v;
+    void persistence?.save();
   });
 
   // Sliders
@@ -1590,6 +1616,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentStrokeWidth = v;
     strokeWidthValue.textContent = v.toString();
+    void persistence?.save();
   });
 
   const opacity = sidebar.querySelector('#opacity') as HTMLInputElement;
@@ -1603,6 +1630,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentOpacity = v;
     opacityValue.textContent = `${pct}%`;
+    void persistence?.save();
   });
 
   const fontSize = sidebar.querySelector('#font-size') as HTMLInputElement;
@@ -1615,6 +1643,7 @@ function setupShapesTabListeners(sidebar: HTMLElement, core: CoreEngine, state: 
     });
     if (!applied) state.currentFontSize = v;
     fontSizeValue.textContent = `${v}px`;
+    void persistence?.save();
   });
 }
 
@@ -1716,6 +1745,46 @@ function setupIconsTabListeners(sidebar: HTMLElement, core: CoreEngine, state: a
 }
 
 function setupPluginsTabListeners(sidebar: HTMLElement, core: CoreEngine, plugins: any) {
+  // Persistence controls
+  const persistencePlugin = plugins.persistence as PersistencePlugin | undefined;
+
+  if (persistencePlugin) {
+    // Update status indicator
+    const updateStatus = async () => {
+      const statusEl = sidebar.querySelector('#persistence-status');
+      if (statusEl) {
+        const hasSaved = await persistencePlugin.hasSavedState();
+        statusEl.textContent = hasSaved ? '✅ Has saved state' : '⚪ No saved state';
+      }
+    };
+    void updateStatus();
+
+    sidebar.querySelectorAll('[data-persistence]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.getAttribute('data-persistence');
+        switch (action) {
+          case 'export':
+            await persistencePlugin.downloadJSON('canvas-export.json');
+            break;
+          case 'import':
+            await persistencePlugin.uploadJSON();
+            void updateStatus();
+            break;
+          case 'save':
+            await persistencePlugin.save();
+            void updateStatus();
+            break;
+          case 'clear':
+            if (globalThis.confirm('Clear all saved canvas data?')) {
+              await persistencePlugin.clear();
+              void updateStatus();
+            }
+            break;
+        }
+      });
+    });
+  }
+
   sidebar.querySelectorAll('.toggle-switch').forEach((toggle) => {
     toggle.addEventListener('click', () => {
       const optionKey = toggle.getAttribute('data-plugin-option');
@@ -2155,6 +2224,10 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
   const content = propertyPanel.querySelector('#property-content') as HTMLElement | null;
   if (!content) return;
 
+  const persistence = core.plugins.list().find((p) => p instanceof PersistencePlugin) as
+    | PersistencePlugin
+    | undefined;
+
   content.innerHTML = `
     <div class="section" style="margin-bottom: 12px;">
       <div class="section-title">Selection</div>
@@ -2228,6 +2301,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.fill === 'function') kn.fill(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('fill', v);
     });
+    void persistence?.save();
   });
 
   const strokeInput = propertyPanel.querySelector('#pp-stroke') as HTMLInputElement | null;
@@ -2239,6 +2313,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.stroke === 'function') kn.stroke(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('stroke', v);
     });
+    void persistence?.save();
   });
 
   const strokeWidthInput = propertyPanel.querySelector(
@@ -2254,6 +2329,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.strokeWidth === 'function') kn.strokeWidth(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('strokeWidth', v);
     });
+    void persistence?.save();
   });
 
   const opacityInput = propertyPanel.querySelector('#pp-opacity') as HTMLInputElement | null;
@@ -2266,6 +2342,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.opacity === 'function') kn.opacity(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('opacity', v);
     });
+    void persistence?.save();
   });
 
   const fontSizeInput = propertyPanel.querySelector('#pp-font-size') as HTMLInputElement | null;
@@ -2277,6 +2354,7 @@ function setupPropertyPanel(propertyPanel: HTMLElement, core: CoreEngine, state:
       if (typeof kn.fontSize === 'function') kn.fontSize(v);
       else if (typeof kn.setAttr === 'function') kn.setAttr('fontSize', v);
     });
+    void persistence?.save();
   });
 
   const syncFromFirstSelected = () => {

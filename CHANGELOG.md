@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.7] - 2026-01-18
+
+### ✨ New Features
+
+- PersistencePlugin: local canvas persistence backed by IndexedDB
+  - Automatic saving and restore of canvas state
+  - JSON import/export helpers for backup and sharing
+
+### 🐛 Fixes
+
+- Deserialization: restore transform attributes for all node types on load
+  - Apply `scaleX/scaleY`, `rotation`, `skewX/skewY`, `offsetX/offsetY` during canvas restore
+  - Fixes the issue where visual sizes were lost after page reload for many node types
+
+### 🛠 Improvements
+
+- Storybook Playground: auto-save via `PersistencePlugin` when editing from UI
+  - Sidebar controls (fill, stroke, stroke width, opacity, font size) trigger `save()`
+  - Property panel for selected node also triggers `save()` on changes
+
 ## [1.0.6] - 2025-12-23
 
 ### ✨ New Features
@@ -209,7 +229,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔧 Optimized Konva layer handling (reduced layer count)
 - 🔧 Improved keyboard event handling in production
 
-[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.7...HEAD
+[1.0.7]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.6...v1.0.7
 [1.0.3]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.1...v1.0.3
 [1.0.1]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Flowscape-UI/core-sdk/releases/tag/v1.0.0

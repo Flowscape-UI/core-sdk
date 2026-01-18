@@ -46,6 +46,8 @@ export class CoreEngine {
 
   constructor(options: CoreEngineOptions) {
     this.container = options.container;
+    // Hide container initially to prevent flicker
+    this.container.style.visibility = 'hidden';
     this._initialWidth = options.width ?? 800;
     this._initialHeight = options.height ?? 800;
     this._autoResize = options.autoResize ?? true;
@@ -224,5 +226,12 @@ export class CoreEngine {
         globalThis.removeEventListener('resize', this._handleResize);
       }
     }
+  }
+
+  /**
+   * Show the canvas container after persistence restore completes
+   */
+  public showContainer() {
+    this.container.style.visibility = 'visible';
   }
 }
