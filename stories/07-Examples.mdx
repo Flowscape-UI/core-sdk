@@ -65,6 +65,54 @@ function Canvas() {
 }
 ```
 
+## Persistence: Save/Restore and JSON Import/Export
+
+Use `PersistencePlugin` to persist the entire canvas (including media) to IndexedDB and to import/export JSON.
+
+```typescript
+import { CoreEngine, GridPlugin, SelectionPlugin, PersistencePlugin } from '@flowscape-ui/core-sdk';
+
+// Init engine with persistence
+const core = new CoreEngine({
+  container: document.getElementById('app')!,
+  plugins: [
+    new GridPlugin(),
+    new SelectionPlugin(),
+    new PersistencePlugin({ canvasId: 'my-canvas' }),
+  ],
+});
+
+// Access plugin instance (if needed directly)
+const persistence = core.plugins.list().find((p) => p instanceof PersistencePlugin) as
+  | PersistencePlugin
+  | undefined;
+
+// Manual save to IndexedDB
+await persistence?.save();
+
+// Restore from IndexedDB
+await persistence?.restore();
+
+// Clear saved state
+await persistence?.clear();
+
+// Check if saved state exists
+const hasSaved = await persistence?.hasSavedState();
+console.log('Has saved state:', hasSaved);
+
+// Export canvas to JSON (with embedded blobs)
+const json = await persistence?.exportToJSON();
+
+// Import canvas from JSON string
+if (json) persistence?.importFromJSON(json);
+
+// Download as JSON file
+await persistence?.downloadJSON('canvas-export.json');
+
+// Upload and import from JSON file (opens file picker)
+await persistence?.uploadJSON();
+```
+
 ## Vue Integration
 
 ```vue

@@ -76,7 +76,16 @@ export class PersistencePlugin extends Plugin {
       this._log('Storage initialized');
 
       if (this._autoRestore) {
-        await this.restore();
+        try {
+          await this.restore();
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            this._core.eventBus.emit('persistence:restore:error', { error: error.message });
+          }
+        } finally {
+          // Show container after restore completes
+          this._core.showContainer();
+        }
       }
 
       this._subscribeToEvents(this._core);

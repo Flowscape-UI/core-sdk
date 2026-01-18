@@ -72,6 +72,12 @@ export interface CoreEvents {
   /** Plugin was removed */
   'plugin:removed': [pluginName: string];
 
+  // === Persistence Events ===
+  /** Persistence restore failed */
+  'persistence:restore:error': [{ error: string }];
+  /** Persistence restore completed */
+  'persistence:restore:done': [];
+
   // === Stage Events ===
   /** Stage was resized */
   'stage:resized': [{ width: number; height: number }];

@@ -170,6 +170,7 @@ const core = new CoreEngine({
 | `AreaSelectionPlugin`  | Area selection with frame (Shift+Drag)           |
 | `VisualGuidesPlugin`   | Smart alignment guides during movement/resize    |
 | `HistoryPlugin`        | Undo/redo functionality with Ctrl+Z              |
+| `PersistencePlugin`    | Local persistence: auto-save, export/import JSON |
 | `LogoPlugin`           | Watermark/logo on canvas                         |
 
 ### ⌨️ Keyboard Shortcuts
