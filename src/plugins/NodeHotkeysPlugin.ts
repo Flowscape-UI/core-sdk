@@ -117,6 +117,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
+    const alt = e.altKey;
 
     // Enter — начать редактирование, если выделена одна текстовая нода
     if (!ctrl && !shift && e.code === 'Enter') {
@@ -179,6 +180,15 @@ export class NodeHotkeysPlugin extends Plugin {
     if (ctrl && (e.code === 'BracketLeft' || (shift && e.code === 'Minus'))) {
       e.preventDefault();
       this._handleMoveDown();
+      return;
+    }
+
+    // Alt + F — center camera on current selection
+    if (!ctrl && !shift && alt && e.code === 'KeyF') {
+      const selected = this._getSelectedNodes();
+      if (selected.length === 0) return;
+      e.preventDefault();
+      this._centerOnSelection(selected);
       return;
     }
   };
@@ -695,6 +705,34 @@ export class NodeHotkeysPlugin extends Plugin {
     const invWorld = world.getAbsoluteTransform().copy().invert();
     const ptWorld = invWorld.point({ x: cxStage, y: cyStage });
     return { x: ptWorld.x, y: ptWorld.y };
+  }
+
+  // Center camera (world group) on provided selection
+  private _centerOnSelection(nodes: BaseNode[]): void {
+    if (!this._core || nodes.length === 0) return;
+
+    const worldCenter = this._computeSelectionWorldCenter(nodes);
+    const stage = this._core.stage;
+    const world = this._core.nodes.world;
+
+    // Current screen position of the worldCenter
+    const absWorld = world.getAbsoluteTransform();
+    const currentStagePt = absWorld.point({ x: worldCenter.x, y: worldCenter.y });
+
+    // Desired screen position: center of the viewport
+    const desiredStagePt = { x: stage.width() / 2, y: stage.height() / 2 };
+
+    // Translate world so that currentStagePt moves to desiredStagePt (stage coordinates)
+    const dx = desiredStagePt.x - currentStagePt.x;
+    const dy = desiredStagePt.y - currentStagePt.y;
+
+    const newX = world.x() + dx;
+    const newY = world.y() + dy;
+    world.position({ x: newX, y: newY });
+
+    // Emit camera pan event to keep subscribers in sync
+    this._core.eventBus.emit('camera:pan', { dx, dy, position: { x: newX, y: newY } });
+    stage.batchDraw();
   }
 
   // Raise z-index of selected node (increment by 1)
