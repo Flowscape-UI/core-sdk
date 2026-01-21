@@ -344,10 +344,13 @@ export class NodeHotkeysPlugin extends Plugin {
       return;
     }
 
-    // Alt + F — center camera on current selection
-    if (!ctrl && !shift && alt && e.code === 'KeyF') {
+    // Ctrl + F — center camera on current selection
+    if (!shift && ctrl && e.code === 'KeyF') {
       const selected = this._getSelectedNodes();
-      if (selected.length === 0) return;
+      if (selected.length === 0) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       this._centerOnSelection(selected);
       return;
