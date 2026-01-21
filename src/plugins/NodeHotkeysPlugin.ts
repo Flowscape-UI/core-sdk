@@ -28,13 +28,11 @@ export interface ClipboardData {
 const FLOWSCAPE_CLIPBOARD_PREFIX = 'flowscape:nodes:';
 
 interface CloneNode extends BaseNode {
-  _originalPos?: { x: number; y: number };
   _originalAbsPos?: { x: number; y: number };
 }
 
 interface CloneOriginalState {
   node: BaseNode;
-  absPos: { x: number; y: number };
   draggable: boolean;
 }
 
@@ -53,6 +51,11 @@ export class NodeHotkeysPlugin extends Plugin {
   private _prevCursor: string | null = null;
   private _isCloneCursorActive = false;
   private _doubleCursorCss: string | null = null;
+  private _cloneOriginalsHidden = false;
+  private _cloneAutoPanRafId: number | null = null;
+  private _cloneAutoPanActive = false;
+  private _cloneAutoPanEdgePx = 40;
+  private _cloneAutoPanMaxSpeedPx = 24;
 
   constructor(options: NodeHotkeysOptions = {}) {
     super();
@@ -62,6 +65,76 @@ export class NodeHotkeysPlugin extends Plugin {
       target,
       ignoreEditableTargets,
     };
+  }
+
+  private _startCloneAutoPanLoop(): void {
+    if (!this._core) return;
+    if (this._cloneAutoPanRafId != null) return;
+    this._cloneAutoPanActive = true;
+    const core = this._core;
+    const stage = core.stage;
+    const world = core.nodes.world;
+
+    const tick = () => {
+      this._cloneAutoPanRafId = null;
+      if (!this._cloneAutoPanActive || !this._core) return;
+      if (!this._isMouseDown || this._clonedNodes.length === 0 || !this._cloneStartPos) {
+        this._cloneAutoPanRafId = globalThis.requestAnimationFrame(tick);
+        return;
+      }
+
+      const ptr = stage.getPointerPosition();
+      if (ptr) {
+        const w = stage.width();
+        const h = stage.height();
+        const edge = this._cloneAutoPanEdgePx;
+        const leftPress = Math.max(0, edge - ptr.x);
+        const rightPress = Math.max(0, ptr.x - (w - edge));
+        const topPress = Math.max(0, edge - ptr.y);
+        const bottomPress = Math.max(0, ptr.y - (h - edge));
+        const norm = (p: number) => Math.min(1, p / edge);
+        const vx = this._cloneAutoPanMaxSpeedPx * (norm(rightPress) - norm(leftPress));
+        const vy = this._cloneAutoPanMaxSpeedPx * (norm(bottomPress) - norm(topPress));
+
+        if (vx !== 0 || vy !== 0) {
+          world.x(world.x() - vx);
+          world.y(world.y() - vy);
+          const pos = world.position();
+          core.eventBus.emit('camera:pan', {
+            dx: -vx,
+            dy: -vy,
+            position: { x: pos.x, y: pos.y },
+          });
+
+          const c = stage.container();
+          const r = c.getBoundingClientRect();
+          try {
+            this._handleCloneMove(
+              new MouseEvent('mousemove', {
+                bubbles: true,
+                cancelable: true,
+                clientX: r.left + ptr.x,
+                clientY: r.top + ptr.y,
+              }),
+            );
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      this._cloneAutoPanRafId = globalThis.requestAnimationFrame(tick);
+    };
+
+    this._cloneAutoPanRafId = globalThis.requestAnimationFrame(tick);
+  }
+
+  private _stopCloneAutoPanLoop(): void {
+    this._cloneAutoPanActive = false;
+    if (this._cloneAutoPanRafId != null) {
+      globalThis.cancelAnimationFrame(this._cloneAutoPanRafId);
+      this._cloneAutoPanRafId = null;
+    }
   }
 
   private _getHoveredNodeUnderPointer(): BaseNode | null {
@@ -134,6 +207,8 @@ export class NodeHotkeysPlugin extends Plugin {
     this._options.target.removeEventListener('mousemove', this._onMouseMove as EventListener);
     this._options.target.removeEventListener('keydown', this._onKeyDown as EventListener);
     this._options.target.removeEventListener('keyup', this._onKeyUp as EventListener);
+
+    this._stopCloneAutoPanLoop();
 
     this._core = undefined as unknown as CoreEngine;
     this._selectionPlugin = undefined as unknown as SelectionPlugin;
@@ -278,13 +353,29 @@ export class NodeHotkeysPlugin extends Plugin {
       return;
     }
 
-    if (e.key === 'Alt') this._isAltPressed = true;
-    if (e.key === 'Alt') this._updateCloneCursor();
+    if (e.key === 'Alt') {
+      this._isAltPressed = true;
+      if (this._isMouseDown && this._clonedNodes.length > 0 && this._cloneOriginalsHidden) {
+        this._cloneOriginals.forEach((o) => {
+          const kn = o.node.getKonvaNode() as unknown as Konva.Node;
+          kn.visible(true);
+        });
+        this._cloneOriginalsHidden = false;
+      }
+      this._updateCloneCursor();
+    }
   };
 
   private _onKeyUp = (e: KeyboardEvent) => {
     if (e.key === 'Alt') {
       this._isAltPressed = false;
+      if (this._isMouseDown && this._clonedNodes.length > 0 && !this._cloneOriginalsHidden) {
+        this._cloneOriginals.forEach((o) => {
+          const kn = o.node.getKonvaNode() as unknown as Konva.Node;
+          kn.visible(false);
+        });
+        this._cloneOriginalsHidden = true;
+      }
       this._restoreCursor();
     }
   };
@@ -311,7 +402,7 @@ export class NodeHotkeysPlugin extends Plugin {
       this._restoreCursor();
       return;
     }
-    if (this._isMouseDown && this._isAltPressed && this._clonedNodes.length > 0) {
+    if (this._isMouseDown && this._clonedNodes.length > 0) {
       this._handleCloneMove(e);
       // During clone-drag we force our cursor to win over other drag handlers
       this._updateCloneCursor(true);
@@ -418,7 +509,7 @@ export class NodeHotkeysPlugin extends Plugin {
         `${FLOWSCAPE_CLIPBOARD_PREFIX}${JSON.stringify(this._clipboard)}`,
       );
     } catch {
-      // ignore
+      globalThis.console.error('Failed to copy to clipboard');
     }
 
     // Copied successfully
@@ -440,7 +531,7 @@ export class NodeHotkeysPlugin extends Plugin {
         `${FLOWSCAPE_CLIPBOARD_PREFIX}${JSON.stringify(this._clipboard)}`,
       );
     } catch {
-      // ignore
+      globalThis.console.error('Failed to cut to clipboard');
     }
 
     // Delete nodes
@@ -610,7 +701,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Remove non-serializable attributes (image, video objects, etc.)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, image, video, ...serializableAttrs } = attrs;
+    const { id, image, video, visible, ...serializableAttrs } = attrs;
 
     const serialized: ClipboardData['nodes'][0] = {
       type: nodeType,
@@ -661,7 +752,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
     // Remove non-serializable attributes (image, video objects, etc.)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id, image, video, ...serializableAttrs } = attrs;
+    const { id, image, video, visible, ...serializableAttrs } = attrs;
 
     // For group children, save RELATIVE positions (x, y inside group)
     const serialized: ClipboardData['nodes'][0] = {
@@ -1230,8 +1321,7 @@ export class NodeHotkeysPlugin extends Plugin {
       const draggable = typeof kn.draggable === 'function' ? kn.draggable() : false;
       if (typeof kn.stopDrag === 'function') kn.stopDrag();
       if (typeof kn.draggable === 'function') kn.draggable(false);
-      const absPos = kn.absolutePosition();
-      return { node: n, absPos: { x: absPos.x, y: absPos.y }, draggable };
+      return { node: n, draggable };
     });
 
     // While dragging clones, remove selection/transformer from originals
@@ -1258,6 +1348,10 @@ export class NodeHotkeysPlugin extends Plugin {
             origParent.add(cloneKonva);
           }
           cloneKonva.absolutePosition({ x: absBefore.x, y: absBefore.y });
+          const cloneWithVisible = cloneKonva as unknown as Konva.Node & {
+            visible?: (v?: boolean) => unknown;
+          };
+          if (typeof cloneWithVisible.visible === 'function') cloneWithVisible.visible(true);
           clone._originalAbsPos = { x: absBefore.x, y: absBefore.y };
 
           return clone;
@@ -1271,6 +1365,16 @@ export class NodeHotkeysPlugin extends Plugin {
     // During our manual move we temporarily enable draggable on clones so snapping works
     // for all node types (Video/Text/Frame/Svg/etc).
     this._clonePrevDraggable.clear();
+
+    if (!this._isAltPressed && this._cloneOriginals.length > 0) {
+      const originals = this._cloneOriginals.map((o) => o.node);
+      this._deleteNodes(originals);
+    } else {
+      this._cloneOriginals.forEach((o) => {
+        const kn = o.node.getKonvaNode() as unknown as Konva.Node;
+        kn.visible(true);
+      });
+    }
     this._clonedNodes.forEach((n) => {
       const kn = n.getKonvaNode() as unknown as Konva.Node & {
         draggable?: (v?: boolean) => boolean;
@@ -1285,6 +1389,9 @@ export class NodeHotkeysPlugin extends Plugin {
     // Track start position
     const pos = this._core.stage.getPointerPosition();
     if (pos) this._cloneStartPos = pos;
+    this._cloneOriginalsHidden = false;
+
+    this._startCloneAutoPanLoop();
   }
 
   private _handleCloneMove(_e: MouseEvent): void {
@@ -1295,11 +1402,9 @@ export class NodeHotkeysPlugin extends Plugin {
 
     this._detachClonesFromFrame(pos);
 
-    // keep originals fixed even if SelectionPlugin started dragging them
     this._cloneOriginals.forEach((o) => {
       const kn = o.node.getKonvaNode() as unknown as Konva.Node & { stopDrag?: () => void };
       if (typeof kn.stopDrag === 'function') kn.stopDrag();
-      kn.absolutePosition({ x: o.absPos.x, y: o.absPos.y });
     });
 
     const dx = pos.x - this._cloneStartPos.x;
@@ -1307,8 +1412,15 @@ export class NodeHotkeysPlugin extends Plugin {
 
     this._clonedNodes.forEach((node) => {
       const kn = node.getKonvaNode() as unknown as Konva.Node;
-      const originalAbs = node._originalAbsPos ?? kn.absolutePosition();
-      kn.absolutePosition({ x: originalAbs.x + dx, y: originalAbs.y + dy });
+      const currentAbs = kn.absolutePosition() as unknown as Konva.Vector2d;
+      const originalAbs = (node._originalAbsPos ?? { x: currentAbs.x, y: currentAbs.y }) as {
+        x: number;
+        y: number;
+      };
+      kn.absolutePosition({
+        x: originalAbs.x + dx,
+        y: originalAbs.y + dy,
+      });
     });
 
     // Trigger VisualGuidesPlugin (it listens to stage dragmove/dragend)
@@ -1336,6 +1448,7 @@ export class NodeHotkeysPlugin extends Plugin {
 
   private _handleCloneEnd(): void {
     const clones = [...this._clonedNodes];
+    const originals = this._cloneOriginals.map((o) => o.node);
     this._cloneOriginals.forEach((o) => {
       const kn = o.node.getKonvaNode() as unknown as Konva.Node & {
         draggable?: (v?: boolean) => boolean;
@@ -1343,8 +1456,19 @@ export class NodeHotkeysPlugin extends Plugin {
       };
       if (typeof kn.stopDrag === 'function') kn.stopDrag();
       if (typeof kn.draggable === 'function') kn.draggable(o.draggable);
-      kn.absolutePosition({ x: o.absPos.x, y: o.absPos.y });
     });
+
+    if (!this._isAltPressed && originals.length > 0) {
+      this._deleteNodes(originals);
+    } else {
+      this._cloneOriginals.forEach((o) => {
+        const kn = o.node.getKonvaNode() as unknown as Konva.Node & {
+          visible?: (v?: boolean) => unknown;
+        };
+        if (typeof kn.visible === 'function') kn.visible(true);
+      });
+    }
+
     this._cloneOriginals = [];
 
     if (this._selectionPlugin && clones.length > 0) {
@@ -1376,7 +1500,36 @@ export class NodeHotkeysPlugin extends Plugin {
     });
     this._clonePrevDraggable.clear();
 
+    if (this._core && clones.length > 0) {
+      const core = this._core;
+      clones.forEach((node) => {
+        const konvaNode = node.getKonvaNode() as unknown as Konva.Node;
+        const changes: { x?: number; y?: number } = {};
+        if (typeof (konvaNode as unknown as { x?: () => number }).x === 'function') {
+          changes.x = (konvaNode as unknown as { x: () => number }).x();
+        }
+        if (typeof (konvaNode as unknown as { y?: () => number }).y === 'function') {
+          changes.y = (konvaNode as unknown as { y: () => number }).y();
+        }
+        core.eventBus.emit('node:transformed', node, changes);
+      });
+
+      const persistence = core.plugins.get('PersistencePlugin') as
+        | { save?: () => Promise<void> }
+        | undefined;
+      if (persistence && typeof persistence.save === 'function') {
+        try {
+          void persistence.save();
+        } catch {
+          globalThis.console.error('Failed to save clone');
+        }
+      }
+    }
+
     this._cloneStartPos = null;
     this._clonedNodes = [];
+    this._cloneOriginalsHidden = false;
+
+    this._stopCloneAutoPanLoop();
   }
 }
