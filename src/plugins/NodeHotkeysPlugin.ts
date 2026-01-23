@@ -1,13 +1,13 @@
-import Konva from 'konva'
+import Konva from 'konva';
 
-import type { CoreEngine } from '../core/CoreEngine'
-import type { BaseNode } from '../nodes/BaseNode'
-import { FrameNode } from '../nodes/FrameNode'
-import { TextNode } from '../nodes/TextNode'
-import type { NodeHandle } from '../types/public/node-handles'
+import type { CoreEngine } from '../core/CoreEngine';
+import type { BaseNode } from '../nodes/BaseNode';
+import { FrameNode } from '../nodes/FrameNode';
+import { TextNode } from '../nodes/TextNode';
+import type { NodeHandle } from '../types/public/node-handles';
 
-import { Plugin } from './Plugin'
-import { SelectionPlugin } from './SelectionPlugin'
+import { Plugin } from './Plugin';
+import { SelectionPlugin } from './SelectionPlugin';
 
 export interface NodeHotkeysOptions {
   target?: Window | Document | HTMLElement | EventTarget;
@@ -43,6 +43,7 @@ export class NodeHotkeysPlugin extends Plugin {
   private _selectionPlugin?: SelectionPlugin;
   private _isAltPressed = false;
   private _isMouseDown = false;
+  private _isCameraPanning = false;
   private _cloneStartPos: { x: number; y: number } | null = null;
   private _clonedNodes: CloneNode[] = [];
   private _cloneOriginals: CloneOriginalState[] = [];
@@ -197,6 +198,9 @@ export class NodeHotkeysPlugin extends Plugin {
     this._options.target.addEventListener('mousemove', this._onMouseMove as EventListener);
     this._options.target.addEventListener('keydown', this._onKeyDown as EventListener);
     this._options.target.addEventListener('keyup', this._onKeyUp as EventListener);
+
+    core.eventBus.on('camera:panStart', this._onCameraPanStart);
+    core.eventBus.on('camera:panEnd', this._onCameraPanEnd);
   }
 
   protected onDetach(_core: CoreEngine): void {
@@ -208,6 +212,9 @@ export class NodeHotkeysPlugin extends Plugin {
     this._options.target.removeEventListener('keydown', this._onKeyDown as EventListener);
     this._options.target.removeEventListener('keyup', this._onKeyUp as EventListener);
 
+    _core.eventBus.off('camera:panStart', this._onCameraPanStart);
+    _core.eventBus.off('camera:panEnd', this._onCameraPanEnd);
+
     this._stopCloneAutoPanLoop();
 
     this._core = undefined as unknown as CoreEngine;
@@ -218,6 +225,18 @@ export class NodeHotkeysPlugin extends Plugin {
 
     this._restoreCursor();
   }
+
+  private _onCameraPanStart = (_payload: { button: number }) => {
+    this._isCameraPanning = true;
+    // If user started panning, disable Alt clone cursor immediately.
+    this._restoreCursor();
+  };
+
+  private _onCameraPanEnd = () => {
+    this._isCameraPanning = false;
+    // Re-evaluate cursor state after panning.
+    this._updateCloneCursor();
+  };
 
   private _onPaste = (e: ClipboardEvent) => {
     if (!this._core) return;
@@ -278,7 +297,6 @@ export class NodeHotkeysPlugin extends Plugin {
 
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
-    const alt = e.altKey;
 
     // Enter — начать редактирование, если выделена одна текстовая нода
     if (!ctrl && !shift && e.code === 'Enter') {
@@ -358,6 +376,10 @@ export class NodeHotkeysPlugin extends Plugin {
 
     if (e.key === 'Alt') {
       this._isAltPressed = true;
+      if (this._isCameraPanning) {
+        this._restoreCursor();
+        return;
+      }
       if (this._isMouseDown && this._clonedNodes.length > 0 && this._cloneOriginalsHidden) {
         this._cloneOriginals.forEach((o) => {
           const kn = o.node.getKonvaNode() as unknown as Konva.Node;
@@ -372,6 +394,10 @@ export class NodeHotkeysPlugin extends Plugin {
   private _onKeyUp = (e: KeyboardEvent) => {
     if (e.key === 'Alt') {
       this._isAltPressed = false;
+      if (this._isCameraPanning) {
+        this._restoreCursor();
+        return;
+      }
       if (this._isMouseDown && this._clonedNodes.length > 0 && !this._cloneOriginalsHidden) {
         this._cloneOriginals.forEach((o) => {
           const kn = o.node.getKonvaNode() as unknown as Konva.Node;
@@ -387,6 +413,7 @@ export class NodeHotkeysPlugin extends Plugin {
     if (this._options.ignoreEditableTargets && this._isEditableTarget(e.target)) {
       return;
     }
+    if (this._isCameraPanning) return;
     if (e.button === 0 && this._isAltPressed) {
       this._isMouseDown = true;
       this._handleCloneStart(e);
@@ -405,6 +432,12 @@ export class NodeHotkeysPlugin extends Plugin {
       this._restoreCursor();
       return;
     }
+
+    if (this._isCameraPanning) {
+      this._restoreCursor();
+      return;
+    }
+
     if (this._isMouseDown && this._clonedNodes.length > 0) {
       this._handleCloneMove(e);
       // During clone-drag we force our cursor to win over other drag handlers
@@ -417,6 +450,10 @@ export class NodeHotkeysPlugin extends Plugin {
 
   private _updateCloneCursor(force = false): void {
     if (!this._core) return;
+    if (this._isCameraPanning) {
+      this._restoreCursor();
+      return;
+    }
     if (!this._isAltPressed) {
       this._restoreCursor();
       return;

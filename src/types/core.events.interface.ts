@@ -63,8 +63,12 @@ export interface CoreEvents {
   'camera:zoomStep': [{ zoomStep: number }];
   /** Pan step was changed */
   'camera:panStep': [{ panStep: number }];
+  /** Camera pan gesture started (mouse down) */
+  'camera:panStart': [{ button: number }];
   /** Camera was moved (panning) */
   'camera:pan': [{ dx: number; dy: number; position: { x: number; y: number } }];
+  /** Camera pan gesture ended (mouse up / leave) */
+  'camera:panEnd': [];
 
   // === Plugin Events ===
   /** Plugin was added */
