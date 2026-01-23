@@ -47,7 +47,7 @@ export class CoreEngine {
   constructor(options: CoreEngineOptions) {
     this.container = options.container;
     // Hide container initially to prevent flicker
-    this.container.style.visibility = 'hidden';
+    this.container.style.visibility = 'visible';
     this._initialWidth = options.width ?? 800;
     this._initialHeight = options.height ?? 800;
     this._autoResize = options.autoResize ?? true;

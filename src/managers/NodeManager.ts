@@ -11,6 +11,7 @@ import { GroupNode, type GroupNodeOptions } from '../nodes/GroupNode';
 import { ImageNode, type ImageNodeOptions } from '../nodes/ImageNode';
 import { RegularPolygonNode, type RegularPolygonNodeOptions } from '../nodes/RegularPolygonNode';
 import { RingNode, type RingNodeOptions } from '../nodes/RingNode';
+import { ShapeNewNode, type ShapeNewNodeOptions } from '../nodes/ShapeNewNode';
 import { ShapeNode, type ShapeNodeOptions } from '../nodes/ShapeNode';
 import { StarNode, type StarNodeOptions } from '../nodes/StarNode';
 import { SvgNode, type SvgNodeOptions } from '../nodes/SvgNode';
@@ -203,6 +204,13 @@ export class NodeManager {
 
   public get eventBus(): EventBus<CoreEvents> {
     return this._eventBus;
+  }
+
+  public addShapeNewNode(options: ShapeNewNodeOptions): ShapeNewNode {
+    const shape = new ShapeNewNode(options);
+    this._world.add(shape.getKonvaNode());
+    this._scheduleBatchDraw();
+    return shape;
   }
 
   public addShape(options: ShapeNodeOptions): ShapeNodeHandle {

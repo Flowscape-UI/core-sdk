@@ -73,6 +73,9 @@ export class ContentFromClipboardPlugin extends Plugin {
   };
 
   private _dragDropAddon: DragDropFromDataTransferAddon | null = null;
+  private _middlePressed = false;
+  private _onContainerMouseDown: ((e: MouseEvent) => void) | null = null;
+  private _onContainerMouseUp: ((e: MouseEvent) => void) | null = null;
 
   constructor(options: ContentFromClipboardPluginOptions = {}) {
     super();
@@ -94,14 +97,43 @@ export class ContentFromClipboardPlugin extends Plugin {
   protected onAttach(core: CoreEngine): void {
     this._core = core;
     this._options.target.addEventListener('paste', this._onPaste as EventListener);
+
+    // Track middle button state on the canvas container (capture to run before others)
+    const container = this._core.stage.container();
+    this._onContainerMouseDown = (e: MouseEvent) => {
+      if (e.button === 1) this._middlePressed = false;
+    };
+    this._onContainerMouseUp = (e: MouseEvent) => {
+      if (e.button === 1) {
+        this._middlePressed = true;
+      }
+    };
+    container.addEventListener('mousedown', this._onContainerMouseDown, {
+      capture: true as unknown as boolean,
+    } as AddEventListenerOptions);
+    container.addEventListener('mouseup', this._onContainerMouseUp, {
+      capture: true as unknown as boolean,
+    } as AddEventListenerOptions);
   }
 
   protected onDetach(_core: CoreEngine): void {
     this._options.target.removeEventListener('paste', this._onPaste as EventListener);
     this._core = undefined as unknown as CoreEngine;
+    // Cleanup mouse listeners
+    const container = _core.stage.container();
+    if (this._onContainerMouseDown)
+      container.removeEventListener('mousedown', this._onContainerMouseDown);
+    if (this._onContainerMouseUp)
+      container.removeEventListener('mouseup', this._onContainerMouseUp);
+    this._onContainerMouseDown = null;
+    this._onContainerMouseUp = null;
   }
 
   private _onPaste = (e: ClipboardEvent) => {
+    if (this._middlePressed) {
+      e.preventDefault();
+      return;
+    }
     void this._handlePaste(e);
   };
 

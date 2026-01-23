@@ -5,6 +5,7 @@ import type { NodeHandle } from '../types/public/node-handles';
 
 export interface BaseNodeOptions {
   id?: string;
+  parentId?: string | null;
   x?: number;
   y?: number;
   width?: number;

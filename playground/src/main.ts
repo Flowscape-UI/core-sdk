@@ -3,6 +3,7 @@ import {
   CameraHotkeysPlugin,
   ContentFromClipboardPlugin,
   CoreEngine,
+  frameTemplates,
   GridPlugin,
   HistoryPlugin,
   ImageHoverFilterAddon,
@@ -10,25 +11,20 @@ import {
   NodeHotkeysPlugin,
   PersistencePlugin,
   RulerGuidesAddon,
+  RulerGuidesPlugin,
   RulerHighlightAddon,
+  RulerHighlightPlugin,
   RulerManagerAddon,
+  RulerManagerPlugin,
   RulerPlugin,
   SelectionPlugin,
   ShapeHoverHighlightAddon,
   TextAutoTrimAddon,
   VisualGuidesPlugin,
-  frameTemplates,
 } from '@flowscape-ui/core-sdk';
 import TestSvg from './assets/images/cursor-rotation.svg';
 import Image from './assets/images/img.jpg';
 import logoUrl from './assets/images/logo.png';
-
-const logoPlugin = new LogoPlugin({
-  src: logoUrl,
-  width: 330,
-  height: 330,
-  opacity: 0.5,
-});
 
 const hotkeys = new CameraHotkeysPlugin();
 
@@ -54,24 +50,18 @@ const selection = new SelectionPlugin({
 //   },
 // });
 
-// playground/src/main.ts
-const gridPlugin = new GridPlugin({
-  color: '#3d3d3d',
-  enableSnap: true,
-});
-
 const rulerPlugin = new RulerPlugin();
-// const rulerGuidesPlugin = new RulerGuidesPlugin({
-//   snapToGrid: true, // привязка к сетке
-//   gridStep: 1, // шаг 1px для точного позиционирования
-// });
-// const rulerHighlightPlugin = new RulerHighlightPlugin({
-//   highlightColor: '#2b83ff',
-//   highlightOpacity: 0.3,
-// });
-// const rulerManagerPlugin = new RulerManagerPlugin({
-//   enabled: true, // включить управление по Shift+R
-// });
+const rulerGuidesPlugin = new RulerGuidesPlugin({
+  snapToGrid: true, // привязка к сетке
+  gridStep: 1, // шаг 1px для точного позиционирования
+});
+const rulerHighlightPlugin = new RulerHighlightPlugin({
+  highlightColor: '#2b83ff',
+  highlightOpacity: 0.3,
+});
+const rulerManagerPlugin = new RulerManagerPlugin({
+  enabled: true, // включить управление по Shift+R
+});
 
 rulerPlugin.addons.add([
   new RulerGuidesAddon({
@@ -105,6 +95,19 @@ const persistencePlugin = new PersistencePlugin({
   autoRestore: true,
 });
 
+// playground/src/main.ts
+const gridPlugin = new GridPlugin({
+  color: '#3d3d3d',
+  enableSnap: true,
+});
+
+const logoPlugin = new LogoPlugin({
+  src: logoUrl,
+  width: 330,
+  height: 330,
+  opacity: 0.5,
+});
+
 const core = new CoreEngine({
   container: document.querySelector('#app')!,
   plugins: [
@@ -117,9 +120,9 @@ const core = new CoreEngine({
     rulerPlugin,
     visualGuidesPlugin,
     cfc,
-    // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
-    // rulerManagerPlugin, // Управление видимостью по Shift+R
+    //   // rulerGuidesPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    //   // rulerHighlightPlugin, // ВАЖНО: добавляем ПОСЛЕ RulerPlugin
+    //   // rulerManagerPlugin, // Управление видимостью по Shift+R
     historyPlugin, // Undo/Redo: Ctrl+Z / Ctrl+Shift+Z
     persistencePlugin, // Auto-save to IndexedDB
   ],
@@ -197,7 +200,7 @@ const createPersistenceUI = () => {
     }),
   );
 
-  // Status indicator
+  //   // Status indicator
   const status = document.createElement('div');
   status.style.cssText = 'font-size: 10px; color: #888; margin-top: 4px;';
   persistencePlugin.hasSavedState().then((hasSaved) => {
@@ -215,6 +218,23 @@ if (document.readyState === 'loading') {
   createPersistenceUI();
 }
 
+// const shape = core.nodes.addShapeNewNode({
+//   id: 'shape-1',
+//   width: 250,
+//   height: 250,
+//   x: 400,
+//   y: 200,
+//   stroke: 'black',
+//   strokeWidth: 10,
+//   backgroundColor: 'yellow',
+// });
+// shape.setPosition(1700, 200);
+// shape.setRotation(45);
+// shape.setSize(250, 450);
+// // shape.setBorderRadius(20);
+// // console.log(shape.getBorderRadius(), 'shape');
+// console.log(shape, 'shape');
+
 const svgNode = core.nodes.addSvg({
   x: 450,
   y: 500,
@@ -222,6 +242,8 @@ const svgNode = core.nodes.addSvg({
   height: 200,
   src: 'https://konvajs.org/assets/tiger.svg',
 });
+
+console.log(svgNode, 'svgNode');
 
 setTimeout(() => {
   svgNode.setSrc(TestSvg);
