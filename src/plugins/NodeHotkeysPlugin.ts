@@ -415,6 +415,8 @@ export class NodeHotkeysPlugin extends Plugin {
     }
     if (this._isCameraPanning) return;
     if (e.button === 0 && this._isAltPressed) {
+      // Do not start Alt-clone when interacting with corner-radius handles
+      if (this._isOverCornerRadiusHandle()) return;
       this._isMouseDown = true;
       this._handleCloneStart(e);
     }
@@ -484,6 +486,12 @@ export class NodeHotkeysPlugin extends Plugin {
       return;
     }
 
+    // Suppress clone cursor over corner-radius handles (and their group)
+    if (this._isOverCornerRadiusHandle()) {
+      this._restoreCursor();
+      return;
+    }
+
     // Only show clone cursor when hovering over nodes.layer subtree
     const nodesLayer = this._core.nodes.layer as unknown as Konva.Node;
     let p: Konva.Node | null = hit;
@@ -508,6 +516,28 @@ export class NodeHotkeysPlugin extends Plugin {
     }
 
     container.style.cursor = this._getDoubleCursorCss();
+  }
+
+  private _isOverCornerRadiusHandle(): boolean {
+    if (!this._core) return false;
+    const stage = this._core.stage;
+    const pos = stage.getPointerPosition();
+    if (!pos) return false;
+    const hit = stage.getIntersection(pos);
+    if (!hit) return false;
+
+    const getName = (n: Konva.Node | null) =>
+      n && typeof (n as unknown as { name?: () => string }).name === 'function'
+        ? (n as unknown as { name: () => string }).name() || ''
+        : '';
+
+    let p: Konva.Node | null = hit;
+    while (p) {
+      const name = getName(p);
+      if (name.startsWith('corner-radius-') || name === 'corner-radius-handles-group') return true;
+      p = p.getParent();
+    }
+    return false;
   }
 
   private _getDoubleCursorCss(): string {
