@@ -134,8 +134,14 @@ export class ContentFromClipboardPlugin extends Plugin {
       e.preventDefault();
       return;
     }
-    void this._handlePaste(e);
+    void this._onPasteAsync(e);
   };
+
+  private async _onPasteAsync(e: ClipboardEvent): Promise<void> {
+    await this._handlePaste(e);
+    // Reset possible stuck Alt state after paste (observed in Firefox-based browsers)
+    this._resetAltKeyStuck();
+  }
 
   private async _handlePaste(e: ClipboardEvent): Promise<void> {
     if (!this._core) return;
@@ -171,6 +177,25 @@ export class ContentFromClipboardPlugin extends Plugin {
     const worldPos = worldTransform.point(pointer);
 
     await this._handleDataTransfer(dt, { x: worldPos.x, y: worldPos.y }, e);
+
+    // Some browsers/platforms can leave Alt state as if it's pressed after DnD.
+    // Dispatch synthetic Alt keyup to reset hotkey state.
+    this._resetAltKeyStuck();
+  }
+
+  private _resetAltKeyStuck(): void {
+    try {
+      const evt = new KeyboardEvent('keyup', { key: 'Alt', code: 'AltLeft', bubbles: true });
+      // Prefer configured target if it supports dispatchEvent
+      const t = this._options.target as unknown as { dispatchEvent?: (e: Event) => boolean };
+      if (typeof t.dispatchEvent === 'function') {
+        t.dispatchEvent(evt);
+      } else if (typeof globalThis.dispatchEvent === 'function') {
+        globalThis.dispatchEvent(evt);
+      }
+    } catch {
+      // ignore
+    }
   }
 
   private async _handleDataTransfer(

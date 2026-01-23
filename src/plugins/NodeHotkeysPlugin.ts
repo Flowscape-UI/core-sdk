@@ -1,13 +1,13 @@
-import Konva from 'konva';
+import Konva from 'konva'
 
-import type { CoreEngine } from '../core/CoreEngine';
-import type { BaseNode } from '../nodes/BaseNode';
-import { FrameNode } from '../nodes/FrameNode';
-import { TextNode } from '../nodes/TextNode';
-import type { NodeHandle } from '../types/public/node-handles';
+import type { CoreEngine } from '../core/CoreEngine'
+import type { BaseNode } from '../nodes/BaseNode'
+import { FrameNode } from '../nodes/FrameNode'
+import { TextNode } from '../nodes/TextNode'
+import type { NodeHandle } from '../types/public/node-handles'
 
-import { Plugin } from './Plugin';
-import { SelectionPlugin } from './SelectionPlugin';
+import { Plugin } from './Plugin'
+import { SelectionPlugin } from './SelectionPlugin'
 
 export interface NodeHotkeysOptions {
   target?: Window | Document | HTMLElement | EventTarget;
