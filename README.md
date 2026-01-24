@@ -177,16 +177,17 @@ const core = new CoreEngine({
 
 #### Node Operations (NodeHotkeysPlugin)
 
-| Shortcut               | Action                       |
-| ---------------------- | ---------------------------- |
-| `Ctrl+C`               | Copy selected nodes          |
-| `Ctrl+X`               | Cut selected nodes           |
-| `Ctrl+V`               | Paste nodes                  |
-| `Delete` / `Backspace` | Delete selected nodes        |
-| `Ctrl+]`               | Move node forward (z-index)  |
-| `Ctrl+[`               | Move node backward (z-index) |
-| `Ctrl+Shift+]`         | Bring to front               |
-| `Ctrl+Shift+[`         | Send to back                 |
+| Shortcut               | Action                           |
+| ---------------------- | -------------------------------- |
+| `Ctrl+C`               | Copy selected nodes              |
+| `Ctrl+X`               | Cut selected nodes               |
+| `Ctrl+V`               | Paste nodes                      |
+| `Delete` / `Backspace` | Delete selected nodes            |
+| `Alt+Drag (LMB)`       | Clone selected nodes by dragging |
+| `Ctrl+]`               | Move node forward (z-index)      |
+| `Ctrl+[`               | Move node backward (z-index)     |
+| `Ctrl+Shift+]`         | Bring to front                   |
+| `Ctrl+Shift+[`         | Send to back                     |
 
 #### Grouping (SelectionPlugin)
 

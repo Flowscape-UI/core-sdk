@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-01-24
+
+### ✨ New Features
+
+- **Alt+Drag cloning for nodes**
+  - Hold `Alt` and drag with **left mouse button** to clone selected nodes
+  - Cloned nodes follow the cursor while originals stay in place for precise duplication
+  - Works with multi-selection and respects existing selection behavior
+
+### 🐛 Fixes
+
+- Alt key state after paste/drag & drop
+  - Fixed cases where browsers (especially Firefox-based) could leave `Alt` stuck as pressed
+  - Ensures Alt-based hotkeys and cloning mode reliably reset after paste and drag & drop operations
+- Middle mouse paste vs. canvas interactions
+  - Resolved conflicts between middle-click paste from clipboard and canvas interactions
+  - Prevents accidental content insertion while using middle mouse for navigation/interaction
+- Camera panning and cursor behavior
+  - Stabilized middle/right mouse panning to work even when other Konva handlers stop events
+  - Kept grab cursor consistent during panning via DOM-level listeners
+
+### 🛠 Improvements
+
+- Alt-clone UX
+  - Auto-pan canvas near viewport edges while Alt-cloning, keeping cloned nodes in view on large canvases
+  - Improved clone drag behavior with selection and visual guides
+  - Better interaction with frame nodes and nested structures
+
 ## [1.0.7] - 2026-01-18
 
 ### ✨ New Features
@@ -229,7 +257,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔧 Optimized Konva layer handling (reduced layer count)
 - 🔧 Improved keyboard event handling in production
 
-[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.7...HEAD
+[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.8...HEAD
+[1.0.8]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.6...v1.0.7
 [1.0.3]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.1...v1.0.3
 [1.0.1]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.0...v1.0.1
