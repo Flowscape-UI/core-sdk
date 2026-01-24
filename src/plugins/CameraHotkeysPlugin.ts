@@ -26,6 +26,23 @@ export class CameraHotkeysPlugin extends Plugin {
   private _prevCursor: string | null = null;
   private _prevStageDraggable?: boolean;
 
+  private _onMouseDownDOM: ((e: MouseEvent) => void) | null = null;
+  private _onMouseMoveDOM: ((e: MouseEvent) => void) | null = null;
+  private _onMouseUpDOM: ((e: MouseEvent) => void) | null = null;
+  private _onMouseLeaveDOM: ((e: MouseEvent) => void) | null = null;
+
+  private _panningCursorRafId: number | null = null;
+
+  private _onCameraPanEvent = (_payload: {
+    dx: number;
+    dy: number;
+    position: { x: number; y: number };
+  }) => {
+    if (!this._core) return;
+    if (!this._panning) return;
+    this._applyPanningCursor();
+  };
+
   constructor(options: CameraHotkeysOptions = {}) {
     super();
     const {
@@ -107,16 +124,91 @@ export class CameraHotkeysPlugin extends Plugin {
     };
     t.addEventListener('keydown', this._handleKeyDown as EventListener);
 
-    // Konva mouse events with namespace .cameraHotkeys
+    // Panning
     if (this._options.enablePanning) {
-      stage.on('mousedown.cameraHotkeys', this._onMouseDownKonva);
-      stage.on('mousemove.cameraHotkeys', this._onMouseMoveKonva);
-      stage.on('mouseup.cameraHotkeys', this._onMouseUpKonva);
-      stage.on('mouseleave.cameraHotkeys', this._onMouseLeaveKonva);
+      const container = stage.container();
+
+      // Use DOM capture listeners so panning starts reliably even when events are stopped by other Konva handlers.
+      this._onMouseDownDOM = (e: MouseEvent) => {
+        if (!this._core || !this._options.enablePanning) return;
+        const btn = e.button;
+        const allow =
+          (this._options.allowMiddleButtonPan && btn === 1) ||
+          (this._options.allowRightButtonPan && btn === 2);
+        if (!allow) return;
+
+        this._panning = true;
+
+        // Make Konva pointer position consistent with the DOM event.
+        this._core.stage.setPointersPositions(e);
+        const p = this._core.stage.getPointerPosition();
+        if (p) this._last = { x: p.x, y: p.y };
+
+        this._applyPanningCursor();
+        this._startPanningCursorLoop();
+        this._core.eventBus.emit('camera:panStart', { button: btn });
+
+        e.preventDefault();
+      };
+
+      this._onMouseMoveDOM = (e: MouseEvent) => {
+        if (!this._core || !this._options.enablePanning) return;
+        if (!this._panning || !this._last) return;
+
+        this._applyPanningCursor();
+
+        this._core.stage.setPointersPositions(e);
+        const p = this._core.stage.getPointerPosition();
+        if (!p) return;
+
+        const dx = p.x - this._last.x;
+        const dy = p.y - this._last.y;
+        this._pan(dx, dy);
+        this._last = { x: p.x, y: p.y };
+
+        e.preventDefault();
+      };
+
+      this._onMouseUpDOM = (_e: MouseEvent) => {
+        if (!this._options.enablePanning) return;
+        if (!this._panning) return;
+        this._panning = false;
+        this._last = null;
+        this._stopPanningCursorLoop();
+        this._restoreCursor();
+        if (this._core) this._core.eventBus.emit('camera:panEnd');
+      };
+
+      this._onMouseLeaveDOM = (_e: MouseEvent) => {
+        if (!this._options.enablePanning) return;
+        if (!this._panning) return;
+        this._panning = false;
+        this._last = null;
+        this._stopPanningCursorLoop();
+        this._restoreCursor();
+        if (this._core) this._core.eventBus.emit('camera:panEnd');
+      };
+
+      container.addEventListener('mousedown', this._onMouseDownDOM, {
+        capture: true,
+      } as AddEventListenerOptions);
+      container.addEventListener('mousemove', this._onMouseMoveDOM, {
+        capture: true,
+      } as AddEventListenerOptions);
+      container.addEventListener('mouseup', this._onMouseUpDOM, {
+        capture: true,
+      } as AddEventListenerOptions);
+      container.addEventListener('mouseleave', this._onMouseLeaveDOM, {
+        capture: true,
+      } as AddEventListenerOptions);
+
       if (this._options.disableContextMenu) {
         // Prevent context menu on container
-        stage.container().addEventListener('contextmenu', this._onContextMenuDOM as EventListener);
+        container.addEventListener('contextmenu', this._onContextMenuDOM as EventListener);
       }
+
+      // Keep grab cursor during panning even if other plugins temporarily override it.
+      this._core.eventBus.on('camera:pan', this._onCameraPanEvent);
     }
 
     // Wheel: intercept on DOM level to prevent zooming when Shift is pressed
@@ -143,6 +235,8 @@ export class CameraHotkeysPlugin extends Plugin {
   protected onDetach(core: CoreEngine): void {
     if (!this._attached) return;
 
+    this._stopPanningCursorLoop();
+
     const t = this._options.target as EventTarget & {
       removeEventListener: (
         type: string,
@@ -153,12 +247,23 @@ export class CameraHotkeysPlugin extends Plugin {
     t.removeEventListener('keydown', this._handleKeyDown as EventListener);
 
     const stage = core.stage;
-    stage.off('.cameraHotkeys');
     stage.off('.cameraHotkeysGuard');
     // Remove DOM wheel/ctxmenu listeners
     stage.container().removeEventListener('wheel', this._onWheelDOM as EventListener);
     if (this._options.enablePanning) {
-      stage.container().removeEventListener('contextmenu', this._onContextMenuDOM as EventListener);
+      const container = stage.container();
+      container.removeEventListener('contextmenu', this._onContextMenuDOM as EventListener);
+
+      if (this._onMouseDownDOM) container.removeEventListener('mousedown', this._onMouseDownDOM);
+      if (this._onMouseMoveDOM) container.removeEventListener('mousemove', this._onMouseMoveDOM);
+      if (this._onMouseUpDOM) container.removeEventListener('mouseup', this._onMouseUpDOM);
+      if (this._onMouseLeaveDOM) container.removeEventListener('mouseleave', this._onMouseLeaveDOM);
+      this._onMouseDownDOM = null;
+      this._onMouseMoveDOM = null;
+      this._onMouseUpDOM = null;
+      this._onMouseLeaveDOM = null;
+
+      core.eventBus.off('camera:pan', this._onCameraPanEvent);
     }
 
     // Restore previous draggable state
@@ -215,42 +320,31 @@ export class CameraHotkeysPlugin extends Plugin {
     }
   };
 
-  // ===================== Handlers (Konva) =====================
-  private _onMouseDownKonva = (e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!this._core || !this._options.enablePanning) return;
-    const btn = e.evt.button;
-    // Allow panning only for middle (1) and right (2) buttons. Left button is ignored.
-    const allow =
-      (this._options.allowMiddleButtonPan && btn === 1) ||
-      (this._options.allowRightButtonPan && btn === 2);
-    if (!allow) return;
-
-    this._panning = true;
-    const p = this._core.stage.getPointerPosition();
-    if (p) this._last = { x: p.x, y: p.y };
-
+  private _applyPanningCursor(): void {
+    if (!this._core) return;
     const container = this._core.stage.container();
-    this._prevCursor = container.style.cursor || null;
+    this._prevCursor ??= container.style.cursor || null;
     container.style.cursor = 'grabbing';
+  }
 
-    e.evt.preventDefault();
-  };
+  private _startPanningCursorLoop(): void {
+    if (this._panningCursorRafId != null) return;
+    const tick = () => {
+      this._panningCursorRafId = null;
+      if (!this._panning || !this._core) return;
+      this._applyPanningCursor();
+      this._panningCursorRafId = globalThis.requestAnimationFrame(tick);
+    };
+    this._panningCursorRafId = globalThis.requestAnimationFrame(tick);
+  }
 
-  private _onMouseMoveKonva = (_e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!this._core || !this._options.enablePanning) return;
-    if (!this._panning || !this._last) return;
-    const p = this._core.stage.getPointerPosition();
-    if (!p) return;
-    const dx = p.x - this._last.x;
-    const dy = p.y - this._last.y;
-    this._pan(dx, dy);
-    this._last = { x: p.x, y: p.y };
-  };
+  private _stopPanningCursorLoop(): void {
+    if (this._panningCursorRafId == null) return;
+    globalThis.cancelAnimationFrame(this._panningCursorRafId);
+    this._panningCursorRafId = null;
+  }
 
-  private _onMouseUpKonva = (_e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!this._options.enablePanning) return;
-    this._panning = false;
-    this._last = null;
+  private _restoreCursor(): void {
     if (!this._core) return;
     const container = this._core.stage.container();
     if (this._prevCursor !== null) {
@@ -259,21 +353,7 @@ export class CameraHotkeysPlugin extends Plugin {
     } else {
       container.style.removeProperty('cursor');
     }
-  };
-
-  private _onMouseLeaveKonva = (_e: Konva.KonvaEventObject<MouseEvent>) => {
-    if (!this._options.enablePanning) return;
-    this._panning = false;
-    this._last = null;
-    if (!this._core) return;
-    const container = this._core.stage.container();
-    if (this._prevCursor !== null) {
-      container.style.cursor = this._prevCursor;
-      this._prevCursor = null;
-    } else {
-      container.style.removeProperty('cursor');
-    }
-  };
+  }
 
   private _onContextMenuDOM = (e: MouseEvent) => {
     if (this._options.disableContextMenu) e.preventDefault();
