@@ -26,8 +26,6 @@ export { GridPlugin } from './plugins/GridPlugin';
 export type { GridPluginOptions } from './plugins/GridPlugin';
 export { HistoryPlugin } from './plugins/HistoryPlugin';
 export type { HistoryPluginOptions } from './plugins/HistoryPlugin';
-export { LogoPlugin } from './plugins/LogoPlugin';
-export type { LogoOptions } from './plugins/LogoPlugin';
 export { NodeHotkeysPlugin } from './plugins/NodeHotkeysPlugin';
 export type { NodeHotkeysOptions } from './plugins/NodeHotkeysPlugin';
 export { PersistencePlugin } from './plugins/PersistencePlugin';

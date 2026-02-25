@@ -7,7 +7,6 @@ import {
   GridPlugin,
   HistoryPlugin,
   ImageHoverFilterAddon,
-  LogoPlugin,
   NodeHotkeysPlugin,
   PersistencePlugin,
   RulerGuidesAddon,
@@ -81,13 +80,6 @@ const persistencePlugin = new PersistencePlugin({
 const gridPlugin = new GridPlugin({
   color: '#3d3d3d',
   enableSnap: true,
-});
-
-const logoPlugin = new LogoPlugin({
-  src: logoUrl,
-  width: 330,
-  height: 330,
-  opacity: 0.5,
 });
 
 const scene = new Scene({
