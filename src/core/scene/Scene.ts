@@ -1,5 +1,10 @@
 import Konva from 'konva';
 import { LayerBackground } from './layers/LayerBackground';
+import { LayerWorld } from './layers/LayerWorld';
+import { LayerWorldInputController } from './layers/LayerWorldInputController';
+import { LayerOverlay } from './layers/LayerOverlay';
+import { RulerUILayer } from './layers/LayerRuller';
+import { LayerUIRoot } from './layers/LayerUI';
 
 export type SceneOptions = {
     container?: HTMLDivElement;
@@ -23,7 +28,13 @@ export class Scene {
     private readonly stage: Konva.Stage;
 
     private readonly backgroundLayer: LayerBackground;
-    private readonly worldLayer: Konva.Layer;
+    private readonly worldLayer: LayerWorld;
+    private readonly overlayLayer: LayerOverlay;
+    private readonly uiRoot: LayerUIRoot;
+    private readonly rulers: RulerUILayer;
+
+    // Inputs
+    private readonly _worldInputController: LayerWorldInputController;
 
     private _autoResize: boolean = false;
 
@@ -33,6 +44,7 @@ export class Scene {
         const opts = { ...DEFAULTS, ...options };
 
         this.container = options.container ?? Scene.createDefaultContainer(opts.width, opts.height);
+        this.container.style.position ||= "relative";
 
         this.stage = new Konva.Stage({
             container: this.container,
@@ -46,18 +58,42 @@ export class Scene {
         this.backgroundLayer.setBackground(opts.background);
 
         // 1) World (твои ноды)
-        this.worldLayer = new Konva.Layer({ listening: opts.listening });
-        this.stage.add(this.worldLayer);
+        this.worldLayer = new LayerWorld(this.stage, opts.width, opts.height, {listening: opts.listening});
+        
+        // 2) Overlay layer
+        this.overlayLayer = new LayerOverlay(this.stage, this.worldLayer, opts.width, opts.height, {listening: opts.listening})
+
+        // 3) UI LAYER
+        this.uiRoot = new LayerUIRoot(this.container, 10);
+        this.rulers = new RulerUILayer(this.uiRoot, this.worldLayer /* твой LayerWorld */, {
+            thickness: 22,
+        });
+
 
         if (opts.autoResize) {
             this.enableAutoResize();
             this._autoResize = true;
         }
+
+
+        // Inputs
+        this._worldInputController = new LayerWorldInputController(this.stage, this.worldLayer, {
+            panMode: "spaceLeft", // или "middle"
+            zoomFactor: 1.08,
+        });
+
+        this.container.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+        }, { passive: false });
     }
 
     /** слой для твоих нод */
-    public getLayer(): Konva.Layer {
+    public getWorld(): LayerWorld {
         return this.worldLayer;
+    }
+
+    public getOverlay(): LayerOverlay {
+        return this.overlayLayer;
     }
 
     /** поменять фон: цвет или css-градиент ("linear-gradient(...)"). '' -> прозрачный */
@@ -78,6 +114,8 @@ export class Scene {
     public setSize(width: number, height: number) {
         this.stage.size({ width, height });
         this.backgroundLayer.setSize(width, height);
+        this.worldLayer.setSize(width, height);
+        this.overlayLayer.setSize(width, height);
     }
 
     public resize() {
@@ -123,8 +161,15 @@ export class Scene {
 
     public destroy() {
         this.disableAutoResize();
+        this._worldInputController.destroy();
+
         this.backgroundLayer.destroy();
+        this.worldLayer.destroy();
         this.stage.destroy();
+        this.overlayLayer.destroy();
+
+        this.rulers.destroy();
+    this.uiRoot.destroy();
     }
 
     private static createDefaultContainer(width: number, height: number): HTMLDivElement {
