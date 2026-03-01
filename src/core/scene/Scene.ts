@@ -61,7 +61,7 @@ export class Scene {
         this.worldLayer = new LayerWorld(this.stage, opts.width, opts.height, {listening: opts.listening});
         
         // 2) Overlay layer
-        this.overlayLayer = new LayerOverlay(this.stage, this.worldLayer, opts.width, opts.height, {listening: opts.listening})
+        this.overlayLayer = new LayerOverlay(this.stage, this.worldLayer, opts.width, opts.height, {listening: true})
 
         // 3) UI LAYER
         this.uiRoot = new LayerUIRoot(this.container, 10);

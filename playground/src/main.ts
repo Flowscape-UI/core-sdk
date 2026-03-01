@@ -3,23 +3,37 @@ import Konva from 'konva';
 
 
 import { Scene } from '../../src/core/scene/Scene';
-import { getNodeWorldCorners } from '../../src/core/scene/layers/LayerOverlay';
+import { getNodeWorldCorners } from '../../src/core/scene/layers/overlay';
+
 
 const scene = new Scene({
   container: document.querySelector('#app')!,
+  // width: 200,
+  // height: 200,
+  // autoResize: false
 });
 
 const world = scene.getWorld();
 world.gridView.setOptions({
   size: 1
 })
+
 const overlay = scene.getOverlay();
+
+
+const rect = new Konva.Rect({ x: 0, y: 0, width: 100, height: 80, fill: "red" });
+const rect2 = new Konva.Rect({ x: 50, y: -20, width: 100, height: 80, fill: "yellow" });
+
+const cornersW = getNodeWorldCorners(rect, world.getWorldRoot());
+overlay.setSelectionCornersWorld(cornersW);
+
+
+
+
 world.camera.update({
   rotation: 0
 });
 
-const rect = new Konva.Rect({ x: 0, y: 0, width: 100, height: 80, fill: "red" });
-const rect2 = new Konva.Rect({ x: 200, y: 0, width: 100, height: 80, fill: "red" });
 
 // 1) pivot в центре локального rect
 rect.offsetX(rect.width() / 2);
@@ -33,24 +47,24 @@ world.add(rect);
 world.add(rect2);
 
 // selection helper
-const updateSelection = () => {
-  overlay.setSelectionCornersWorld(getNodeWorldCorners(rect, world.getWorldRoot()));
-  overlay.setSelectionCornersWorld(getNodeWorldCorners(rect2, world.getWorldRoot()));
-};
+// const updateSelection = () => {
+//   overlay.setSelectionCornersWorld(getNodeWorldCorners(rect, world.getWorldRoot()));
+//   overlay.setSelectionCornersWorld(getNodeWorldCorners(rect2, world.getWorldRoot()));
+// };
 
-updateSelection();
+// updateSelection();
 
 // 3) фиксируем стартовый угол НА СТАРТЕ drag
-let startRotation = 0;
+// let startRotation = 0;
 
-overlay.onRotateStart(() => {
-  startRotation = rect.rotation(); // degrees
-});
+// overlay.onRotateStart(() => {
+//   startRotation = rect.rotation(); // degrees
+// });
 
-overlay.onRotate(({ deltaRadians }) => {
-  rect.rotation(startRotation + (deltaRadians * 180) / Math.PI);
-  updateSelection();
-});
+// overlay.onRotate(({ deltaRadians }) => {
+//   rect.rotation(startRotation + (deltaRadians * 180) / Math.PI);
+//   updateSelection();
+// });
 // scene.setBackground('white');
 // scene.setBackground('rgba(255, 0, 0, 0.5)');
 
