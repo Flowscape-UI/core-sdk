@@ -13,6 +13,9 @@ import {
     HandlePivot,
     HandleResizeBorderSide
 } from "./overlay/modules/handles";
+import { Layer } from "./Layer";
+import { RenderOrder, type IRenderable } from "../../interfaces/IRenderable";
+import type { IInvalidatable } from "../../interfaces";
 
 export const DEFAULT_OVERLAY_OPTIONS: Required<OverlayOptions> = {
     listening: true,
@@ -28,28 +31,21 @@ export const DEFAULT_OVERLAY_OPTIONS: Required<OverlayOptions> = {
     rotateHandleOffset: 10, // не слишком далеко
 };
 
-export class LayerOverlay {
-    private readonly _stage: Konva.Stage;
+export class LayerOverlay extends Layer implements IRenderable {
     private readonly _world: LayerWorld;
-
-    private readonly _layer: Konva.Layer;
     private readonly _root: Konva.Group;
 
-    private _width: number;
-    private _height: number;
-
-    private _rafPending = false;
+    private _selectionCornersWorld: WorldCorners | null = null;
 
     private _unsubscribeCamera: (() => void) | null = null;
 
-    private _selectionCornersWorld: WorldCorners | null = null;
 
     // options as normalized
     private _opts: Required<OverlayOptions>;
 
     // modules
     private readonly _modules: IOverlayModule[] = [];
-    
+
 
     private readonly _drag: DragSession;
 
@@ -61,13 +57,32 @@ export class LayerOverlay {
     public readonly handleBorderRadiusManager: HandleManager;
     public readonly handlePivotManager: HandleManager;
 
-    constructor(stage: Konva.Stage, world: LayerWorld, width: number, height: number, opts: OverlayOptions = {}) {
-        this._stage = stage;
+    constructor(
+        width: number,
+        height: number,
+        stage: Konva.Stage,
+        world: LayerWorld,
+        invalidator: IInvalidatable,
+        options: OverlayOptions = {}
+    ) {
+        const opts = {
+            ...DEFAULT_OVERLAY_OPTIONS,
+            ...options,
+        };
+        super(
+            width,
+            height,
+            RenderOrder.Overlay,
+            stage,
+            invalidator,
+            {
+                listening: opts.listening,
+                perfectDrawEnabled: false,
+            }
+        );
         this._world = world;
-        this._width = width;
-        this._height = height;
 
-        this._opts = { ...DEFAULT_OVERLAY_OPTIONS, ...opts };
+        this._opts = opts;
         this._root = new Konva.Group({ listening: this._opts.listening });
 
         // Handle Managers
@@ -80,11 +95,6 @@ export class LayerOverlay {
 
 
         // ========== Selection box ==========
-        this._layer = new Konva.Layer({
-            listening: this._opts.listening,
-            perfectDrawEnabled: false,
-        });
-
         this._layer.add(this._root);
         this._stage.add(this._layer);
 
@@ -93,47 +103,39 @@ export class LayerOverlay {
         // camera subscription - just schedule draw
         this._unsubscribeCamera = this._world.onCameraChange(() => this.requestDraw());
 
-
         this._initHandles();
         this.requestDraw();
     }
 
-    public destroy() {
+
+    public render(): void {
+        const { width, height } = this.getSize();
+
+        const ctx: OverlayContext = {
+            stage: this._stage,
+            world: this._world,
+            width,
+            height,
+            selectionCornersWorld: this._selectionCornersWorld,
+            drag: this._drag,
+        };
+
+        // один проход, без двойного for
+        for (const m of this._modules) {
+            m.setContext(ctx);
+            m.draw();
+        }
+    }
+
+    public override destroy() {
         this._drag.destroy();
         this._unsubscribeCamera?.();
         this._unsubscribeCamera = null;
 
-        for (const m of this._modules) m.destroy();
-        this._layer.destroy();
-    }
-
-    public setSize(width: number, height: number) {
-        this._width = width;
-        this._height = height;
-        this.requestDraw();
-    }
-
-    public requestDraw() {
-        if (this._rafPending) return;
-        this._rafPending = true;
-
-        requestAnimationFrame(() => {
-            this._rafPending = false;
-
-            const ctx: OverlayContext = {
-                stage: this._stage,
-                world: this._world,
-                width: this._width,
-                height: this._height,
-                selectionCornersWorld: this._selectionCornersWorld,
-                drag: this._drag,
-            };
-
-            for (const m of this._modules) m.setContext(ctx);
-            for (const m of this._modules) m.draw();
-
-            this._layer.batchDraw();
-        });
+        for (const m of this._modules) {
+            m.destroy();
+        }
+        super.destroy();
     }
 
     public getLayer(): Konva.Layer {
@@ -169,19 +171,19 @@ export class LayerOverlay {
     private _initHandleBorderRadius() {
         const borderRadiusTL = new HandleBorderRadius("border-radius-top-left-0", {
             position: OffsetAnchor.TopLeft,
-            offset: {x: 10, y: 10},
+            offset: { x: 10, y: 10 },
         });
         const borderRadiusTR = new HandleBorderRadius("border-radius-top-right-0", {
             position: OffsetAnchor.TopRight,
-            offset: {x: -10, y: 10},
+            offset: { x: -10, y: 10 },
         });
         const borderRadiusBL = new HandleBorderRadius("border-radius-bottom-left-0", {
             position: OffsetAnchor.BottomLeft,
-            offset: {x: 10, y: -10},
+            offset: { x: 10, y: -10 },
         });
         const borderRadiusBR = new HandleBorderRadius("border-radius-bottom-right-0", {
             position: OffsetAnchor.BottomRight,
-            offset: {x: -10, y: -10},
+            offset: { x: -10, y: -10 },
         });
 
         this.handleBorderRadiusManager.add([
@@ -260,19 +262,19 @@ export class LayerOverlay {
     private _initHandleRotation() {
         const rotateTL = new HandleRotate("rotate-top-left-0", {
             position: OffsetAnchor.TopLeft,
-            offset: {x: -6, y: -6 },
+            offset: { x: -6, y: -6 },
         });
         const rotateTR = new HandleRotate("rotate-top-right-0", {
             position: OffsetAnchor.TopRight,
-            offset: {x: 6, y: -6 },
+            offset: { x: 6, y: -6 },
         });
         const rotateBL = new HandleRotate("rotate-bottom-left-0", {
             position: OffsetAnchor.BottomLeft,
-            offset: {x: -6, y: 6 },
+            offset: { x: -6, y: 6 },
         });
         const rotateBR = new HandleRotate("rotate-bottom-right-0", {
             position: OffsetAnchor.BottomRight,
-            offset: {x: 6, y: 6 },
+            offset: { x: 6, y: 6 },
         });
 
         this.handleRotationManager.add([rotateTL, rotateTR, rotateBR, rotateBL]);

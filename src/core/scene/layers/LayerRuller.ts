@@ -1,6 +1,7 @@
 import type { LayerWorld } from "./LayerWorld";
-import type { LayerUIRoot } from "./LayerUI";
 import Konva from "konva";
+import type { LayerDOM } from "./LayerDOM";
+import { RenderOrder, type IInvalidatable } from "../../interfaces";
 
 export type RulerOptions = {
     enabled?: boolean;
@@ -35,6 +36,7 @@ const DEFAULTS: Required<RulerOptions> = {
 };
 
 export class RulerUILayer {
+    public readonly order: RenderOrder = RenderOrder.UI;
     private readonly _world: LayerWorld;
     private readonly _portal: HTMLDivElement;
     private readonly _opts: Required<RulerOptions>;
@@ -46,10 +48,14 @@ export class RulerUILayer {
     private readonly _topCanvas: HTMLCanvasElement;
     private readonly _leftCanvas: HTMLCanvasElement;
 
+    private readonly _invalidator: IInvalidatable;
+
+
+
     // ---- Guides ----
     private _guidesLayer: Konva.Layer | null = null;
     private _activeGuide:
-        | { axis: "x" | "y"; line: Konva.Line; pointerId: number; ownerEl: HTMLElement }
+        | { axis: "x" | "y"; line: Konva.Line; pointerId: number; ownerEl: HTMLElement, snapStepWorld: number }
         | null = null;
 
     private _guides: { axis: "x" | "y"; worldValue: number; line: Konva.Line }[] = [];
@@ -64,15 +70,24 @@ export class RulerUILayer {
     private _unsubCam: (() => void) | null = null;
     private _raf = 0;
 
-    constructor(ui: LayerUIRoot, world: LayerWorld, opts: RulerOptions = {}) {
+    constructor(
+        ui: LayerDOM,
+        world: LayerWorld,
+        invalidator: IInvalidatable,
+        opts: RulerOptions = {}
+    ) {
         this._world = world;
+        this._invalidator = invalidator;
         this._opts = { ...DEFAULTS, ...opts };
 
         this._portal = ui.createPortal("flowscape-ui-rulers");
 
         // portal above
         this._portal.style.position = "absolute";
-        this._portal.style.inset = "0";
+        this._portal.style.left = "0";
+        this._portal.style.top = "0";
+        this._portal.style.width = "100%";
+        this._portal.style.height = "100%";
         this._portal.style.pointerEvents = "none";
         this._portal.style.zIndex = String(this._opts.zIndex);
 
@@ -143,12 +158,8 @@ export class RulerUILayer {
 
         // camera updates
         this._unsubCam = this._world.onCameraChange(() => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    this._syncGuides();
-                    this.requestDraw();
-                });
-            });
+            this._syncGuides();
+            this.requestDraw();
         });
 
         window.addEventListener("resize", this._onResize, { passive: true });
@@ -174,15 +185,47 @@ export class RulerUILayer {
         this._portal.remove();
     }
 
-    private _onResize = () => this.requestDraw();
+    private _onResize = () => {
+        // 1) committed
+        this._syncGuides();
+
+        // 2) active preview (если есть)
+        const g = this._activeGuide;
+        if (g) {
+            // пересчитать по текущему pointer (если есть позиция)
+            const p = (this._world as any)?._stage?.getPointerPosition?.();
+            if (p) {
+                // используем ту же логику что в _onPointerMove, но без event
+                const world = this._screenToWorld(p.x, p.y);
+                let value = g.axis === "x" ? world.x : world.y;
+                value = this._snap(value, g.snapStepWorld);
+
+                const cam = this._world.camera.getState();
+                const { viewW, viewH } = this._getViewportSizeSafe();
+
+                if (g.axis === "x") {
+                    const screenX = (value - cam.x) * cam.scale + viewW / 2;
+                    g.line.points([screenX, 0, screenX, viewH]);
+                } else {
+                    const screenY = (value - cam.y) * cam.scale + viewH / 2;
+                    g.line.points([0, screenY, viewW, screenY]);
+                }
+
+                this._guidesLayer?.batchDraw();
+            }
+        }
+
+        this.requestDraw();
+    };
 
     public requestDraw() {
-        if (this._raf) return;
-        this._raf = requestAnimationFrame(() => {
-            this._raf = 0;
-            this._draw();
-        });
+        this._invalidator.invalidate(this);
     }
+
+    public render() {
+        this._draw(); // твоя старая логика (canvas 2d)
+    }
+
 
     private _draw() {
         if (!this._opts.enabled) return;
@@ -221,6 +264,10 @@ export class RulerUILayer {
     // ------------------------------------------------------------
     // Helpers (steps)
     // ------------------------------------------------------------
+    private _snap(value: number, step: number): number {
+        if (!isFinite(value) || !isFinite(step) || step <= 0) return value;
+        return Math.round(value / step) * step;
+    }
 
     private _zoomOut01(scale: number) {
         const s = Math.max(scale, 1e-9);
@@ -456,7 +503,8 @@ export class RulerUILayer {
         const line = this._createGuide(axis, screenValue);
         if (!line) return;
 
-        this._activeGuide = { axis, line, pointerId, ownerEl };
+        const snapStepWorld = this._getWorldSnapStep();
+        this._activeGuide = { axis, line, pointerId, ownerEl, snapStepWorld };
 
         ownerEl.setPointerCapture(pointerId);
 
@@ -521,7 +569,8 @@ export class RulerUILayer {
 
         const { sx, sy } = this._clientToStageScreen(e.clientX, e.clientY);
         const world = this._screenToWorld(sx, sy);
-        const finalValue = g.axis === "x" ? world.x : world.y;
+        let finalValue = g.axis === "x" ? world.x : world.y;
+        if (!e.shiftKey) finalValue = this._snap(finalValue, g.snapStepWorld);
 
         const committed = {
             axis: g.axis,
@@ -544,18 +593,18 @@ export class RulerUILayer {
         });
 
         g.line.on("mouseenter", () => {
-    document.body.style.cursor = committed.axis === "x" ? "ew-resize" : "ns-resize";
+            document.body.style.cursor = committed.axis === "x" ? "ew-resize" : "ns-resize";
 
-    g.line.stroke("rgba(0,160,255,1)"); // ярче
-    this._guidesLayer?.batchDraw();
-});
+            g.line.stroke("rgba(0,160,255,1)"); // ярче
+            this._guidesLayer?.batchDraw();
+        });
 
-g.line.on("mouseleave", () => {
-    document.body.style.cursor = "default";
+        g.line.on("mouseleave", () => {
+            document.body.style.cursor = "default";
 
-    g.line.stroke("rgba(0,160,255,0.9)"); // обратно
-    this._guidesLayer?.batchDraw();
-});
+            g.line.stroke("rgba(0,160,255,0.9)"); // обратно
+            this._guidesLayer?.batchDraw();
+        });
 
         const cancelZonePx = this._opts.thickness + 2;
 
@@ -585,7 +634,9 @@ g.line.on("mouseleave", () => {
             const { sx, sy } = this._clientToStageScreen(e.clientX, e.clientY);
             const world = this._screenToWorld(sx, sy);
 
-            const value = axis === "x" ? world.x : world.y;
+            const step = this._getWorldSnapStep();
+            let value = axis === "x" ? world.x : world.y;
+            value = this._snap(value, step);
 
             // обновляем сохранённый worldValue
             const guide = this._guides.find(g => g.line === line);
@@ -613,18 +664,37 @@ g.line.on("mouseleave", () => {
         e.preventDefault();
 
         const { sx, sy } = this._clientToStageScreen(e.clientX, e.clientY);
+        const world = this._screenToWorld(sx, sy);
+
+        let value = g.axis === "x" ? world.x : world.y;
+
+        if (!e.shiftKey) {
+            value = this._snap(value, g.snapStepWorld);
+        }
+
+        const cam = this._world.camera.getState();
+        const { viewW, viewH } = this._getViewportSizeSafe();
 
         if (g.axis === "x") {
-            this._updateGuideLine(g.line, "x", sx);
+            const screenX = (value - cam.x) * cam.scale + viewW / 2;
+            g.line.points([screenX, 0, screenX, viewH]);
         } else {
-            this._updateGuideLine(g.line, "y", sy);
+            const screenY = (value - cam.y) * cam.scale + viewH / 2;
+            g.line.points([0, screenY, viewW, screenY]);
         }
+
+        this._guidesLayer?.batchDraw();
     }
 
 
     // ------------------------------------------------------------
     // Drawing (fade near corner)
     // ------------------------------------------------------------
+    private _getWorldSnapStep(): number {
+        // минимальный шаг мира (ячейка сетки)
+        const { minor } = this._world.gridView.getGridStepWorld();
+        return Math.max(1e-9, minor); // защита от 0
+    }
 
     private _edgeFadeAlpha(distPx: number, fadeWidthPx: number) {
         if (fadeWidthPx <= 0) return 1;

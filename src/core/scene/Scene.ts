@@ -4,7 +4,9 @@ import { LayerWorld } from './layers/LayerWorld';
 import { LayerWorldInputController } from './layers/LayerWorldInputController';
 import { LayerOverlay } from './layers/LayerOverlay';
 import { RulerUILayer } from './layers/LayerRuller';
-import { LayerUIRoot } from './layers/LayerUI';
+import { LayerDOM } from './layers/LayerDOM';
+import { RenderScheduler } from './RenderScheduler';
+import type { IRenderable } from '../interfaces/IRenderable';
 
 export type SceneOptions = {
     container?: HTMLDivElement;
@@ -24,18 +26,21 @@ const DEFAULTS: Required<Omit<SceneOptions, 'container'>> = {
 };
 
 export class Scene {
+    private readonly _renderer: RenderScheduler;
+    
     private readonly container: HTMLDivElement;
     private readonly stage: Konva.Stage;
-
+    
     private readonly backgroundLayer: LayerBackground;
     private readonly worldLayer: LayerWorld;
     private readonly overlayLayer: LayerOverlay;
-    private readonly uiRoot: LayerUIRoot;
+    private readonly uiRoot: LayerDOM;
     private readonly rulers: RulerUILayer;
-
+    
     // Inputs
     private readonly _worldInputController: LayerWorldInputController;
-
+    
+    private _resizeRaf = 0;
     private _autoResize: boolean = false;
 
     private _resizeObserver: ResizeObserver | null = null;
@@ -46,6 +51,11 @@ export class Scene {
         this.container = options.container ?? Scene.createDefaultContainer(opts.width, opts.height);
         this.container.style.position ||= "relative";
 
+        if (opts.autoResize) {
+            this.enableAutoResize();
+            this._autoResize = true;
+        }
+
         this.stage = new Konva.Stage({
             container: this.container,
             width: opts.width,
@@ -53,27 +63,23 @@ export class Scene {
             draggable: false,
         });
 
+        this._renderer = new RenderScheduler(this.stage);
+
         // 0) Background (из отдельного файла)
-        this.backgroundLayer = new LayerBackground(this.stage, opts.width, opts.height);
+        this.backgroundLayer = new LayerBackground(opts.width, opts.height, this.stage, this);
         this.backgroundLayer.setBackground(opts.background);
 
         // 1) World (твои ноды)
-        this.worldLayer = new LayerWorld(this.stage, opts.width, opts.height, {listening: opts.listening});
-        
+        this.worldLayer = new LayerWorld(opts.width, opts.height, this.stage, this, { listening: opts.listening });
+
         // 2) Overlay layer
-        this.overlayLayer = new LayerOverlay(this.stage, this.worldLayer, opts.width, opts.height, {listening: true})
+        this.overlayLayer = new LayerOverlay(opts.width, opts.height, this.stage, this.worldLayer, this, { listening: true })
 
         // 3) UI LAYER
-        this.uiRoot = new LayerUIRoot(this.container, 10);
-        this.rulers = new RulerUILayer(this.uiRoot, this.worldLayer /* твой LayerWorld */, {
+        this.uiRoot = new LayerDOM(opts.width, opts.height, this.container);
+        this.rulers = new RulerUILayer(this.uiRoot, this.worldLayer, this, {
             thickness: 22,
         });
-
-
-        if (opts.autoResize) {
-            this.enableAutoResize();
-            this._autoResize = true;
-        }
 
 
         // Inputs
@@ -85,6 +91,10 @@ export class Scene {
         this.container.addEventListener("contextmenu", (e) => {
             e.preventDefault();
         }, { passive: false });
+    }
+
+    public invalidate(layer: IRenderable) {
+        this._renderer.invalidate(layer);
     }
 
     /** слой для твоих нод */
@@ -111,11 +121,24 @@ export class Scene {
         return this.backgroundLayer.setImage(options);
     }
 
+    public getSize(): { width: number, height: number } {
+        return {
+            width: this.container.clientWidth,
+            height: this.container.clientHeight,
+        }
+    }
+
     public setSize(width: number, height: number) {
         this.stage.size({ width, height });
         this.backgroundLayer.setSize(width, height);
         this.worldLayer.setSize(width, height);
         this.overlayLayer.setSize(width, height);
+        this.uiRoot.setSize(width, height);
+
+        this.invalidate(this.backgroundLayer);
+        this.invalidate(this.worldLayer);
+        this.invalidate(this.overlayLayer);
+        this.invalidate(this.rulers);
     }
 
     public resize() {
@@ -127,6 +150,8 @@ export class Scene {
             this.setSize(width, height);
         }
     }
+
+
 
     public enableAutoResize() {
         // Use ResizeObserver for better performance and accuracy
@@ -143,14 +168,18 @@ export class Scene {
 
     private _handleResize = () => {
         if (!this._autoResize) return;
+        if (this._resizeRaf) return;
 
-        const width = this.container.offsetWidth;
-        const height = this.container.offsetHeight;
+        this._resizeRaf = requestAnimationFrame(() => {
+            this._resizeRaf = 0;
 
-        // Only update if size actually changed
-        if (width !== this.stage.width() || height !== this.stage.height()) {
-            this.setSize(width, height);
-        }
+            const width = this.container.clientWidth;
+            const height = this.container.clientHeight;
+
+            if (width !== this.stage.width() || height !== this.stage.height()) {
+                this.setSize(width, height);
+            }
+        });
     };
 
     public disableAutoResize() {
@@ -169,7 +198,9 @@ export class Scene {
         this.overlayLayer.destroy();
 
         this.rulers.destroy();
-    this.uiRoot.destroy();
+        this.uiRoot.destroy();
+
+        this._renderer.destroy();
     }
 
     private static createDefaultContainer(width: number, height: number): HTMLDivElement {

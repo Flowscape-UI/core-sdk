@@ -2,8 +2,20 @@ import Konva from "konva";
 import { Camera, type CameraState, type Point } from "../../camera";
 import { GridRenderer, type WorldGridOptions } from "../../grid/GridRenderer";
 import { KonvaGridView } from "../../grid";
+import { Layer } from "./Layer";
+import { RenderOrder, type IInvalidatable } from "../../interfaces";
 
 export type Rect = { x: number; y: number; width: number; height: number };
+
+type BuildTuple<
+    T,
+    N extends number,
+    R extends unknown[] = []
+> = R['length'] extends N
+    ? R
+    : BuildTuple<T, N, [...R, T]>;
+
+type FixedArray<T, N extends number> = BuildTuple<T, N>;
 
 type WorldOptions = {
     x: number,
@@ -24,58 +36,53 @@ const DEFAULT_OPTIONS: WorldOptions = {
         enabled: true,
         size: 1,
         majorEvery: 10,
-        maxLines: 5000,
+        maxLines: 1000,
         minorAlpha: 0.2,
         majorAlpha: 0.2,
     },
 };
 
-export class LayerWorld {
-    private readonly _stage: Konva.Stage;
-
-    private readonly _layer: Konva.Layer;
+export class LayerWorld extends Layer {
     private readonly _worldRoot: Konva.Group;
     private readonly _contentRoot: Konva.Group;
 
     public readonly camera = new Camera();
-    
+
     // Core + View adapter
     private readonly _gridRenderer = new GridRenderer();
     public readonly gridView: KonvaGridView;
-
-    private _width: number;
-    private _height: number;
-
-    private _rafPending = false;
 
     private _eventCameraSubscription: (() => void) | null = null;
 
 
     constructor(
-        stage: Konva.Stage,
         width: number,
         height: number,
+        stage: Konva.Stage,
+        invalidator: IInvalidatable,
         options: Partial<WorldOptions> = DEFAULT_OPTIONS
     ) {
         const mergedOptions = {
             ...DEFAULT_OPTIONS,
             ...options,
         }
+        super(
+            width,
+            height,
+            RenderOrder.World,
+            stage,
+            invalidator,
+            {
+                listening: mergedOptions.listening,
+                perfectDrawEnabled: false,
+            }
+        );
 
-        this._stage = stage;
-        this._width = width;
-        this._height = height;
         this._worldRoot = new Konva.Group();
         this._contentRoot = new Konva.Group();
 
-        this._layer = new Konva.Layer({
-            listening: mergedOptions.listening,
-            perfectDrawEnabled: false,
-        });
-
-
         this.camera.setLimits(mergedOptions.minScale, mergedOptions.maxScale);
-        this.camera.setViewportSize(this._width, this._height);
+        this.camera.setViewportSize(width, height);
 
         this._gridRenderer.setOptions(mergedOptions.grid);
         this.gridView = new KonvaGridView({
@@ -89,11 +96,9 @@ export class LayerWorld {
         this._worldRoot.add(this._contentRoot);
         this._worldRoot.add(this.gridView.getRoot());
         this._layer.add(this._worldRoot);
-        this._stage.add(this._layer);
-
         this._bindCamera();
     }
-    
+
     /****************************************************************/
     /*                            EVENTS                            */
     /****************************************************************/
@@ -102,31 +107,22 @@ export class LayerWorld {
     }
 
 
+    public render() {}
+
     /****************************************************************/
     /*                           LIFECICLE                          */
     /****************************************************************/
-    public destroy() {
+    public override destroy() {
         this._unbindCameraListener();
         this.gridView.destroy();
-        this._layer.destroy();
+        super.destroy();
     }
 
-    public setSize(width: number, height: number) {
-        this._width = width;
-        this._height = height;
+    public override setSize(width: number, height: number) {
+        super.setSize(width, height);
         this.camera.setViewportSize(width, height);
         this._applyCamera(this.camera.getState()); // важно: pivot центр зависит от viewport
         this.requestDraw();
-    }
-
-    public requestDraw() {
-        if (this._rafPending) return;
-        this._rafPending = true;
-
-        requestAnimationFrame(() => {
-            this._rafPending = false;
-            this._layer.batchDraw();
-        });
     }
 
 
@@ -166,11 +162,12 @@ export class LayerWorld {
     /****************************************************************/
     // С rotation "Rect" в мире не существует (это всегда 4 угла).
     // Дадим полезный метод: viewport corners in WORLD.
-    public getViewportWorldCorners(): [Point, Point, Point, Point] {
+    public getViewportWorldCorners(): FixedArray<Point, 4> {
+        const { width, height } = this.getSize();
         const tl = this.camera.screenToWorld({ x: 0, y: 0 });
-        const tr = this.camera.screenToWorld({ x: this._width, y: 0 });
-        const br = this.camera.screenToWorld({ x: this._width, y: this._height });
-        const bl = this.camera.screenToWorld({ x: 0, y: this._height });
+        const tr = this.camera.screenToWorld({ x: width, y: 0 });
+        const br = this.camera.screenToWorld({ x: width, y: height });
+        const bl = this.camera.screenToWorld({ x: 0, y: height });
         return [tl, tr, br, bl];
     }
 
@@ -192,11 +189,12 @@ export class LayerWorld {
     /****************************************************************/
     /*                            PRIVATE                           */
     /****************************************************************/
-    private _applyCamera(state: CameraState) {
+    private _applyCamera(state: CameraState): void {
+        const { width, height } = this.getSize();
         const { x, y, scale, rotation } = state;
 
-        const cx = this._width / 2;
-        const cy = this._height / 2;
+        const cx = width / 2;
+        const cy = height / 2;
 
         // screen pivot
         this._worldRoot.position({ x: cx, y: cy });

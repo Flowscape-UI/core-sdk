@@ -1,5 +1,7 @@
 import { Color } from "../Color";
 
+export {type IGradient} from "./IGradient";
+
 export type GradientDegreeString = `${number}deg`;
 
 export type ColorStopCanonical = {

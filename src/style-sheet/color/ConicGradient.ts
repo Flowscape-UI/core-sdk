@@ -1,15 +1,6 @@
 import { Color } from "./Color";
+import type { ColorStopCanonical, ColorStopInput } from "./types";
 import { clamp01 } from "./utils";
-
-export type ColorStopCanonical = {
-    offset: number;
-    color: Color;
-}
-
-export type ColorStopInput = {
-    color: string | Color;
-    offset?: number | `${number}%` | `${number}deg`;
-}
 
 export type ConicGradientAngleInput = number | `${number}deg` | string;
 

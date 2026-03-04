@@ -1,6 +1,5 @@
 import { Handle, type HandleOptions } from "./Handle";
 import {OffsetAnchor, type HandlePositionSpec, type Point } from "../HandleView";
-import type { OverlayContext, WorldCorners } from "../../types";
 
 export type ResizeBorderSideEvent = {
     id: string;
@@ -9,22 +8,6 @@ export type ResizeBorderSideEvent = {
     cornersScreen: Point[]; // tl,tr,br,bl in SCREEN
 };
 
-// export type ResizeBorderSideOptions = {
-//     id: string;
-//     position: HandlePositionSpec;
-
-//     // Visual
-//     stroke?: string;          // default "#4da3ff"
-//     opacity?: number;         // default 1
-//     dash?: number[];
-
-//     // Thickness
-//     visualWidth?: number;     // default 1 (это то, что видно)
-//     hitWidth?: number;        // default 8 (это то, за что удобно хватать)
-
-//     // Cursor
-//     cursor?: string;          // optional override
-// };
 
 const DEFAULT_OPTIONS: HandleOptions = {
     type: "line",

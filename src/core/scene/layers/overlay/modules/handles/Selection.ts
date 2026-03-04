@@ -3,14 +3,6 @@ import Konva from "konva";
 import { OffsetAnchor, type Point } from "../HandleView";
 import { Handle, type HandleOptions } from "./Handle";
 
-export type SelectionBorderOptions = {
-    id: string;
-    stroke?: string;
-    strokeWidth?: number;
-    dash?: number[];
-    opacity?: number;
-};
-
 const DEFAULT_OPTIONS: HandleOptions = {
     type: "square",
     size: 24,

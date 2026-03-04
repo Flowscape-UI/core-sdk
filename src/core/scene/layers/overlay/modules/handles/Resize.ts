@@ -5,17 +5,8 @@ export type ResizeEvent = {
     id: string;
     position: HandlePositionSpec;
     pointerScreen: Point;
-    cornersScreen: [Point, Point, Point, Point];
+    cornersScreen: Point[];
 };
-
-// export type ResizeHandleOptions = {
-//     id: string;
-//     position: HandlePositionSpec;
-//     offset?: Point;
-//     size?: number;
-//     style?: HandleStyle;
-//     cursor?: string;
-// };
 
 const DEFAULT_OPTIONS: HandleOptions = {
     type: "square",
@@ -80,14 +71,33 @@ export class HandleResize extends Handle {
         });
     }
 
+    /**
+     * Emits a resize event to all registered listeners.
+     * 
+     * Отправляет событие изменения размера всем зарегистрированным слушателям.
+     * * @param pointerScreen
+     * Current pointer position in screen coordinates.
+     *
+     * Текущая позиция указателя в экранных координатах.
+     */
     private _emit(pointerScreen: Point) {
-        const corners = (this._getSelectionCornersScreen() as any as [Point, Point, Point, Point])!;
+        const corners = this._getSelectionCornersScreen();
+
+        // Safety check: if selection is lost during drag, we shouldn't emit.
+        // Проверка безопасности: если выделение пропало во время драга, не генерируем событие.
+        if(!corners || corners.length < 4) {
+            return;
+        }
+
         const payload: ResizeEvent = {
             id: this.id,
             position: this._position,
             pointerScreen,
             cornersScreen: corners,
         };
-        for (const cb of this._listeners) cb(payload);
+
+        for (const listener of this._listeners) {
+            listener(payload);
+        }
     }
 }

@@ -1,15 +1,5 @@
 import { Color } from "./Color";
-import { clamp01 } from "./utils";
-
-export type ColorStopCanonical = {
-    offset: number;
-    color: Color;
-}
-
-export type ColorStopInput = {
-    color: string | Color;
-    offset?: number | `${number}%` | string;
-}
+import type { ColorStopCanonical, ColorStopInput } from "./types";
 
 export type RadialGradientShape = 'circle' | 'ellipse';
 

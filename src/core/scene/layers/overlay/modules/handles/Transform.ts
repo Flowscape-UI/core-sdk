@@ -10,10 +10,6 @@ export type TransformDragEvent = {
     pointerWorld: Point;
 };
 
-export type TransformHandleOptions = {
-    id: string;
-    cursor?: string; // "move"
-};
 
 const DEFAULT_OPTIONS: HandleOptions = {
     type: "square",

@@ -74,12 +74,13 @@ world.add(rect2);
 // scene.setBackground('linear-gradient(to top, #ff0000, #0000ff)');
 // scene.setBackground('linear-gradient(to bottom, #ff0000, #0000ff)');
 
-// scene.setBackground('linear-gradient(to top left, #ff0000, #0000ff)');
-// scene.setBackground('linear-gradient(to top right, #ff0000, #0000ff)');
-// scene.setBackground('linear-gradient(to bottom left, #ff0000, #0000ff)');
-// // scene.setBackground('repeating-linear-gradient(to bottom right, #ff0000 20%, #0000ff 5%)');
+scene.setBackground('linear-gradient(to top left, #ff0000, #0000ff)');
+scene.setBackground('linear-gradient(to top right, #ff0000, #0000ff)');
+scene.setBackground('linear-gradient(to bottom left, #ff0000, #0000ff)');
+// scene.setBackground('repeating-linear-gradient(to bottom right, #ff0000 20%, #0000ff 5%)');
 // scene.setBackground('linear-gradient(to left, #ff0000 0% 50%, #0000ff 50% 90%, #ff0000)');
 
+// scene.setBackground('transparent');
 scene.setBackgroundImage({url: logoUrl, width: 300, height: 300})
 
 

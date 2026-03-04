@@ -3,7 +3,7 @@ import {
     type GradientOption,
 } from "./types"
 import { BaseGradient } from "./BaseGradient";
-import { replaceMarkersFromInputString } from "./utils/cut-markers-from-input-string";
+import { replaceMarkersFromInputString } from "./utils/replace-markers-from-input-string";
 
 export class LinearGradient extends BaseGradient {
     private _direction: number;

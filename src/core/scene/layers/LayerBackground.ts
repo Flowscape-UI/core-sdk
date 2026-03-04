@@ -7,17 +7,15 @@ import { DiamondGradient } from '../../../style-sheet/color/DiamondGradient';
 import { clamp01 } from '../../../style-sheet/color/utils';
 import { MeshGradient } from '../../../style-sheet/color/MeshGradient';
 import type { ColorStopCanonical } from '../../../style-sheet/color/types';
+import { Layer } from './Layer';
+import { RenderOrder, type IInvalidatable } from '../../interfaces';
 
 export type BackgroundValue = '' | string;
 
-export class LayerBackground {
-    private readonly _layer: Konva.Layer;
+export class LayerBackground extends Layer {
     private readonly _rect: Konva.Rect;
 
     private _imageNode: Konva.Image | null = null;
-
-    private _width: number;
-    private _height: number;
 
     // сохраняем текущий фон, чтобы корректно пересчитать градиент при resize
     private _backgroundValue: BackgroundValue = '';
@@ -25,13 +23,19 @@ export class LayerBackground {
 
     private _imageNodeParam: any = {};
 
-    constructor(stage: Konva.Stage, width: number, height: number) {
-        this._width = width;
-        this._height = height;
-
-        this._layer = new Konva.Layer({ listening: false });
-        stage.add(this._layer);
-
+    constructor(
+        width: number,
+        height: number,
+        stage: Konva.Stage,
+        invalidator: IInvalidatable,
+    ) {
+        super(
+            width,
+            height,
+            RenderOrder.Background,
+            stage,
+            invalidator,
+        );
         this._rect = new Konva.Rect({
             x: 0,
             y: 0,
@@ -43,28 +47,63 @@ export class LayerBackground {
         });
 
         this._layer.add(this._rect);
-        this._layer.batchDraw();
     }
 
-    public setSize(_width: number, _height: number) {
-        this._width = _width;
-        this._height = _height;
-        this._rect.size({ width: _width, height: _height });
-
-        // Обязательно вызываем заново установку фона, 
-        // чтобы пересчитать координаты под новые размеры
-        if (this._backgroundValue) {
-            this.setBackground(this._backgroundValue);
-        }
+    public render() {
+        const v = this._backgroundValue;
 
         if (this._imageNode) {
             this.setImage(this._imageNodeParam);
         }
-        this._layer.batchDraw();
+
+        // 1) Solid Color
+        if (v === '' || Color.isValidString(v)) {
+            this._backgroundReset();
+            this._setFillColor(v);
+            return;
+        }
+
+        // 2) Linear Gradient
+        if (LinearGradient.isValidString(v)) {
+            this._backgroundReset();
+            this._setLinearGradient(v);
+            return;
+        }
+
+        // 3) Radial Gradient
+        if (RadialGradient.isValidString(v)) {
+            this._backgroundReset();
+            this._setRadialGradient(v);
+            return;
+        }
+
+        // 4) Conic Gradient
+        if (ConicGradient.isValidString(v)) {
+            this._backgroundReset();
+            this._setConicGradient(v);
+            return;
+        }
+
+        // 5) Diamond Gradint
+        if (DiamondGradient.isValidString(v)) {
+            this._backgroundReset();
+            this._setDiamondGradient(v);
+            return;
+        }
+
+        // 6) Mesh gradient
+        if (MeshGradient.isValidString(v)) {
+            this._backgroundReset();
+            this._setMeshGradient(v);
+            return;
+        }
     }
 
-    public destroy() {
-        this._layer.destroy();
+    public override setSize(width: number, height: number) {
+        super.setSize(width, height);
+        this._rect.size({ width, height });
+
+        this.requestDraw();
     }
 
     /**
@@ -75,272 +114,11 @@ export class LayerBackground {
      */
     public setBackground(value: BackgroundValue) {
         const v = (value ?? "").trim();
-        const isSolidColor = Color.isValidString(v);
-        const isLinearGradient = LinearGradient.isValidString(v);
-        const isRadialGradient = RadialGradient.isValidString(v);
-        const isConicGradient = ConicGradient.isValidString(v);
-        const isDiamondGradint = DiamondGradient.isValidString(v);
-        const isMeshGradient = MeshGradient.isValidString(v);
-
-        // 0) Transparent
-        if (v === '') {
-            this._rect.fillPriority("color");
-            this._rect.fill("transparent");
-            this._rect.fillLinearGradientColorStops([]);
-            this._rect.fillRadialGradientColorStops([]);
-            this._layer.batchDraw();
+        if(v === this._backgroundValue) {
             return;
         }
-
-        // 1) Solid Color
-        if (isSolidColor) {
-            // reset gradients if switching from gradient to solid color
-            this._rect.fillLinearGradientColorStops([]);
-            this._rect.fillRadialGradientColorStops([]);
-
-            const c = Color.fromString(v);
-            this._backgroundValue = c.toString(true);
-
-            this._rect.fillPriority("color");
-
-            this._rect.fill(c.toString(true));
-            this._layer.batchDraw();
-            return;
-        }
-
-        // 2) Linear Gradient
-        if (isLinearGradient) {
-            this._rect.fillRadialGradientColorStops([]);
-            this._rect.fill("transparent");
-
-            const g = LinearGradient.fromString(v);
-            this._backgroundValue = v;
-
-            this._rect.fillPriority("linear-gradient");
-
-            // Получаем параметры из твоего класса
-            const dir = g.getDirection(); // в градусах (0-360)
-            const W = this._width;
-            const H = this._height;
-
-            // 1. Переводим CSS-угол в радианы и корректируем систему координат
-            // В CSS 0° — это Up. В Math 0 — это Right.
-            // Формула для приведения: (angle - 90) * PI / 180
-            const angleRad = ((dir - 90) * Math.PI) / 180;
-
-            // 2. Вычисляем длину вектора, чтобы градиент вписывался в прямоугольник под углом
-            // Это гарантирует, что цвета не "уедут", когда прямоугольник не квадратный
-            const distance = Math.abs(W * Math.cos(angleRad)) + Math.abs(H * Math.sin(angleRad));
-
-            // 3. Находим центр фигуры
-            const centerX = W / 2;
-            const centerY = H / 2;
-
-            // 4. Рассчитываем конечные точки вектора относительно центра
-            // В CSS градиент идет ОТ цвета К цвету, поэтому инвертируем вектор для end
-            const startX = centerX - (Math.cos(angleRad) * distance) / 2;
-            const startY = centerY - (Math.sin(angleRad) * distance) / 2;
-            const endX = centerX + (Math.cos(angleRad) * distance) / 2;
-            const endY = centerY + (Math.sin(angleRad) * distance) / 2;
-
-
-            this._rect.fillLinearGradientStartPoint({ x: startX, y: startY });
-            this._rect.fillLinearGradientEndPoint({ x: endX, y: endY });
-
-            const stops = g.getStops();
-            let konvaStops: (number | string)[] = [];
-
-            if (!g.isRepeating()) {
-                // обычный градиент
-                for (const s of stops) {
-                    konvaStops.push(s.offset, s.color.toString(true));
-                }
-            } else {
-                const first = stops[0]?.offset ?? 0;
-                const last = stops[stops.length - 1]?.offset ?? 1;
-                const period = last - first;
-
-                if (!(period > 0)) {
-                    for (const s of stops) {
-                        konvaStops.push(s.offset, s.color.toString(true));
-                    }
-                } else {
-                    // ---- helper: color at t with repeating ----
-                    const _colorAt = (t: number): string => {
-                        // map t into one period
-                        const x = ((t - first) % period + period) % period + first;
-
-                        // find neighbors
-                        let left = stops[0];
-                        let right = stops[stops.length - 1];
-
-                        for (let i = 0; i < stops.length; i++) {
-                            const cur = stops[i];
-                            if (cur.offset <= x) left = cur;
-                            if (cur.offset >= x) {
-                                right = cur;
-                                break;
-                            }
-                        }
-
-                        const denom = right.offset - left.offset;
-                        if (!(denom > 0)) return left.color.toString(true);
-
-                        const tt = (x - left.offset) / denom;
-                        return Color.lerp(left.color, right.color, tt).toString(true);
-                    };
-
-                    // ---- generate repeated stops inside [0..1] ----
-                    const kStart = Math.floor((0 - last) / period);
-                    const kEnd = Math.ceil((1 - first) / period);
-
-                    const repeated: Array<{ offset: number; color: string; i: number }> = [];
-                    let idx = 0;
-
-                    for (let k = kStart; k <= kEnd; k++) {
-                        const shift = k * period;
-
-                        for (const s of stops) {
-                            const o = s.offset + shift;
-                            if (o < 0 || o > 1) continue;
-
-                            repeated.push({
-                                offset: o,
-                                color: s.color.toString(true),
-                                i: idx++,
-                            });
-                        }
-                    }
-
-                    // stable sort (важно для одинаковых offset)
-                    repeated.sort((a, b) => {
-                        const d = a.offset - b.offset;
-                        if (d !== 0) return d;
-                        return a.i - b.i;
-                    });
-
-                    const EPS = 1e-6;
-
-                    // ---- ensure boundary at 0 ----
-                    if (repeated.length === 0 || Math.abs(repeated[0].offset - 0) > EPS) {
-                        repeated.unshift({ offset: 0, color: _colorAt(0), i: -2 });
-                    }
-
-                    // ---- ensure boundary at 1 ----
-                    const lastIdx = repeated.length - 1;
-                    if (repeated.length === 0 || Math.abs(repeated[lastIdx].offset - 1) > EPS) {
-                        repeated.push({ offset: 1, color: _colorAt(1), i: -1 });
-                    }
-
-                    // re-sort after inserts
-                    repeated.sort((a, b) => {
-                        const d = a.offset - b.offset;
-                        if (d !== 0) return d;
-                        return a.i - b.i;
-                    });
-
-                    // ---- output for Konva ----
-                    for (const s of repeated) {
-                        konvaStops.push(s.offset, s.color);
-                    }
-
-                    if (konvaStops.length < 4) {
-                        konvaStops = [];
-                        for (const s of stops) {
-                            konvaStops.push(s.offset, s.color.toString(true));
-                        }
-                    }
-                }
-            }
-
-            this._rect.fillLinearGradientColorStops(konvaStops);
-
-            this._layer.batchDraw();
-            return;
-        }
-
-        // 3) Radial Gradient
-        if (isRadialGradient) {
-            const g = RadialGradient.fromString(v);
-            this._rect.fillLinearGradientColorStops([]);
-            this._rect.fillPriority("radial-gradient");
-
-            const config = this._calculateRadialConfig(g);
-            this._rect.fillRadialGradientStartPoint(config.center);
-            this._rect.fillRadialGradientEndPoint(config.center);
-            this._rect.fillRadialGradientStartRadius(0);
-            this._rect.fillRadialGradientEndRadius(config.radius);
-            this._rect.fillRadialGradientColorStops(this._getKonvaStops(g));
-
-            this._layer.batchDraw();
-            return;
-        }
-
-        // 4) Conic Gradient
-        if (isConicGradient) {
-            const g = ConicGradient.fromString(v);
-            this._backgroundValue = v;
-
-            // Сбрасываем другие типы заливки
-            this._rect.fillLinearGradientColorStops([]);
-            this._rect.fillRadialGradientColorStops([]);
-            this._rect.fill("transparent");
-
-            // Переключаем приоритет на паттерн
-            this._rect.fillPriority("pattern");
-
-            // Рендерим градиент в Canvas и устанавливаем как паттерн
-            const patternCanvas = this._renderConicToCanvas(g);
-            this._rect.fillPatternImage(patternCanvas);
-            this._rect.fillPatternRepeat('no-repeat');
-
-            // Выравниваем паттерн (опционально, если нужно смещение)
-            this._rect.fillPatternOffsetX(0);
-            this._rect.fillPatternOffsetY(0);
-
-            this._layer.batchDraw();
-            return;
-        }
-
-        // 5) Diamond Gradint
-        if (isDiamondGradint) {
-            const g = DiamondGradient.fromString(v);
-
-            // 1. Генерируем канвас с ромбом (используем метод, который я давал выше)
-            const canvas = this._renderDiamondToCanvas(g);
-
-            // 2. Устанавливаем приоритет "pattern"
-            this._rect.fillPriority("pattern");
-
-            // 3. Передаем канвас как изображение для заливки
-            this._rect.fillPatternImage(canvas);
-
-            // 4. Важно: растягиваем паттерн на весь размер прямоугольника
-            this._rect.fillPatternRepeat('no-repeat');
-            this._rect.fillPatternScale({ x: 1, y: 1 });
-            this._rect.fillPatternOffset({ x: 0, y: 0 });
-
-            this._layer.batchDraw();
-            return;
-        }
-
-        // 6) Mesh gradient
-        if (isMeshGradient) {
-            this._backgroundValue = v; // Сохраняем для корректного resize
-
-            // Сбрасываем нативные градиенты
-            this._rect.fillLinearGradientColorStops([]);
-            this._rect.fillRadialGradientColorStops([]);
-            this._rect.fill("transparent");
-
-            const g = MeshGradient.fromString(v);
-            const pattern = this._renderMeshToCanvas(g);
-            this._applyPatternGradient(pattern);
-
-            return; // ОБЯЗАТЕЛЬНО: выходим из метода, чтобы не сработал throw Error ниже
-        }
-
-        throw new Error(`[LayerBackground] Invalid background value: "${value}". Expected a color string or linear-gradient.`);
+        this._backgroundValue = v;
+        this.requestDraw();
     }
 
 
@@ -351,20 +129,20 @@ export class LayerBackground {
         opacity?: number,
     }) {
         this._imageNodeParam = options;
-        const img = await this.loadImage(options.url);
+        const img = await this._loadImage(options.url);
 
         if (this._imageNode) {
             this._imageNode.destroy();
             this._imageNode = null;
         }
 
-
-        const {width, height, opacity} = options;
-        const w = width ?? this._width;
-        const h = height ?? this._height;
+        const { width, height, opacity } = options;
+        const { width: layerWidth, height: layerHeight } = this.getSize();
+        const w = width ?? layerWidth;
+        const h = height ?? layerHeight;
         this._imageNode = new Konva.Image({
-            x: this._width / 2 - w / 2,
-            y: this._height / 2 - h / 2,
+            x: layerWidth / 2 - w / 2,
+            y: layerHeight / 2 - h / 2,
             image: img,
             width: w,
             height: h,
@@ -374,30 +152,245 @@ export class LayerBackground {
 
         // картинка поверх заливки/градиента
         this._layer.add(this._imageNode);
-        this._layer.batchDraw();
+        this.requestDraw();
     }
 
     // ---------- internal (gradient) ----------
+    private _setFillColor(value: string): void {
+        this._rect.fillPriority("color");
+
+        if (value === "" || value === "transparent") {
+            this._rect.fill("transparent");
+            return;
+        }
+
+        const c = Color.fromString(value);
+        this._backgroundValue = c.toString(true);
+
+        this._rect.fill(c.toString(true));
+    }
+
+
+    private _setLinearGradient(value: string): void {
+        const g = LinearGradient.fromString(value);
+        this._backgroundValue = value;
+
+        this._rect.fillPriority("linear-gradient");
+
+        // Получаем параметры из твоего класса
+        const dir = g.getDirection(); // в градусах (0-360)
+        const {width, height} = this.getSize();
+        const W = width;
+        const H = height;
+
+        // 1. Переводим CSS-угол в радианы и корректируем систему координат
+        // В CSS 0° - это Up. В Math 0 - это Right.
+        // Формула для приведения: (angle - 90) * PI / 180
+        const angleRad = ((dir - 90) * Math.PI) / 180;
+
+        // 2. Вычисляем длину вектора, чтобы градиент вписывался в прямоугольник под углом
+        // Это гарантирует, что цвета не "уедут", когда прямоугольник не квадратный
+        const distance = Math.abs(W * Math.cos(angleRad)) + Math.abs(H * Math.sin(angleRad));
+
+        // 3. Находим центр фигуры
+        const centerX = W / 2;
+        const centerY = H / 2;
+
+        // 4. Рассчитываем конечные точки вектора относительно центра
+        // В CSS градиент идет ОТ цвета К цвету, поэтому инвертируем вектор для end
+        const startX = centerX - (Math.cos(angleRad) * distance) / 2;
+        const startY = centerY - (Math.sin(angleRad) * distance) / 2;
+        const endX = centerX + (Math.cos(angleRad) * distance) / 2;
+        const endY = centerY + (Math.sin(angleRad) * distance) / 2;
+
+
+        this._rect.fillLinearGradientStartPoint({ x: startX, y: startY });
+        this._rect.fillLinearGradientEndPoint({ x: endX, y: endY });
+
+        const stops = g.getStops();
+        let konvaStops: (number | string)[] = [];
+
+        if (!g.isRepeating()) {
+            // обычный градиент
+            for (const s of stops) {
+                konvaStops.push(s.offset, s.color.toString(true));
+            }
+        } else {
+            const first = stops[0]?.offset ?? 0;
+            const last = stops[stops.length - 1]?.offset ?? 1;
+            const period = last - first;
+
+            if (!(period > 0)) {
+                for (const s of stops) {
+                    konvaStops.push(s.offset, s.color.toString(true));
+                }
+            } else {
+                // ---- helper: color at t with repeating ----
+                const _colorAt = (t: number): string => {
+                    // map t into one period
+                    const x = ((t - first) % period + period) % period + first;
+
+                    // find neighbors
+                    let left = stops[0];
+                    let right = stops[stops.length - 1];
+
+                    for (let i = 0; i < stops.length; i++) {
+                        const cur = stops[i];
+                        if (cur.offset <= x) left = cur;
+                        if (cur.offset >= x) {
+                            right = cur;
+                            break;
+                        }
+                    }
+
+                    const denom = right.offset - left.offset;
+                    if (!(denom > 0)) return left.color.toString(true);
+
+                    const tt = (x - left.offset) / denom;
+                    return Color.lerp(left.color, right.color, tt).toString(true);
+                };
+
+                // ---- generate repeated stops inside [0..1] ----
+                const kStart = Math.floor((0 - last) / period);
+                const kEnd = Math.ceil((1 - first) / period);
+
+                const repeated: Array<{ offset: number; color: string; i: number }> = [];
+                let idx = 0;
+
+                for (let k = kStart; k <= kEnd; k++) {
+                    const shift = k * period;
+
+                    for (const s of stops) {
+                        const o = s.offset + shift;
+                        if (o < 0 || o > 1) continue;
+
+                        repeated.push({
+                            offset: o,
+                            color: s.color.toString(true),
+                            i: idx++,
+                        });
+                    }
+                }
+
+                // stable sort (важно для одинаковых offset)
+                repeated.sort((a, b) => {
+                    const d = a.offset - b.offset;
+                    if (d !== 0) return d;
+                    return a.i - b.i;
+                });
+
+                const EPS = 1e-6;
+
+                // ---- ensure boundary at 0 ----
+                if (repeated.length === 0 || Math.abs(repeated[0].offset - 0) > EPS) {
+                    repeated.unshift({ offset: 0, color: _colorAt(0), i: -2 });
+                }
+
+                // ---- ensure boundary at 1 ----
+                const lastIdx = repeated.length - 1;
+                if (repeated.length === 0 || Math.abs(repeated[lastIdx].offset - 1) > EPS) {
+                    repeated.push({ offset: 1, color: _colorAt(1), i: -1 });
+                }
+
+                // re-sort after inserts
+                repeated.sort((a, b) => {
+                    const d = a.offset - b.offset;
+                    if (d !== 0) return d;
+                    return a.i - b.i;
+                });
+
+                // ---- output for Konva ----
+                for (const s of repeated) {
+                    konvaStops.push(s.offset, s.color);
+                }
+
+                if (konvaStops.length < 4) {
+                    konvaStops = [];
+                    for (const s of stops) {
+                        konvaStops.push(s.offset, s.color.toString(true));
+                    }
+                }
+            }
+        }
+
+        this._rect.fillLinearGradientColorStops(konvaStops);
+    }
+
+    private _setRadialGradient(value: string): void {
+        const g = RadialGradient.fromString(value);
+        this._rect.fillLinearGradientColorStops([]);
+        this._rect.fillPriority("radial-gradient");
+
+        const config = this._calculateRadialConfig(g);
+        this._rect.fillRadialGradientStartPoint(config.center);
+        this._rect.fillRadialGradientEndPoint(config.center);
+        this._rect.fillRadialGradientStartRadius(0);
+        this._rect.fillRadialGradientEndRadius(config.radius);
+        this._rect.fillRadialGradientColorStops(this._getKonvaStops(g));
+    }
+
+    private _setConicGradient(value: string): void {
+        const g = ConicGradient.fromString(value);
+        this._backgroundValue = value;
+
+        // Переключаем приоритет на паттерн
+        this._rect.fillPriority("pattern");
+
+        // Рендерим градиент в Canvas и устанавливаем как паттерн
+        const patternCanvas = this._renderConicToCanvas(g);
+        this._rect.fillPatternImage(patternCanvas);
+        this._rect.fillPatternRepeat('no-repeat');
+
+        // Выравниваем паттерн (опционально, если нужно смещение)
+        this._rect.fillPatternOffsetX(0);
+        this._rect.fillPatternOffsetY(0);
+    }
+
+    private _setDiamondGradient(value: string): void {
+        const g = DiamondGradient.fromString(value);
+
+        // 1. Генерируем канвас с ромбом (используем метод, который я давал выше)
+        const canvas = this._renderDiamondToCanvas(g);
+
+        // 2. Устанавливаем приоритет "pattern"
+        this._rect.fillPriority("pattern");
+
+        // 3. Передаем канвас как изображение для заливки
+        this._rect.fillPatternImage(canvas);
+
+        // 4. Важно: растягиваем паттерн на весь размер прямоугольника
+        this._rect.fillPatternRepeat('no-repeat');
+        this._rect.fillPatternScale({ x: 1, y: 1 });
+        this._rect.fillPatternOffset({ x: 0, y: 0 });
+    }
+
+    private _setMeshGradient(value: string): void {
+        const g = MeshGradient.fromString(value);
+        const pattern = this._renderMeshToCanvas(g);
+        this._applyPatternGradient(pattern);
+    }
+
 
     private _calculateRadialConfig(g: RadialGradient) {
-        let cx = this._width / 2;
-        let cy = this._height / 2;
+        const {width, height} = this.getSize();
+        let cx = width / 2;
+        let cy = height / 2;
         const pos = g.getPosition().toLowerCase();
 
         // Добавляем парсинг процентов!
         const matches = pos.match(/(-?\d+(?:\.\d+)?)%/g);
         if (matches && matches.length >= 2) {
-            cx = (parseFloat(matches[0]) / 100) * this._width;
-            cy = (parseFloat(matches[1]) / 100) * this._height;
+            cx = (parseFloat(matches[0]) / 100) * width;
+            cy = (parseFloat(matches[1]) / 100) * height;
         } else {
             if (pos.includes('left')) cx = 0;
-            else if (pos.includes('right')) cx = this._width;
+            else if (pos.includes('right')) cx = width;
             if (pos.includes('top')) cy = 0;
-            else if (pos.includes('bottom')) cy = this._height;
+            else if (pos.includes('bottom')) cy = height;
         }
 
-        const dx = Math.max(cx, this._width - cx);
-        const dy = Math.max(cy, this._height - cy);
+        const dx = Math.max(cx, width - cx);
+        const dy = Math.max(cy, height - cy);
         const radius = Math.sqrt(dx * dx + dy * dy);
 
         return { center: { x: cx, y: cy }, radius };
@@ -507,13 +500,15 @@ export class LayerBackground {
     }
 
     private _renderConicToCanvas(g: ConicGradient): HTMLCanvasElement {
+        const { width, height } = this.getSize();
+
         const canvas = document.createElement('canvas');
-        canvas.width = this._width;
-        canvas.height = this._height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return canvas;
 
-        const imageData = ctx.createImageData(this._width, this._height);
+        const imageData = ctx.createImageData(width, height);
         const data = imageData.data;
 
         // --- ВОТ ЗДЕСЬ МАГИЯ СВЯЗКИ ---
@@ -521,8 +516,8 @@ export class LayerBackground {
         const { x: normX, y: normY } = g.getNormalizedPosition();
 
         // Переводим их в реальные пиксели холста
-        const cx = normX * this._width;
-        const cy = normY * this._height;
+        const cx = normX * width;
+        const cy = normY * height;
         // ------------------------------
 
         const angleAttr = g.getAngle();
@@ -533,8 +528,8 @@ export class LayerBackground {
         const rotationOffset = (startAngleDeg - 90) * (Math.PI / 180);
         const stops = g.getStops();
 
-        for (let y = 0; y < this._height; y++) {
-            for (let x = 0; x < this._width; x++) {
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
                 const dx = x - cx;
                 const dy = y - cy;
 
@@ -549,7 +544,7 @@ export class LayerBackground {
 
                 const t = angle / (Math.PI * 2);
                 const color = this._getColorAt(g, stops, t);
-                const idx = (y * this._width + x) * 4;
+                const idx = (y * width + x) * 4;
 
                 data[idx] = color.r;
                 data[idx + 1] = color.g;
@@ -563,28 +558,30 @@ export class LayerBackground {
     }
 
     private _renderDiamondToCanvas(g: DiamondGradient): HTMLCanvasElement {
+        const {width, height} = this.getSize();
+
         const canvas = document.createElement('canvas');
-        canvas.width = this._width;
-        canvas.height = this._height;
+        canvas.width = width;
+        canvas.height = height;
         const ctx = canvas.getContext('2d');
         if (!ctx) return canvas;
 
-        const imageData = ctx.createImageData(this._width, this._height);
+        const imageData = ctx.createImageData(width, height);
         const data = imageData.data;
 
         const { x: normX, y: normY } = g.getNormalizedPosition();
-        const cx = normX * this._width;
-        const cy = normY * this._height;
+        const cx = normX * width;
+        const cy = normY * height;
 
         // Для Diamond максимальное расстояние — это путь до самого дальнего угла по осям X + Y
-        const maxDistX = Math.max(cx, this._width - cx);
-        const maxDistY = Math.max(cy, this._height - cy);
+        const maxDistX = Math.max(cx, width - cx);
+        const maxDistY = Math.max(cy, height - cy);
         const maxDist = maxDistX + maxDistY;
 
         const stops = g.getStops();
 
-        for (let y = 0; y < this._height; y++) {
-            for (let x = 0; x < this._width; x++) {
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
                 const dx = Math.abs(x - cx);
                 const dy = Math.abs(y - cy);
 
@@ -593,7 +590,7 @@ export class LayerBackground {
                 const t = clamp01(dist / maxDist);
 
                 const color = this._getColorAt(g as any, stops, t);
-                const idx = (y * this._width + x) * 4;
+                const idx = (y * width + x) * 4;
 
                 data[idx] = color.r;
                 data[idx + 1] = color.g;
@@ -704,7 +701,7 @@ export class LayerBackground {
     }
 
 
-    private loadImage(url: string): Promise<HTMLImageElement> {
+    private _loadImage(url: string): Promise<HTMLImageElement> {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -715,27 +712,34 @@ export class LayerBackground {
     }
 
     private _applyPatternGradient(patternCanvas: HTMLCanvasElement) {
+        const {width, height} = this.getSize();
         this._rect.setAttrs({
             fillPriority: 'pattern',
             fillPatternImage: patternCanvas as any,
             fillPatternRepeat: 'no-repeat',
             // Растягиваем паттерн под текущий размер фигуры
             fillPatternScale: {
-                x: this._width / patternCanvas.width,
-                y: this._height / patternCanvas.height
+                x: width / patternCanvas.width,
+                y: height / patternCanvas.height
             },
             fillPatternOffset: { x: 0, y: 0 }
         });
 
         // 2. ГЛАВНОЕ: Konva кэширует текстуру паттерна. 
         // Чтобы анимация пошла, нужно пометить объект как "грязный".
-        this._rect.id(); // Простое обращение к id иногда помогает, но лучше:
+        // this._rect.id(); // Простое обращение к id иногда помогает, но лучше:
 
         // Если у тебя включен кэш Konva (rect.cache()), его НУЖНО сбросить:
         // this._rect.clearCache(); 
 
         // 3. Используй draw() вместо batchDraw() для тестов анимации, 
         // чтобы исключить задержки планировщика
-        this._layer.draw();
+        // this._layer.draw();
+    }
+
+    private _backgroundReset(): void {
+        this._rect.fill("transparent");
+        this._rect.fillLinearGradientColorStops([]);
+        this._rect.fillRadialGradientColorStops([]);
     }
 }

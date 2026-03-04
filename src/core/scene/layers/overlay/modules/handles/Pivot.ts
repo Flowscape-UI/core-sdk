@@ -1,5 +1,5 @@
-import type { Point, HandleStyle, HandlePositionSpec } from "../HandleView";
-import { OffsetAnchor, OverlayHandleView } from "../HandleView";
+import type { Point } from "../HandleView";
+import { OffsetAnchor } from "../HandleView";
 import { Handle, type HandleOptions } from "./Handle";
 
 export type PivotHandleEvent = {
@@ -8,16 +8,6 @@ export type PivotHandleEvent = {
     pivotScreen: Point;
     pointerScreen: Point;
 };
-
-// export type PivotHandleOptions = {
-//     id: string;
-
-//     size?: number;
-//     style?: HandleStyle;
-//     cursor?: string; // default "move"
-
-//     position?: HandlePositionSpec,
-// };
 
 const DEFAULT_OPTIONS: HandleOptions = {
     type: "circle",
