@@ -1,17 +1,19 @@
 import Konva from 'konva';
 
 import { BaseNode, type BaseNodeOptions } from './BaseNode';
+import type { TextFontStyle, TextWrap } from '../nodes-new';
 
 export interface TextNodeOptions extends BaseNodeOptions {
   text?: string;
   fontSize?: number;
   fontFamily?: string;
-  fontStyle?: string;
+  fontStyle?: TextFontStyle;
   fill?: string;
   align?: 'left' | 'center' | 'right';
   verticalAlign?: 'top' | 'middle' | 'bottom';
   padding?: number;
   lineHeight?: number;
+  wrap?: TextWrap,
   /** Включить редактирование по двойному клику (по умолчанию true) */
   editable?: boolean;
 }
