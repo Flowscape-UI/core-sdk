@@ -783,7 +783,7 @@ export class NodeBase implements INode {
     /**
      * Helper to transform a point by a 3x3 matrix.
      */
-    private _applyMatrixToPoint(m: Matrix, p: Vector2): Vector2 {
+    protected _applyMatrixToPoint(m: Matrix, p: Vector2): Vector2 {
         /**
          * The standard affine transformation formula:
          * Стандартная формула аффинного преобразования:
