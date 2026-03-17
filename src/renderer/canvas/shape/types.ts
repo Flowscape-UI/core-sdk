@@ -1,5 +1,4 @@
 import type { Color } from "culori";
-import type { ShapeEffect } from "./effect";
 
 export type CornerRadius = {
     tl: number;
@@ -21,9 +20,18 @@ export enum StrokeAlign {
     Outside = 2,
 }
 
-export interface IShapeBase {
-    readonly effect: ShapeEffect;
+export enum EffectType {
+    None = "none",
+    InnerShadow = "inner-shadow",
+    DropShadow = "drop-shadow",
+    LayerBlur = "layer-blur",
+    BackgroundBlur = "background-blur",
+    Noise = "noise",
+    Texture = "texture",
+    Glass = "glass",
+}
 
+export interface IShapeBase {
     /***********************************************************/
     /*                        Appearance                       */
     /***********************************************************/
@@ -106,4 +114,23 @@ export interface IShapeBase {
      * Устанавливает режим выравнивания обводки.
      */
     setStrokeAlign(value: StrokeAlign): void;
+
+
+    /***********************************************************/
+    /*                          Effect                         */
+    /***********************************************************/
+
+    /**
+     * Returns the visual effect applied to the rectangle.
+     *
+     * Возвращает визуальный эффект, применённый к прямоугольнику.
+     */
+    getEffect(): EffectType;
+
+    /**
+     * Sets the visual effect applied to the rectangle.
+     *
+     * Устанавливает визуальный эффект для прямоугольника.
+     */
+    setEffect(value: EffectType): void;
 }

@@ -5,6 +5,8 @@ import Konva from 'konva';
 
 import { Scene } from '../../src/core/scene/Scene';
 import { getNodeWorldCorners } from '../../src/core/scene/layers/overlay';
+import { NodeRect, StrokeAlign } from '../../src/nodes';
+import { EffectType } from '../../src/nodes/shape/effect';
 
 
 const scene = new Scene({
@@ -15,37 +17,76 @@ const scene = new Scene({
 });
 
 const world = scene.getWorld();
-world.gridView.setOptions({
-  size: 1
-})
 
-const overlay = scene.getOverlay();
+const rectNode = new NodeRect(1);
+rectNode.setStrokeWidth({
+  t: 10,
+  r: 10,
+  b: 10,
+  l: 10,
+});
 
+rectNode.setFill("rgba(250,0,0,1)");
+rectNode.setStrokeAlign(StrokeAlign.Outside);
+rectNode.setStrokeFill("red");
 
-const rect = new Konva.Rect({ x: 0, y: 0, width: 100, height: 80, fill: "red" });
-const rect2 = new Konva.Rect({ x: 50, y: -20, width: 100, height: 80, fill: "yellow" });
+rectNode.setCornerRadius({
+  tl: 0,
+  tr: 0,
+  bl: 0,
+  br: 0
+});
 
-const cornersW = getNodeWorldCorners(rect, world.getWorldRoot());
-overlay.setSelectionCornersWorld(cornersW);
+rectNode.effect.add({
+  type: EffectType.DropShadow,
+  visible: true,
+  x: 20,
+  y: 12,
+  blur: 10,
+  spread: 10,
+  color: "green",
+  opacity: 0.8,
+});
 
-
-
-
-world.camera.update({
-  rotation: 0
+rectNode.effect.add({
+  type: EffectType.LayerBlur,
+  visible: true,
+  blur: 10,
 });
 
 
-// 1) pivot в центре локального rect
-rect.offsetX(rect.width() / 2);
-rect.offsetY(rect.height() / 2);
 
-// 2) позицию переносим в центр (потому что x/y теперь означают позицию pivot)
-rect.x(rect.x() + rect.width() / 2);
-rect.y(rect.y() + rect.height() / 2);
+let stepA = 0;
 
-world.add(rect);
-world.add(rect2);
+function test() {
+  stepA += 0.01;
+
+  rectNode.setRotation(stepA);
+  rectNode.setWidth(50 + (Math.sin(stepA) * 0.5 + 0.5) * 100);
+  rectNode.setHeight(50 + (Math.cos(stepA) * 0.5 + 0.5) * 150);
+  rectNode.setCornerRadius({
+    tl: (Math.cos(stepA) * 0.5 + 0.5) * 150,
+    tr: (Math.cos(stepA) * 0.5 + 0.5) * 150,
+    bl: (Math.cos(stepA) * 0.5 + 0.5) * 150,
+    br: (Math.cos(stepA) * 0.5 + 0.5) * 150
+  });
+
+  world.render();
+  requestAnimationFrame(test);
+}
+
+test();
+world.addNode(rectNode);
+
+
+world.gridView.setOptions({
+  size: 1
+});
+
+
+
+// world.add(rect);
+// world.add(rect2);
 
 
 // selection helper

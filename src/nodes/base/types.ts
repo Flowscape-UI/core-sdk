@@ -75,6 +75,32 @@ export interface INode extends ITransform {
     readonly type: NodeType;
 
     /**
+     * Returns global opacity. Background opacity does not affects it
+     *
+     * Возвращает глобальную прозрачность. Эта прозрачность не зависит от прозрачности заднего фона
+     */
+    getOpacity(): number;
+
+    /**
+     * Marks this node as dirty and triggers full invalidation of cached data.
+     *
+     * The method invalidates the world transform cache of this node and all
+     * its descendants, forcing their world matrices to be recomputed when requested.
+     * It also invalidates hierarchy bounds caches upward through the parent chain.
+     *
+     * This is typically called when the node's transform or size changes.
+     *
+     * Помечает узел как "грязный" и запускает полную инвалидацию кэшированных данных.
+     *
+     * Метод инвалидирует кэш мировой матрицы этого узла и всех его потомков,
+     * что заставляет пересчитать их мировые трансформации при следующем запросе.
+     * Также он инвалидирует кэш границ иерархии вверх по цепочке родителей.
+     *
+     * Обычно вызывается, когда изменяется трансформация или размер узла.
+     */
+    setOpacity(value: number): void;
+
+    /**
      * Marks this node as dirty and triggers full invalidation of cached data.
      *
      * The method invalidates the world transform cache of this node and all

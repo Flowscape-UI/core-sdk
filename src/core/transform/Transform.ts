@@ -60,8 +60,8 @@ export class Transform implements ITransform {
   }
 
   public setPivot(px: number, py: number): void {
-    this._pivot.x = clamp(px, 0, 1);
-    this._pivot.y = clamp(py, 0, 1);
+    this._pivot.x = px;
+    this._pivot.y = py;
     this._markDirty();
   }
 

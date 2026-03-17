@@ -1,16 +1,16 @@
-import { formatRgb, parse, type Color } from "culori";
+import { formatHex, parse, type Color } from "culori";
 import {
     NodeBase,
     NodeType,
     type ID
 } from "../base";
 import {
+    EffectType,
     StrokeAlign,
     type CornerRadius,
     type IShapeBase,
     type StrokeWidth
 } from "./types";
-import { ShapeEffect } from "./effect";
 
 export class ShapeBase extends NodeBase implements IShapeBase {
     private static readonly DEFAULT_FILL_COLOR: Color = {
@@ -27,14 +27,15 @@ export class ShapeBase extends NodeBase implements IShapeBase {
         b: 0,
     };
 
-    public readonly effect: ShapeEffect;
-
     private _cornerRadius: CornerRadius;
     private _fill: Color;
 
     private _strokeWidth: StrokeWidth;
     private _strokeFill: Color;
     private _strokeAlign: StrokeAlign;
+
+    private _effect: EffectType;
+
 
     constructor(id: ID, type: NodeType, name?: string) {
         super(id, type, name);
@@ -57,7 +58,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
         this._strokeFill = ShapeBase.DEFAULT_STROKE_FILL_COLOR;
         this._strokeAlign = StrokeAlign.Center;
 
-        this.effect = new ShapeEffect();
+        this._effect = EffectType.None;
     }
 
 
@@ -90,7 +91,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 
 
     public getFill(): string {
-        return formatRgb(this._fill);
+        return formatHex(this._fill);
     }
 
     public setFill(value: string | Color): void {
@@ -100,7 +101,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
             return;
         }
 
-        if (this._fill && formatRgb(this._fill) === formatRgb(color)) {
+        if (this._fill && formatHex(this._fill) === formatHex(color)) {
             return;
         }
 
@@ -136,7 +137,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
     }
 
     public getStrokeFill(): string {
-        return formatRgb(this._strokeFill);
+        return formatHex(this._strokeFill);
     }
 
     public setStrokeFill(value: string | Color): void {
@@ -146,7 +147,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
             return;
         }
 
-        if (this._strokeFill && formatRgb(this._strokeFill) === formatRgb(color)) {
+        if (this._strokeFill && formatHex(this._strokeFill) === formatHex(color)) {
             return;
         }
 
@@ -163,5 +164,22 @@ export class ShapeBase extends NodeBase implements IShapeBase {
         }
 
         this._strokeAlign = value;
+    }
+
+
+
+    /***********************************************************/
+    /*                          Effect                         */
+    /***********************************************************/
+    public getEffect(): EffectType {
+        return this._effect;
+    }
+
+    public setEffect(value: EffectType): void {
+        if (value === this._effect) {
+            return;
+        }
+
+        this._effect = value;
     }
 }
