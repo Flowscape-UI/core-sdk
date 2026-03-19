@@ -1,5 +1,5 @@
 import type { Vector2 } from "../../../core/transform/types";
-import type { ID } from "../../base";
+import { NodeType, type ID } from "../../base";
 import { NodePolygon } from "../NodePolygon";
 import type { INodeStar } from "./types";
 
@@ -7,7 +7,7 @@ export class NodeStar extends NodePolygon implements INodeStar {
     private _innerRatio: number;
 
     constructor(id: ID, name?: string) {
-        super(id, name ?? "Star");
+        super(id, name ?? "Star", NodeType.Star);
         this._innerRatio = 0.5;
         this.setSideCount(5);
     }
@@ -35,6 +35,8 @@ export class NodeStar extends NodePolygon implements INodeStar {
     /*********************************************************/
 
     protected override _getVertices(): Vector2[] {
+        console.log('herererer');
+        
         const sides = this.getSideCount();
 
         const rx = this.getWidth() / 2;

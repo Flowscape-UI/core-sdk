@@ -10,8 +10,8 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 
     private _sideCount: number;
 
-    constructor(id: ID, name?: string) {
-        super(id, NodeType.Polygon, name ?? "Polygon");
+    constructor(id: ID, name?: string, type?: NodeType) {
+        super(id, type ?? NodeType.Polygon, name ?? "Polygon");
         this._sideCount = NodePolygon.MIN_SIDE_COUNT;
     }
 
@@ -31,6 +31,10 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
         }
 
         this._sideCount = next;
+    }
+
+    public getVertices(): Vector2[] {
+        return this._getVertices();
     }
 
 
@@ -92,6 +96,8 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
     }
 
     protected _getVertices(): Vector2[] {
+        console.log('herer');
+        
         const sides = this._sideCount;
 
         const rx = this.getWidth() / 2;
