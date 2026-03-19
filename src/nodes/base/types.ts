@@ -16,6 +16,11 @@ export enum NodeType {
     Path = "path-node",
 }
 
+export type Size = {
+    width: number,
+    height: number,
+}
+
 export type Rect = {
     x: number;
     y: number;
@@ -193,6 +198,14 @@ export interface INode extends ITransform {
     setHeight(value: number): void;
 
     /**
+     * Returns both width and height.
+     *
+     * Возвращает одновременно ширину и высоту.
+     */
+    getSize(width: number, height: number): Size;
+
+
+    /**
      * Sets both width and height.
      *
      * Устанавливает одновременно ширину и высоту.
@@ -200,6 +213,36 @@ export interface INode extends ITransform {
      * @param height - New height. / Новая высота.
      */
     setSize(width: number, height: number): void;
+
+    /**
+     * Returns the width after applying scale on the X axis.
+     * This does not include rotation or other transformations.
+     *
+     * Возвращает ширину с учётом масштаба по оси X.
+     * Не учитывает поворот и другие трансформации.
+     */
+    getScaledWidth(): number;
+
+    /**
+     * Returns the height after applying scale on the Y axis.
+     * This does not include rotation or other transformations.
+     *
+     * Возвращает высоту с учётом масштаба по оси Y.
+     * Не учитывает поворот и другие трансформации.
+     */
+    getScaledHeight(): number;
+
+    /**
+     * Returns the scaled size as a vector (width and height after scale).
+     * This is a simplified size and does not represent the final bounds
+     * when rotation or other transforms are applied.
+     *
+     * Возвращает размер с учётом масштаба в виде вектора (ширина и высота).
+     * Это упрощённый размер, который не отражает итоговые границы
+     * при наличии поворота или других трансформаций.
+     */
+    getScaledSize(): Size;
+
 
     /**
      * Returns the local visibility state.
