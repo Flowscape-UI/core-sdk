@@ -1,4 +1,5 @@
 import type { Color } from "culori";
+import { EffectInnerShadow, type EffectShadow } from "../../../renderer/effect";
 
 export enum EffectType {
     None = "none",
@@ -48,7 +49,5 @@ export interface BackgroundBlurEffect extends EffectBase {
 }
 
 export type ShapeEffectType =
-    | DropShadowEffect
-    | InnerShadowEffect
-    | LayerBlurEffect
-    | BackgroundBlurEffect;
+    | EffectShadow
+    | EffectInnerShadow;
