@@ -1,8 +1,9 @@
+import { MathF32 } from "../../core/math";
 import { Transform } from "../../core/transform/Transform";
 import type { Matrix, Vector2 } from "../../core/transform/types";
 import { multiplyMatrix } from "../utils";
 import { matrixInvert } from "../utils/matrix-invert";
-import { NodeType, type ID, type INode, type NodeJSON, type OrientedRect, type Rect } from "./types";
+import { NodeType, type ID, type INode, type NodeJSON, type OrientedRect, type Rect, type Size } from "./types";
 
 
 export class NodeBase implements INode {
@@ -87,7 +88,7 @@ export class NodeBase implements INode {
             return;
         }
         const newValue = Math.max(0, Math.min(1, value));
-        if(newValue === this._opacity) {
+        if (newValue === this._opacity) {
             return;
         }
         this._opacity = newValue;
@@ -191,6 +192,13 @@ export class NodeBase implements INode {
         this.setDirty();
     }
 
+    public getSize(): Size {
+        return {
+            width: this._width,
+            height: this._height,
+        }
+    }
+
     public setSize(width: number, height: number): void {
         if (this.isLockedInHierarchy() === true) {
             return;
@@ -206,6 +214,21 @@ export class NodeBase implements INode {
         this._width = nextWidth;
         this._height = nextHeight;
         this.setDirty();
+    }
+
+    public getScaledWidth(): number {
+        return MathF32.mul(this.getWidth(), this.getScaleX());
+    }
+
+    public getScaledHeight(): number {
+        return MathF32.mul(this.getHeight(), this.getScaleY());
+    }
+
+    public getScaledSize(): Size {
+        return {
+            width: this.getScaledWidth(),
+            height: this.getScaledHeight(),
+        };
     }
 
     public isVisible(): boolean {
@@ -320,8 +343,40 @@ export class NodeBase implements INode {
     /********************************************************************/
     /*                       Transform Delegation                       */
     /********************************************************************/
+    public getX(): number {
+        return this._transform.getX();
+    }
+
+    public getY(): number {
+        return this._transform.getY();
+    }
+
     public getPosition(): Vector2 {
         return this._transform.getPosition();
+    }
+
+    public setX(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this._transform.getX() === newValue) {
+            return;
+        }
+        this._transform.setX(newValue);
+        this.setDirty();
+    }
+
+    public setY(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this._transform.getY() === newValue) {
+            return;
+        }
+        this._transform.setY(newValue);
+        this.setDirty();
     }
 
     public setPosition(x: number, y: number): void {
@@ -329,10 +384,34 @@ export class NodeBase implements INode {
             return;
         }
         const oldPosition = this._transform.getPosition();
-        if (oldPosition.x === x && oldPosition.y === y) {
+        const xF32 = MathF32.toF32(x);
+        const yF32 = MathF32.toF32(y);
+        if (oldPosition.x === xF32 && oldPosition.y === yF32) {
             return;
         }
-        this._transform.setPosition(x, y);
+        this._transform.setPosition(xF32, yF32);
+        this.setDirty();
+    }
+
+    public translateX(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        if (value === 0) {
+            return;
+        }
+        this._transform.translateX(value);
+        this.setDirty();
+    }
+
+    public translateY(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        if (value === 0) {
+            return;
+        }
+        this._transform.translateY(value);
         this.setDirty();
     }
 
@@ -347,53 +426,131 @@ export class NodeBase implements INode {
         this.setDirty();
     }
 
+
+    public getScaleX(): number {
+        return this._transform.getScaleX();
+    }
+
+    public getScaleY(): number {
+        return this._transform.getScaleY();
+    }
+
     public getScale(): Vector2 {
         return this._transform.getScale();
     }
 
+    public setScaleX(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this._transform.getScaleX() === newValue) {
+            return;
+        }
+        this._transform.setScaleX(newValue);
+        this.setDirty();
+    }
+
+    public setScaleY(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this._transform.getScaleY() === newValue) {
+            return;
+        }
+        this._transform.setScaleY(newValue);
+        this.setDirty();
+    }
 
     public setScale(sx: number, sy: number): void {
         if (this.isLockedInHierarchy() === true) {
             return;
         }
+        const sxF32 = MathF32.toF32(sx);
+        const syF32 = MathF32.toF32(sy);
         const oldScale = this._transform.getScale();
-        if (oldScale.x === sx && oldScale.y === sy) {
+        if (oldScale.x === sxF32 && oldScale.y === syF32) {
             return;
         }
-        this._transform.setScale(sx, sy);
+        this._transform.setScale(sxF32, syF32);
         this.setDirty();
     }
 
+
     public getRotation(): number {
-        return this._transform.getRotation();
+        return MathF32.radToDeg(this._transform.getRotation());
     }
 
     public getWorldRotation(): number {
         let rotation = this.getRotation();
         let current = this._parent;
-
         while (current) {
             rotation += current.getRotation();
             current = current.getParent();
         }
-
-        return rotation;
+        return MathF32.toF32(rotation);
     }
 
-    public setRotation(angle: number): void {
+    public setRotation(value: number): void {
         if (this.isLockedInHierarchy()) {
             return;
         }
-        if (this._transform.getRotation() === angle) {
+        const newValue = MathF32.degToRad(value);
+        if (this._transform.getRotation() === newValue) {
             return;
         }
-
-        this._transform.setRotation(angle);
+        this._transform.setRotation(newValue);
         this.setDirty();
+    }
+
+    public rotate(delta: number): void {
+        if (this.isLockedInHierarchy()) {
+            return;
+        }
+        const newValue = MathF32.degToRad(delta);
+        if (this._transform.getRotation() === newValue) {
+            return;
+        }
+        this._transform.rotate(newValue);
+        this.setDirty();
+    }
+
+
+    public getPivotX(): number {
+        return this._transform.getPivotX();
+    }
+
+    public getPivotY(): number {
+        return this._transform.getPivotY();
     }
 
     public getPivot(): Vector2 {
         return this._transform.getPivot();
+    }
+
+    public setPivotX(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this.getPivotX() === newValue) {
+            return;
+        }
+        this._transform.setPivotX(newValue);
+        this.setDirty();
+    }
+
+    public setPivotY(value: number): void {
+        if (this.isLockedInHierarchy() === true) {
+            return;
+        }
+        const newValue = MathF32.toF32(value);
+        if (this.getPivotY() === newValue) {
+            return;
+        }
+        this._transform.setPivotY(newValue);
+        this.setDirty();
     }
 
     public setPivot(px: number, py: number): void {
@@ -401,10 +558,12 @@ export class NodeBase implements INode {
             return;
         }
         const oldPivot = this._transform.getPivot();
-        if (oldPivot.x === px && oldPivot.y === py) {
+        const newPx = MathF32.toF32(px);
+        const newPy = MathF32.toF32(py);
+        if (oldPivot.x === newPx && oldPivot.y === newPy) {
             return;
         }
-        this._transform.setPivot(px, py);
+        this._transform.setPivot(newPx, newPy);
         this.setDirty();
     }
 
@@ -445,9 +604,9 @@ export class NodeBase implements INode {
 
         return [
             this._applyMatrixToPoint(worldMatrix, { x, y }),
-            this._applyMatrixToPoint(worldMatrix, { x: x + w, y }),
-            this._applyMatrixToPoint(worldMatrix, { x: x + w, y: y + h }),
-            this._applyMatrixToPoint(worldMatrix, { x, y: y + h }),
+            this._applyMatrixToPoint(worldMatrix, { x: MathF32.add(x, w), y }),
+            this._applyMatrixToPoint(worldMatrix, { x: MathF32.add(x, w), y: MathF32.add(y, h) }),
+            this._applyMatrixToPoint(worldMatrix, { x, y: MathF32.add(y, h) }),
         ];
     }
 
@@ -464,8 +623,8 @@ export class NodeBase implements INode {
         const corners = this.getWorldCorners();
 
         const center = {
-            x: (corners[0].x + corners[2].x) / 2,
-            y: (corners[0].y + corners[2].y) / 2,
+            x: MathF32.toF32((corners[0].x + corners[2].x) / 2),
+            y: MathF32.toF32((corners[0].y + corners[2].y) / 2),
         };
 
         const width = Math.hypot(
@@ -480,8 +639,8 @@ export class NodeBase implements INode {
 
         return {
             center,
-            width,
-            height,
+            width: MathF32.toF32(width),
+            height: MathF32.toF32(height),
             rotation: this.getWorldRotation(),
         };
     }
@@ -531,10 +690,10 @@ export class NodeBase implements INode {
         }
 
         this._cachedHierarchyLocalOBB = {
-            x: minX,
-            y: minY,
-            width: maxX - minX,
-            height: maxY - minY,
+            x: MathF32.toF32(minX),
+            y: MathF32.toF32(minY),
+            width: MathF32.sub(maxX, minX),
+            height: MathF32.sub(maxY, minY),
         };
 
         this._isHierarchyLocalOBBDirty = false;
@@ -553,8 +712,8 @@ export class NodeBase implements INode {
         ];
 
         const center = {
-            x: (corners[0].x + corners[2].x) / 2,
-            y: (corners[0].y + corners[2].y) / 2,
+            x: MathF32.toF32((corners[0].x + corners[2].x) / 2),
+            y: MathF32.toF32((corners[0].y + corners[2].y) / 2),
         };
 
         const width = Math.hypot(
@@ -569,8 +728,8 @@ export class NodeBase implements INode {
 
         return {
             center,
-            width,
-            height,
+            width: MathF32.toF32(width),
+            height: MathF32.toF32(height),
             rotation: this.getWorldRotation(),
         };
     }
@@ -791,8 +950,8 @@ export class NodeBase implements INode {
          * y' = b*x + d*y + ty
          */
         return {
-            x: m.a * p.x + m.c * p.y + m.tx,
-            y: m.b * p.x + m.d * p.y + m.ty
+            x: MathF32.toF32(m.a * p.x + m.c * p.y + m.tx),
+            y: MathF32.toF32(m.b * p.x + m.d * p.y + m.ty)
         };
     }
 
@@ -857,10 +1016,10 @@ export class NodeBase implements INode {
         }
 
         return {
-            x: minX,
-            y: minY,
-            width: maxX - minX,
-            height: maxY - minY,
+            x: MathF32.toF32(minX),
+            y: MathF32.toF32(minY),
+            width: MathF32.sub(maxX, minX),
+            height: MathF32.sub(maxY, minY),
         };
     }
 }

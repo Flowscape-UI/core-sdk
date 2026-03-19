@@ -21,161 +21,211 @@ import type { Vector2 } from "./Vector2";
  * ```
  */
 export interface ITransform {
+    /*****************************************************************/
+    /*                           Position                            */
+    /*****************************************************************/
+
     /**
-     * Returns the local position of the object.
-     *
-     * The position is relative to the object's parent (if any).
-     *
-     * @example
-     * ```ts
-     * const pos = transform.getPosition();
-     * console.log(pos.x, pos.y);
-     * ```
+     * Returns the X position in local space.
+     * Возвращает позицию по оси X в локальном пространстве.
+     */
+    getX(): number;
+
+    /**
+     * Returns the Y position in local space.
+     * Возвращает позицию по оси Y в локальном пространстве.
+     */
+    getY(): number;
+
+    /**
+     * Returns the full position as a vector.
+     * Возвращает полную позицию в виде вектора.
      */
     getPosition(): Vector2;
 
     /**
-     * Sets the local position of the object.
-     *
-     * @param x - Local X coordinate
-     * @param y - Local Y coordinate
-     *
-     * @example
-     * ```ts
-     * transform.setPosition(200, 100);
-     * ```
+     * Sets the X position in local space.
+     * Устанавливает позицию по оси X в локальном пространстве.
+     */
+    setX(value: number): void;
+
+    /**
+     * Sets the Y position in local space.
+     * Устанавливает позицию по оси Y в локальном пространстве.
+     */
+    setY(value: number): void;
+
+    /**
+     * Sets the position using X and Y values.
+     * Устанавливает позицию по осям X и Y.
      */
     setPosition(x: number, y: number): void;
 
     /**
-     * Translates the object in local space.
-     *
-     * This adds a delta to the current local position.
-     *
-     * @param dx - Delta X
-     * @param dy - Delta Y
-     *
-     * @example
-     * ```ts
-     * // Move object 10px to the right and 5px down
-     * transform.translate(10, 5);
-     * ```
+     * Moves the position along the X axis by a given offset.
+     * Смещает позицию по оси X на заданное значение.
+     */
+    translateX(value: number): void;
+
+    /**
+     * Moves the position along the Y axis by a given offset.
+     * Смещает позицию по оси Y на заданное значение.
+     */
+    translateY(value: number): void;
+
+    /**
+     * Moves the position by a given offset on both axes.
+     * Смещает позицию по осям X и Y на заданные значения.
      */
     translate(dx: number, dy: number): void;
 
+
+
+    /*****************************************************************/
+    /*                             Scale                             */
+    /*****************************************************************/
+
     /**
-     * Returns the local scale of the object.
-     *
-     * A scale of `{ x: 1, y: 1 }` represents the original size.
-     *
-     * @example
-     * ```ts
-     * const scale = transform.getScale();
-     * console.log(scale.x, scale.y);
-     * ```
+     * Returns the scale value on the X axis.
+     * Возвращает масштаб по оси X.
+     */
+    getScaleX(): number;
+
+    /**
+     * Returns the scale value on the Y axis.
+     * Возвращает масштаб по оси Y.
+     */
+    getScaleY(): number;
+
+    /**
+     * Returns the full scale as a vector.
+     * Возвращает масштаб в виде вектора.
      */
     getScale(): Vector2;
 
     /**
-     * Sets the local scale of the object.
-     *
-     * @param sx - Scale factor along the X axis
-     * @param sy - Scale factor along the Y axis
-     *
-     * @example
-     * ```ts
-     * // Double the size of the object
-     * transform.setScale(2, 2);
-     * ```
+     * Sets the scale value on the X axis.
+     * Устанавливает масштаб по оси X.
+     */
+    setScaleX(value: number): void;
+
+    /**
+     * Sets the scale value on the Y axis.
+     * Устанавливает масштаб по оси Y.
+     */
+    setScaleY(value: number): void;
+
+    /**
+     * Sets the scale using X and Y values.
+     * Устанавливает масштаб по осям X и Y.
      */
     setScale(sx: number, sy: number): void;
 
+
+
+    /*****************************************************************/
+    /*                           Rotation                            */
+    /*****************************************************************/
+
     /**
-     * Returns the local rotation of the object.
-     *
-     * The rotation is expressed in radians and represents
-     * a rotation around the Z axis (2D rotation).
-     *
-     * @example
-     * ```ts
-     * const angle = transform.getRotation();
-     * console.log(angle);
-     * ```
+     * Returns the rotation in radians.
+     * Возвращает угол поворота в радианах.
      */
     getRotation(): number;
 
     /**
-     * Sets the local rotation of the object.
-     *
-     * @param angle - Rotation angle in radians
-     *
-     * @example
-     * ```ts
-     * // Rotate 90 degrees clockwise
-     * transform.setRotation(Math.PI / 2);
-     * ```
+     * Sets the rotation in radians.
+     * Устанавливает угол поворота в радианах.
      */
-    setRotation(angle: number): void;
+    setRotation(value: number): void;
 
     /**
-     * Returns the pivot (anchor) point of the object.
-     *
-     * The pivot is normalized:
-     * - (0, 0)     → top-left
-     * - (0.5, 0.5) → center
-     * - (1, 1)     → bottom-right
-     *
-     * @example
-     * ```ts
-     * const pivot = transform.getPivot();
-     * console.log(pivot);
-     * ```
+     * Sets the rotation in radians of the last setted value.
+     * Устанавливает угол поворота в радианах от последнего сохранённого угла.
+     */
+    rotate(delta: number): void;
+
+
+
+    /*****************************************************************/
+    /*                            Pivot                              */
+    /*****************************************************************/
+
+    /**
+     * Returns the pivot X (normalized, usually 0..1).
+     * Возвращает pivot по оси X (нормализованное значение, обычно 0..1).
+     */
+    getPivotX(): number;
+
+    /**
+     * Returns the pivot Y (normalized, usually 0..1).
+     * Возвращает pivot по оси Y (нормализованное значение, обычно 0..1).
+     */
+    getPivotY(): number;
+
+    /**
+     * Returns the pivot as a vector.
+     * Возвращает pivot в виде вектора.
      */
     getPivot(): Vector2;
 
     /**
-     * Sets the pivot (anchor) point of the object.
-     *
-     * The pivot is specified in normalized coordinates `[0..1]`.
-     *
-     * @param px - Normalized pivot X
-     * @param py - Normalized pivot Y
-     *
-     * @example
-     * ```ts
-     * // Set pivot to center
-     * transform.setPivot(0.5, 0.5);
-     *
-     * // Set pivot to top-left
-     * transform.setPivot(0, 0);
-     * ```
+     * Sets the pivot X (normalized).
+     * Устанавливает pivot по оси X (нормализованное значение).
+     */
+    setPivotX(value: number): void;
+
+    /**
+     * Sets the pivot Y (normalized).
+     * Устанавливает pivot по оси Y (нормализованное значение).
+     */
+    setPivotY(value: number): void;
+
+    /**
+     * Sets the pivot using X and Y values (normalized).
+     * Устанавливает pivot по осям X и Y (нормализованные значения).
      */
     setPivot(px: number, py: number): void;
 
+
+
+    /*****************************************************************/
+    /*                         Local Matrix                          */
+    /*****************************************************************/
+
     /**
-     * Returns the local transformation matrix.
+     * Computes the local transformation matrix for the object.
      *
-     * The matrix is composed from the local position, rotation,
-     * scale and pivot.
+     * This matrix combines position, scale, rotation and pivot into a single structure
+     * that can be used by the renderer to correctly transform the object in space.
      *
-     * Geometry size is provided externally by the owner (e.g. Node)
-     * and is required to correctly apply the pivot.
+     * The width and height are required to convert the normalized pivot (0..1)
+     * into actual local coordinates.
      *
-     * @param width  - Local unscaled width of the geometry
-     * @param height - Local unscaled height of the geometry
+     * In simple terms:
+     * - position moves the object
+     * - scale resizes it
+     * - rotation rotates it
+     * - pivot defines the point around which transformations happen
      *
-     * @example
-     * ```ts
-     * const matrix = transform.getLocalMatrix(100, 50);
-     * ctx.setTransform(
-     *   matrix.a,
-     *   matrix.b,
-     *   matrix.c,
-     *   matrix.d,
-     *   matrix.tx,
-     *   matrix.ty
-     * );
-     * ```
+     * The resulting matrix is then used to render the object on the canvas.
+     *
+     * Вычисляет локальную матрицу трансформации объекта.
+     *
+     * Эта матрица объединяет позицию, масштаб, поворот и pivot
+     * в одну структуру, которая используется рендерером для правильного
+     * преобразования объекта в пространстве.
+     *
+     * Ширина и высота нужны для перевода нормализованного pivot (0..1)
+     * в реальные локальные координаты.
+     *
+     * Проще говоря:
+     * - position перемещает объект
+     * - scale изменяет размер
+     * - rotation вращает
+     * - pivot задаёт точку, относительно которой происходят трансформации
+     *
+     * Итоговая матрица используется при отрисовке объекта.
      */
     getLocalMatrix(width: number, height: number): Matrix;
 }
