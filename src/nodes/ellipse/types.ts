@@ -59,9 +59,11 @@ export interface INodeEllipse extends IShapeBase {
 
 
     /**
-     * Returns the sweep angle of the ellipse arc in degrees.
+     * Returns the sweep angle of the ellipse arc, in degrees.
+     * The sweep angle is calculated as endAngle - startAngle.
      *
-     * Возвращает угол дуги (sweep angle) эллипса в градусах.
+     * Возвращает угол дуги эллипса в градусах.
+     * Угол дуги вычисляется как endAngle - startAngle.
      */
     getSweepAngle(): number;
 }
