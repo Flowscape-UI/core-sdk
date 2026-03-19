@@ -6,7 +6,19 @@ import { KonvaGridView } from "../../grid";
 import { Layer } from "./Layer";
 
 import { RenderOrder, type IInvalidatable } from "../../interfaces";
-import { RendererCanvasRegistry, RendererCanvasManager, RendererCanvasRect } from "../../../renderer";
+import {
+    RendererCanvasRegistry,
+    RendererCanvasManager,
+    RendererCanvasRect,
+    RendererCanvasEllipse,
+    RendererCanvasPolygon,
+    RendererCanvasStar,
+    RendererCanvasLine,
+    RendererCanvasText,
+    RendererCanvasImage,
+    RendererCanvasVideo,
+    RendererCanvasPath
+} from "../../../renderer";
 import { NodeType, type INode } from "../../../nodes";
 
 
@@ -259,6 +271,14 @@ export class LayerWorld extends Layer {
 
     private _registerDefaultRenderers(): void {
         this._rendererRegistry.register(NodeType.Rect, new RendererCanvasRect());
+        this._rendererRegistry.register(NodeType.Ellipse, new RendererCanvasEllipse());
+        this._rendererRegistry.register(NodeType.Polygon, new RendererCanvasPolygon());
+        this._rendererRegistry.register(NodeType.Star, new RendererCanvasStar());
+        this._rendererRegistry.register(NodeType.Line, new RendererCanvasLine());
+        this._rendererRegistry.register(NodeType.Text, new RendererCanvasText());
+        this._rendererRegistry.register(NodeType.Image, new RendererCanvasImage());
+        this._rendererRegistry.register(NodeType.Video, new RendererCanvasVideo());
+        this._rendererRegistry.register(NodeType.Path, new RendererCanvasPath());
     }
 
     private _applyCamera(state: CameraState): void {
