@@ -1,5 +1,7 @@
 import type { Color } from "culori";
 import type { ShapeEffect } from "./effect";
+import type { INode, OrientedRect, Rect } from "../base";
+import type { Vector2 } from "../../core/transform/types";
 
 export type CornerRadius = {
     tl: number;
@@ -21,7 +23,7 @@ export enum StrokeAlign {
     Outside = 2,
 }
 
-export interface IShapeBase {
+export interface IShapeBase extends INode {
     readonly effect: ShapeEffect;
 
     /***********************************************************/
@@ -106,4 +108,66 @@ export interface IShapeBase {
      * Устанавливает режим выравнивания обводки.
      */
     setStrokeAlign(value: StrokeAlign): void;
+
+
+
+    /***********************************************************/
+    /*                       View Bounds                       */
+    /***********************************************************/
+
+    /**
+     * Returns the local oriented bounding box (OBB) of the shape including its visual stroke.
+     * Unlike getLocalOBB(), this method expands the bounds based on stroke width and stroke alignment.
+     *
+     * This represents the actual visible area of the shape in local space.
+     *
+     * Возвращает локальный ориентированный bounding box (OBB) фигуры с учетом её обводки (stroke).
+     * В отличие от getLocalOBB(), этот метод расширяет границы с учетом толщины и выравнивания stroke.
+     *
+     * Это фактическая видимая область фигуры в локальном пространстве.
+     */
+    getLocalViewOBB(): Rect;
+
+    /**
+     * Returns the world-space corner points of the shape including its visual stroke.
+     * These points represent the transformed corners of the view bounds (with stroke applied).
+     *
+     * Unlike getWorldCorners(), which is based on pure geometry,
+     * this method reflects the actual rendered shape including stroke.
+     *
+     * Возвращает угловые точки фигуры в мировых координатах с учетом обводки (stroke).
+     * В отличие от getWorldCorners(), который основан только на геометрии,
+     * этот метод учитывает реальный визуальный размер фигуры.
+     */
+    getWorldViewCorners(): [Vector2, Vector2, Vector2, Vector2];
+
+    /**
+     * Returns the world-space oriented bounding box (OBB) of the shape including stroke.
+     * This box follows the object's rotation and represents its visual bounds.
+     *
+     * Useful for rotated selection outlines and editor overlays.
+     *
+     * Возвращает ориентированный bounding box (OBB) в мировых координатах с учетом stroke.
+     * Этот прямоугольник вращается вместе с объектом и отражает его визуальные границы.
+     *
+     * Используется для выделения повернутых объектов и overlay в редакторе.
+     */
+    getWorldViewOBB(): OrientedRect;
+
+    /**
+     * Returns the world-space axis-aligned bounding box (AABB) of the shape including stroke.
+     * This box is aligned to the world axes and fully contains the visual representation of the shape.
+     *
+     * Unlike getWorldAABB(), this includes stroke width and represents what is actually visible.
+     *
+     * Useful for selection frames, hit testing, and spatial queries.
+     *
+     * Возвращает axis-aligned bounding box (AABB) в мировых координатах с учетом stroke.
+     * Этот прямоугольник выровнен по осям мира и полностью охватывает видимую часть фигуры.
+     *
+     * В отличие от getWorldAABB(), учитывает толщину обводки и отражает реальную визуальную область.
+     *
+     * Используется для рамки выделения, hit-test и пространственных проверок.
+     */
+    getWorldViewAABB(): Rect;
 }

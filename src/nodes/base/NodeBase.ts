@@ -204,8 +204,8 @@ export class NodeBase implements INode {
             return;
         }
 
-        const nextWidth = Math.max(0, width);
-        const nextHeight = Math.max(0, height);
+        const nextWidth = MathF32.max(0, width);
+        const nextHeight = MathF32.max(0, height);
 
         if (nextWidth === this._width && nextHeight === this._height) {
             return;
@@ -993,7 +993,7 @@ export class NodeBase implements INode {
         }
     }
 
-    private _getAABBFromPoints(points: readonly Vector2[]): Rect {
+    protected _getAABBFromPoints(points: readonly Vector2[]): Rect {
         if (points.length === 0) {
             return {
                 x: 0,

@@ -2,7 +2,9 @@ import { formatRgb, parse, type Color } from "culori";
 import {
     NodeBase,
     NodeType,
-    type ID
+    type ID,
+    type OrientedRect,
+    type Rect
 } from "../base";
 import {
     StrokeAlign,
@@ -11,6 +13,8 @@ import {
     type StrokeWidth
 } from "./types";
 import { ShapeEffect } from "./effect";
+import type { Vector2 } from "../../core/transform/types";
+import { MathF32 } from "../../core/math";
 
 export class ShapeBase extends NodeBase implements IShapeBase {
     private static readonly DEFAULT_FILL_COLOR: Color = {
@@ -70,10 +74,10 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 
     public setCornerRadius(value: CornerRadius): void {
         const newCornerRadius: CornerRadius = {
-            tl: Math.max(0, value.tl),
-            tr: Math.max(0, value.tr),
-            br: Math.max(0, value.br),
-            bl: Math.max(0, value.bl),
+            tl: MathF32.max(0, value.tl),
+            tr: MathF32.max(0, value.tr),
+            br: MathF32.max(0, value.br),
+            bl: MathF32.max(0, value.bl),
         };
 
         if (
@@ -117,10 +121,10 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 
     public setStrokeWidth(value: StrokeWidth): void {
         const newStrokeWidth: StrokeWidth = {
-            t: Math.max(0, value.t),
-            r: Math.max(0, value.r),
-            b: Math.max(0, value.b),
-            l: Math.max(0, value.l),
+            t: MathF32.max(0, value.t),
+            r: MathF32.max(0, value.r),
+            b: MathF32.max(0, value.b),
+            l: MathF32.max(0, value.l),
         };
 
         if (
@@ -161,7 +165,96 @@ export class ShapeBase extends NodeBase implements IShapeBase {
         if (value === this._strokeAlign) {
             return;
         }
-
         this._strokeAlign = value;
+    }
+
+
+    /***********************************************************/
+    /*                       View Bounds                       */
+    /***********************************************************/
+    public getLocalViewOBB(): Rect {
+        const bounds = this.getLocalOBB();
+        const outset = this._getViewStrokeOutset();
+        return {
+            x: MathF32.sub(bounds.x, outset.l),
+            y: MathF32.sub(bounds.y, outset.t),
+            width: MathF32.add(bounds.width, MathF32.add(outset.l, outset.r)),
+            height: MathF32.add(bounds.height, MathF32.add(outset.t, outset.b)),
+        };
+    }
+
+    public getWorldViewCorners(): [Vector2, Vector2, Vector2, Vector2] {
+        const worldMatrix = this.getWorldMatrix();
+        const local = this.getLocalViewOBB();
+
+        const x = local.x;
+        const y = local.y;
+        const w = local.width;
+        const h = local.height;
+
+        return [
+            this._applyMatrixToPoint(worldMatrix, { x, y }),
+            this._applyMatrixToPoint(worldMatrix, { x: MathF32.add(x, w), y }),
+            this._applyMatrixToPoint(worldMatrix, { x: MathF32.add(x, w), y: MathF32.add(y, h) }),
+            this._applyMatrixToPoint(worldMatrix, { x, y: MathF32.add(y, h) }),
+        ];
+    }
+
+    public getWorldViewOBB(): OrientedRect {
+        const corners = this.getWorldViewCorners();
+
+        const center = {
+            x: MathF32.toF32((corners[0].x + corners[2].x) / 2),
+            y: MathF32.toF32((corners[0].y + corners[2].y) / 2),
+        };
+
+        const width = Math.hypot(
+            corners[1].x - corners[0].x,
+            corners[1].y - corners[0].y
+        );
+
+        const height = Math.hypot(
+            corners[2].x - corners[1].x,
+            corners[2].y - corners[1].y
+        );
+
+        return {
+            center,
+            width: MathF32.toF32(width),
+            height: MathF32.toF32(height),
+            rotation: this.getWorldRotation(),
+        };
+    }
+
+    public getWorldViewAABB(): Rect {
+        return this._getAABBFromPoints(this.getWorldViewCorners());
+    }
+
+
+
+    /***********************************************************/
+    /*                          Helper                         */
+    /***********************************************************/
+    private _getViewStrokeOutset(): StrokeWidth {
+        const stroke = this.getStrokeWidth();
+
+        switch (this.getStrokeAlign()) {
+            case StrokeAlign.Inside:
+                return { t: 0, r: 0, b: 0, l: 0 };
+
+            case StrokeAlign.Center:
+                return {
+                    t: stroke.t / 2,
+                    r: stroke.r / 2,
+                    b: stroke.b / 2,
+                    l: stroke.l / 2,
+                };
+
+            case StrokeAlign.Outside:
+                return { ...stroke };
+
+            default:
+                return { t: 0, r: 0, b: 0, l: 0 };
+        }
     }
 }
