@@ -1,4 +1,4 @@
-import type { LayerWorld } from "./LayerWorld";
+import type { LayerWorld } from "./LayerOverlayInputController.ts";
 import Konva from "konva";
 import type { LayerDOM } from "./LayerDOM";
 import { RenderOrder, type IInvalidatable } from "../../interfaces";
