@@ -1,4 +1,5 @@
 import { EventEmitter } from "../EventEmitter";
+import { MathF32 } from "../math";
 import type { CameraState, ICamera, Point, Viewport } from "./types";
 
 
@@ -32,7 +33,12 @@ export class Camera implements ICamera {
     /*                                 Getters                                 */
     /***************************************************************************/
     public getState(): CameraState {
-        return { x: this._x, y: this._y, scale: this._scale, rotation: this._rotation };
+        return {
+            x: this._x,
+            y: this._y,
+            scale: this._scale,
+            rotation: this._rotation
+        };
     }
 
     public getViewport(): Readonly<Viewport> {
@@ -67,10 +73,17 @@ export class Camera implements ICamera {
     /***************************************************************************/
     /*                                 Setters                                 */
     /***************************************************************************/
-    public setLimits(minScale: number, maxScale: number) {
-        this._minScale = minScale;
-        this._maxScale = maxScale;
-        this.setScale(this._scale);
+    public setLimits(minScale: number, maxScale: number): void {
+        const newMinScale = MathF32.toF32(minScale);
+        const newMaxScale = MathF32.toF32(maxScale);
+        if(
+            this._minScale === newMinScale &&
+            this._maxScale === newMaxScale
+        ) {
+            return;
+        }
+        this._minScale = newMinScale;
+        this._maxScale = newMaxScale;
     }
 
     public setPosition(x: number, y: number): void {
@@ -79,13 +92,13 @@ export class Camera implements ICamera {
 
     public setViewportSize(width: number, height: number): void {
         this._viewport = {
-            width: this._clamp(width, 1, width),
-            height: this._clamp(height, 1, height),
+            width: MathF32.clamp(width, 1, width),
+            height: MathF32.clamp(height, 1, height),
         };
     }
 
     public setScale(scale: number): void {
-        this._update({ scale: this._clamp(scale, this._minScale, this._maxScale) });
+        this._update({ scale: MathF32.clamp(scale, this._minScale, this._maxScale) });
     }
 
     public setRotationRadians(radians: number): void {
@@ -129,7 +142,7 @@ export class Camera implements ICamera {
     // Zoom anchored at screen point. Needs viewport size (for center pivot).
     public zoomAtScreen(screenPoint: Point, factor: number): void {
         const current = this.getState();
-        const newScale = this._clamp(current.scale * factor, this._minScale, this._maxScale);
+        const newScale = MathF32.clamp(current.scale * factor, this._minScale, this._maxScale);
 
         const before = this.screenToWorld(screenPoint);
 
@@ -171,9 +184,12 @@ export class Camera implements ICamera {
     /*                           Overridable Methods                           */
     /***************************************************************************/
     protected _rotate(p: Point, a: number): Point {
-        const c = Math.cos(a);
-        const s = Math.sin(a);
-        return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
+        const c = MathF32.cos(a);
+        const s = MathF32.sin(a);
+        return {
+            x: MathF32.toF32(p.x * c - p.y * s),
+            y: MathF32.toF32(p.x * s + p.y * c)
+        };
     }
 
     protected _update(state: Partial<CameraState>): void {
@@ -182,7 +198,7 @@ export class Camera implements ICamera {
         if (state.x !== undefined) this._x = state.x;
         if (state.y !== undefined) this._y = state.y;
         if (state.scale !== undefined) {
-            this._scale = this._clamp(state.scale, this._minScale, this._maxScale);
+            this._scale = MathF32.clamp(state.scale, this._minScale, this._maxScale);
         }
         if (state.rotation !== undefined) this._rotation = state.rotation;
 
@@ -246,13 +262,5 @@ export class Camera implements ICamera {
         ) {
             this._events.emit("change", next);
         }
-    }
-
-
-    /***************************************************************************/
-    /*                                 Helpers                                 */
-    /***************************************************************************/
-    private _clamp(v: number, min: number, max: number) {
-        return Math.max(min, Math.min(max, v));
     }
 }
