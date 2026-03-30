@@ -6,6 +6,7 @@ import { RendererLayerWorldCanvas } from "./layers/world";
 import { LayerWorldInputController } from "../../../core/scene/layers/LayerWorldInputController";
 import { RendererLayerOverlayCanvas, RendererLayerOverlayTarget } from "./layers/overlay";
 import { LayerOverlayInputController } from "../../../core/scene/layers/LayerOverlayInputController";
+import { RendererLayerUI } from "../../ui";
 
 export class RendererSceneCanvas implements IRendererScene {
     private readonly _stage: Konva.Stage;
@@ -15,6 +16,7 @@ export class RendererSceneCanvas implements IRendererScene {
     private readonly _backgroundRenderer: RendererLayerBackgroundCanvas;
     private readonly _worldRenderer: RendererLayerWorldCanvas;
     private readonly _overlayRenderer: RendererLayerOverlayCanvas;
+    private readonly _uiRenderer: RendererLayerUI;
 
     private _worldInputController: LayerWorldInputController | null = null;
     private _overlayInputController: LayerOverlayInputController | null = null;
@@ -30,6 +32,7 @@ export class RendererSceneCanvas implements IRendererScene {
         this._backgroundRenderer = new RendererLayerBackgroundCanvas();
         this._worldRenderer = new RendererLayerWorldCanvas();
         this._overlayRenderer = new RendererLayerOverlayCanvas();
+        this._uiRenderer = new RendererLayerUI(container);
 
         this._stage.add(this._backgroundRenderer.getLayer());
         this._stage.add(this._worldRenderer.getLayer());
@@ -73,6 +76,8 @@ export class RendererSceneCanvas implements IRendererScene {
             }
         );
 
+        this._uiRenderer.attach(scene.layerUI);
+
         this.update();
     }
 
@@ -86,6 +91,7 @@ export class RendererSceneCanvas implements IRendererScene {
         this._backgroundRenderer.detach();
         this._worldRenderer.detach();
         this._overlayRenderer.detach();
+        this._uiRenderer.detach();
         this._scene = null;
     }
 
@@ -97,6 +103,7 @@ export class RendererSceneCanvas implements IRendererScene {
         this._backgroundRenderer.render();
         this._worldRenderer.render();
         this._overlayRenderer.render();
+        this._uiRenderer.render();
     }
 
     public update(): void {
@@ -112,6 +119,7 @@ export class RendererSceneCanvas implements IRendererScene {
         this._backgroundRenderer.update();
         this._worldRenderer.update();
         this._overlayRenderer.update();
+        this._uiRenderer.update();
     }
 
     public destroy(): void {
@@ -119,6 +127,7 @@ export class RendererSceneCanvas implements IRendererScene {
         this._backgroundRenderer.destroy();
         this._worldRenderer.destroy();
         this._overlayRenderer.destroy();
+        this._uiRenderer.destroy();
         this._stage.destroy();
     }
 }

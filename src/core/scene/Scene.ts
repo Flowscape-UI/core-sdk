@@ -2,12 +2,14 @@ import type { IRendererScene } from "../../renderer/canvas/scene";
 import type { IScene } from "./IScene";
 import { LayerBackground } from "./layers/background/LayerBackground";
 import { LayerOverlay } from "./layers/overlay/LayerOverlay";
+import { LayerUI } from "./layers/ui/LayerUI";
 import { LayerWorld } from "./layers/world/LayerWorld";
 
 export class Scene implements IScene {
     public readonly layerBackground: LayerBackground;
     public readonly layerWorld: LayerWorld;
     public readonly layerOverlay: LayerOverlay;
+    public readonly layerUI: LayerUI;
 
     private _renderer: IRendererScene | null = null;
     private _isFrameScheduled: boolean = false;
@@ -18,7 +20,8 @@ export class Scene implements IScene {
     constructor(width: number, height: number) {
         this.layerBackground = new LayerBackground(width, height);
         this.layerWorld = new LayerWorld(width, height);
-        this.layerOverlay = new LayerOverlay(width, height)
+        this.layerOverlay = new LayerOverlay(width, height);
+        this.layerUI = new LayerUI(this.layerWorld, width, height);
 
         this._width = width;
         this._height = height;
@@ -49,6 +52,7 @@ export class Scene implements IScene {
         this.layerBackground.setSize(width, height);
         this.layerWorld.setSize(width, height);
         this.layerOverlay.setSize(width, height);
+        this.layerUI.setSize(width, height);
         this.invalidate();
     }
 

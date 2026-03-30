@@ -5,7 +5,6 @@ import { RendererCanvasEllipse, RendererCanvasImage, RendererCanvasLine, Rendere
 import { NodeType } from "../../../../../nodes";
 import { GridRenderer, KonvaGridView } from "../../../../../core/grid";
 import type { CameraState } from "../../../../../core/camera";
-import type { LayerWorldInputController } from "../../../../../core/scene/layers/LayerWorldInputController";
 
 export class RendererLayerWorldCanvas implements IRendererLayerWorld {
     private readonly _layer: Konva.Layer;
@@ -19,8 +18,6 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
 
     // Grid
     private readonly _gridView: KonvaGridView;
-
-    private _worldInputController: LayerWorldInputController | null = null;
 
     constructor() {
         this._layer = new Konva.Layer({
