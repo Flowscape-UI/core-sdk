@@ -1,5 +1,6 @@
 import type Konva from "konva";
-import type { IRenderable } from "../interfaces/IRenderable";
+import type { IRenderable } from "../core/interfaces";
+
 
 export class RenderScheduler {
     private _raf = 0;
