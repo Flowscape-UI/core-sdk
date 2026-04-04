@@ -89,14 +89,11 @@ export abstract class RendererCanvasBase<
 
     // Debug
     protected _updateDebug(node: TNode, view: Konva.Group): void {
-        const debugLayer = this._ensureDebugLayer(view);
-        const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
-
         if (!RendererCanvasBase.DEBUG_TRANSFORM) {
-            debugLayer.visible(false);
-            worldDebugLayer.visible(false);
             return;
         }
+        const debugLayer = this._ensureDebugLayer(view);
+        const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
 
         debugLayer.visible(true);
         worldDebugLayer.visible(true);

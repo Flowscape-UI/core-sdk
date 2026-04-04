@@ -1,6 +1,6 @@
 import Konva from "konva";
 
-import type { INode, ID } from "../../../../nodes";
+import type { INode, ID, Rect } from "../../../../nodes";
 import { RendererCanvasRegistry } from "./RendererCanvasRegistry";
 
 export class RendererCanvasManager {
@@ -21,11 +21,14 @@ export class RendererCanvasManager {
      *
      * Синхронизирует дерево нод.
      */
-    public renderNodes(nodes: readonly INode[]): void {
+    public renderNodes(
+        nodes: readonly INode[],
+        viewport: Rect
+    ): void {
         const visited = new Set<ID>();
 
         for (const node of nodes) {
-            this._renderNode(node, this._contentRoot, visited);
+            this._renderNode(node, this._contentRoot, visited, viewport);
         }
 
         this._cleanupUnmounted(visited);
@@ -70,14 +73,23 @@ export class RendererCanvasManager {
     private _renderNode(
         node: INode,
         parentContainer: Konva.Group,
-        visited: Set<ID>
+        visited: Set<ID>,
+        viewport: Rect,
     ): void {
         if (!node.isVisibleInHierarchy()) {
             this._unmountNodeRecursive(node);
             return;
         }
 
+        const bounds = node.getHierarchyWorldAABB();
+
+        if (!this._intersectsAabb(bounds, viewport)) {
+            this._unmountNodeRecursive(node);
+            return;
+        }
+
         visited.add(node.id);
+
 
         const renderer = this._registry.get(node.type);
         let currentContainer = parentContainer;
@@ -100,7 +112,7 @@ export class RendererCanvasManager {
         }
 
         for (const child of node.getChildren()) {
-            this._renderNode(child, currentContainer, visited);
+            this._renderNode(child, currentContainer, visited, viewport);
         }
     }
 
@@ -128,5 +140,14 @@ export class RendererCanvasManager {
 
         mounted.destroy();
         this._mounted.delete(node.id);
+    }
+
+    private _intersectsAabb(a: Rect, b: Rect): boolean {
+        return !(
+            a.x + a.width < b.x ||
+            b.x + b.width < a.x ||
+            a.y + a.height < b.y ||
+            b.y + b.height < a.y
+        );
     }
 }

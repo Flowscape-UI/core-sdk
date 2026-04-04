@@ -1,8 +1,8 @@
 import Konva from "konva";
 import { StrokeAlign, type CornerRadius, type NodeRect } from "../../../../nodes";
-import { RendererCanvasBase } from "../base";
 import { EffectType } from "../../../../nodes/shape/effect";
 import { RendererEffectInnerShadow, RendererEffectShadow } from "../../effect/shadow";
+import { RendererCanvasBase } from "../base";
 
 const STROKE_SHAPE_NAME = "rect-stroke-shape";
 const STROKE_SHAPE_SELECTOR = `.${STROKE_SHAPE_NAME}`;
@@ -133,9 +133,9 @@ export class RendererCanvasRect extends RendererCanvasBase<NodeRect> {
         }
 
         if (innerShadowRenderer) {
-    innerShadowRenderer.getView().moveToTop();
-    strokeShape.moveToTop();
-}
+            innerShadowRenderer.getView().moveToTop();
+            strokeShape.moveToTop();
+        }
     }
 
     private _createStrokeShape(): Konva.Shape {

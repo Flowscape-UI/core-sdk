@@ -1,16 +1,18 @@
 import Konva from "konva";
 
-import type { IRendererHandleCornerRadius } from "./types";
-import type { IRendererHandleCornerRadiusTarget } from "./types";
-import type { CornerRadiusAxis, CornerRadiusSection } from "../../../../../../../core/scene/layers/overlay";
+import type { CornerRadiusAxis, CornerRadiusSection } from "../../../../../../../scene/layers/overlay";
 import type { Point } from "../../../../../../../core/camera";
+import type {
+    IRendererHandleCornerRadius,
+    IRendererHandleCornerRadiusTarget
+} from "./types";
 
 const AXES: readonly CornerRadiusAxis[] = ["tl", "tr", "br", "bl"];
 
 /**
  * Main handle style
  */
-const HANDLE_RADIUS = 5;
+const HANDLE_RADIUS = 4;
 const HANDLE_FILL = "#FFFFFF";
 const HANDLE_STROKE = "#4C8DFF";
 const HANDLE_STROKE_WIDTH = 1;
@@ -27,7 +29,6 @@ const DEBUG_ORIGIN_RADIUS = 2.5;
 const DEBUG_ORIGIN_FILL = "#FF2D55";
 
 export class RendererHandleCornerRadiusCanvas implements IRendererHandleCornerRadius {
-
     private _target: IRendererHandleCornerRadiusTarget | null = null;
 
     private readonly _group: Konva.Group;

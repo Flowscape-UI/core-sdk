@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../core/camera";
-import type { ILayerOverlay } from "../../../../../core/scene/layers/overlay/types";
+import type { ILayerOverlay } from "../../../../../scene/layers/overlay";
 import type { IRendererLayerOverlayTarget } from "./types";
 
 

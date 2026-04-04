@@ -1,12 +1,12 @@
 import Konva from "konva";
-import type { IScene } from "../../../core/scene/IScene";
 import type { IRendererScene } from "./IRendererScene";
 import { RendererLayerBackgroundCanvas } from "./layers";
 import { RendererLayerWorldCanvas } from "./layers/world";
-import { LayerWorldInputController } from "../../../core/scene/layers/LayerWorldInputController";
+import { LayerWorldInputController } from "../../../input/LayerWorldInputController";
 import { RendererLayerOverlayCanvas, RendererLayerOverlayTarget } from "./layers/overlay";
-import { LayerOverlayInputController } from "../../../core/scene/layers/LayerOverlayInputController";
+import { LayerOverlayInputController } from "../../../input/LayerOverlayInputController";
 import { RendererLayerUI } from "../../ui";
+import type { IScene } from "../../../scene/types";
 
 export class RendererSceneCanvas implements IRendererScene {
     private readonly _stage: Konva.Stage;

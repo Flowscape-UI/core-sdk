@@ -14,9 +14,12 @@ import {
     type IHandleTransformRotate,
     type IHandleCornerRadius,
     HandleCornerRadius
-} from "../../../../../core/scene/layers/overlay";
+} from "../../../../../scene/layers/overlay";
 
-import type { IRendererLayerOverlay, IRendererLayerOverlayTarget } from "./types";
+import type {
+    IRendererLayerOverlay,
+    IRendererLayerOverlayTarget
+} from "./types";
 import {
     RendererHandleHoverCanvas,
     RendererHandleHoverTarget,

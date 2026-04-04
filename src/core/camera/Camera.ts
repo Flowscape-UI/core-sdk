@@ -1,4 +1,4 @@
-import { EventEmitter } from "../EventEmitter";
+import { EventEmitter } from "../events/event-emitter/EventEmitter";
 import { MathF32 } from "../math";
 import type { CameraState, ICamera, Point, Viewport } from "./types";
 

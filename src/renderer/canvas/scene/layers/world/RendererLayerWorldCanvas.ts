@@ -1,10 +1,10 @@
 import Konva from "konva";
-import type { LayerWorld } from "../../../../../core/scene/layers/world/LayerWorld";
 import type { IRendererLayerWorld } from "./types";
 import { RendererCanvasEllipse, RendererCanvasImage, RendererCanvasLine, RendererCanvasManager, RendererCanvasPath, RendererCanvasPolygon, RendererCanvasRect, RendererCanvasRegistry, RendererCanvasStar, RendererCanvasText, RendererCanvasVideo } from "../../../nodes";
 import { NodeType } from "../../../../../nodes";
-import { GridRenderer, KonvaGridView } from "../../../../../core/grid";
 import type { CameraState } from "../../../../../core/camera";
+import { GridRenderer, KonvaGridView } from "../../../../../grid";
+import { LayerWorld } from "../../../../../scene/layers";
 
 export class RendererLayerWorldCanvas implements IRendererLayerWorld {
     private readonly _layer: Konva.Layer;
@@ -98,7 +98,9 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
         }
 
         this._applyCamera(this._world.getCamera().getState());
-        this._manager.renderNodes(this._world.getNodes());
+
+        const viewport = this._world.getViewportWorldAABB();
+        this._manager.renderNodes(this._world.getNodes(), viewport);
     }
 
     public render(): void {
