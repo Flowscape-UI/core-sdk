@@ -1,8 +1,12 @@
 import Konva from "konva";
-import type { LayerBackground } from "../../../../../core/scene/layers/background/LayerBackground";
+import type { LayerBackground } from "../../../../../scene/layers";
+import type { HostType } from "../../../../hosts";
 import type { IRendererLayerBackground } from "./types";
 
 export class RendererLayerBackgroundCanvas implements IRendererLayerBackground {
+    public readonly type: HostType;
+    public readonly id: number;
+
     private readonly _layer: Konva.Layer;
     private readonly _fillRect: Konva.Rect;
     private readonly _imageNode: Konva.Image;
@@ -13,6 +17,9 @@ export class RendererLayerBackgroundCanvas implements IRendererLayerBackground {
     private _imageSrc: string = "";
 
     constructor() {
+        this.id = 0;
+        this.type = "canvas";
+
         this._layer = new Konva.Layer({
             listening: false,
         });
@@ -31,6 +38,10 @@ export class RendererLayerBackgroundCanvas implements IRendererLayerBackground {
     }
 
     public getLayer(): Konva.Layer {
+        return this._layer;
+    }
+
+    public getRenderNode(): Konva.Layer {
         return this._layer;
     }
 

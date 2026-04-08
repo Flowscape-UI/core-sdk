@@ -1,7 +1,8 @@
 
 
 import type { Point } from "../../../../../core/camera";
-import type { ID, IShapeBase } from "../../../../../nodes";
+import type { ID } from "../../../../../core/types";
+import type { IShapeBase } from "../../../../../nodes";
 import type {
     CornerRadiusAxis,
     CornerRadiusHandlePointMap,

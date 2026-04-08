@@ -1,4 +1,5 @@
-import { type ID, NodeType } from "../../base";
+import type { ID } from "../../../core/types";
+import { NodeType } from "../../base";
 import { NodeRect } from "../NodeRect";
 import { ImageFit, type INodeImage } from "./types";
 

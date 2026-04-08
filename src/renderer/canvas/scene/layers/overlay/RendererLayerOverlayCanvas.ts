@@ -39,9 +39,13 @@ import {
     RendererHandleCornerRadiusCanvas,
     RendererHandleCornerRadiusTarget,
 } from "./handles";
+import type { HostType } from "../../../../hosts";
 
 
 export class RendererLayerOverlayCanvas implements IRendererLayerOverlay {
+    public readonly id: number;
+    public readonly type: HostType;
+
     private readonly _layer: Konva.Layer;
     private readonly _root: Konva.Group;
     private _overlay: LayerOverlay | null = null;
@@ -56,6 +60,8 @@ export class RendererLayerOverlayCanvas implements IRendererLayerOverlay {
 
 
     constructor() {
+        this.id = 2;
+        this.type = "canvas";
         this._layer = new Konva.Layer({
             listening: false,
         });
@@ -79,6 +85,10 @@ export class RendererLayerOverlayCanvas implements IRendererLayerOverlay {
     }
 
     public getLayer(): Konva.Layer {
+        return this._layer;
+    }
+
+    public getRenderNode(): Konva.Layer {
         return this._layer;
     }
 

@@ -1,5 +1,7 @@
-import type { ID, IShapeBase } from "../../../../../../../nodes";
-import type { Point } from "../../../../../../camera";
+
+import type { Point } from "../../../../../../core/camera";
+import type { ID } from "../../../../../../core/types";
+import type { IShapeBase } from "../../../../../../nodes";
 import type { ILayerOverlayHandle } from "../../types";
 
 export interface IHandleTransform extends ILayerOverlayHandle {

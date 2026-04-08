@@ -1,14 +1,24 @@
-import type { ILayerUI, IModuleBaseLayerUI } from "../../core/scene/layers/ui";
+import type { ID } from "../../core/types";
+import type { ILayerUI, IModuleBaseLayerUI } from "../../scene/layers";
+import type { HostType } from "../hosts";
 import type { IRendererLayerUI } from "./types";
 
 export class RendererLayerUI implements IRendererLayerUI {
+    public readonly type: HostType;
+    public readonly id: ID;
     private readonly _container: HTMLElement;
 
     private _layer: ILayerUI | null = null;
     private _root: HTMLDivElement | null = null;
 
     constructor(container: HTMLElement) {
+        this.id = 3;
+        this.type = "html";
         this._container = container;
+    }
+
+    public getRenderNode(): HTMLDivElement | null {
+        return this._root;
     }
 
     public attach(layer: ILayerUI): void {

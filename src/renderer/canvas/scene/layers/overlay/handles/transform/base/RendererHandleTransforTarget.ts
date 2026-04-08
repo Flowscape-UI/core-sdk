@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../../../../core/camera";
-import type { IHandleTransform } from "../../../../../../../../core/scene/layers/overlay/handles/transform/base";
+import type { IHandleTransform } from "../../../../../../../../scene/layers";
 import type { IRendererHandleTransformTarget } from "./types";
 
 export class RendererHandleTransformTarget

@@ -1,22 +1,9 @@
-import type { ID, IShapeBase } from "../../../../nodes";
+import type { ID } from "../../../core/types";
+import type { IShapeBase } from "../../../nodes";
 import type { ILayerBase } from "../base";
 import type { ILayerOverlayHandleManager } from "./handles";
 
 export interface ILayerOverlay extends ILayerBase {
-    /**
-     * Returns whether overlay is enabled.
-     *
-     * Возвращает, включён ли overlay.
-     */
-    isEnabled(): boolean;
-
-    /**
-     * Enables or disables overlay.
-     *
-     * Включает или выключает overlay.
-     */
-    setEnabled(value: boolean): void;
-
     /**
      * Returns the currently hovered node.
      *

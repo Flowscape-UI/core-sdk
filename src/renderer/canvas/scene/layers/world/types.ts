@@ -1,4 +1,3 @@
-import type { ILayerWorld } from "../../../../../scene/layers";
-import type { IBindableRenderer } from "../../../../common";
+import type { IRendererLayerBase } from "../types";
 
-export interface IRendererLayerWorld extends IBindableRenderer<ILayerWorld> {}
+export interface IRendererLayerWorld extends IRendererLayerBase {}

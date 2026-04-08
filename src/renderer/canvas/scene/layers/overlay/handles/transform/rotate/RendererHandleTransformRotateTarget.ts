@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../../../../core/camera";
-import type { IHandleTransformRotate } from "../../../../../../../../core/scene/layers/overlay/handles/transform/rotate";
+import type { IHandleTransformRotate } from "../../../../../../../../scene/layers";
 import type { IRendererHandleTransformRotateTarget } from "./types";
 
 export class RendererHandleTransformRotateTarget implements IRendererHandleTransformRotateTarget {

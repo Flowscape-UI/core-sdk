@@ -1,9 +1,10 @@
 import { MathF32 } from "../../core/math";
 import { Transform } from "../../core/transform/Transform";
 import type { Matrix, Vector2 } from "../../core/transform/types";
+import type { ID } from "../../core/types";
 import { multiplyMatrix } from "../utils";
 import { matrixInvert } from "../utils/matrix-invert";
-import { NodeType, type ID, type INode, type NodeJSON, type OrientedRect, type Rect, type Size } from "./types";
+import { NodeType, type INode, type NodeJSON, type OrientedRect, type Rect, type Size } from "./types";
 
 
 export class NodeBase implements INode {

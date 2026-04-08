@@ -1,9 +1,9 @@
 import type { ICamera } from "../../../../../../../../core/camera";
-import type { IHandleTransformResize } from "../../../../../../../../core/scene/layers/overlay/handles/transform/resize";
+import type { IHandleTransformResize } from "../../../../../../../../scene/layers";
+
 import type { IRendererHandleTransformResizeTarget } from "./types";
 
 export class RendererHandleTransformResizeTarget implements IRendererHandleTransformResizeTarget {
-
     private readonly _handle: IHandleTransformResize;
     private readonly _camera: ICamera;
 

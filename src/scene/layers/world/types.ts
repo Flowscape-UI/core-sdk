@@ -1,5 +1,6 @@
 import type { ICamera, Point } from "../../../core/camera";
-import type { ID, IShapeBase, Rect } from "../../../nodes";
+import type { ID } from "../../../core/types";
+import type { IShapeBase, Rect } from "../../../nodes";
 import type { ILayerBase } from "../base";
 
 export type BuildTuple<

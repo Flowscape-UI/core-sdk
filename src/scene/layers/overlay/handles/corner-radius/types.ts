@@ -1,5 +1,6 @@
-import type { ID, IShapeBase } from "../../../../../../nodes";
-import type { Point } from "../../../../../camera";
+import type { Point } from "../../../../../core/camera";
+import type { ID } from "../../../../../core/types";
+import type { IShapeBase } from "../../../../../nodes";
 
 export type CornerRadiusAxis = "tl" | "tr" | "br" | "bl";
 

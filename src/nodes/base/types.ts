@@ -1,6 +1,6 @@
+import type { ID } from "../../core/types";
 import type { ITransform, Matrix, Vector2 } from "../../core/transform/types";
 
-export type ID = string | number;
 export enum NodeType {
     Base = "base-node",
     Group = "group-node",

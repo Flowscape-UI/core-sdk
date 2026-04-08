@@ -1,5 +1,5 @@
 import { formatHex, parse, type Color } from "culori";
-import { NodeType, type ID } from "../base";
+import { NodeType } from "../base";
 import { ShapeBase } from "../shape";
 import {
     FontDecoration,
@@ -13,6 +13,7 @@ import {
     TextVerticalAlign,
     TextWrapMode,
 } from "./types";
+import type { ID } from "../../core/types";
 
 export class NodeText extends ShapeBase implements INodeText {
     public static readonly TEXT_SCALE = {

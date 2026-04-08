@@ -1,7 +1,7 @@
 import type Konva from "konva";
-import type { IHandleHover } from "../../../../../../../core/scene/layers/overlay";
 import type { IBindableRenderer } from "../../../../../../common";
 import type { ICamera } from "../../../../../../../core/camera";
+import type { IHandleHover } from "../../../../../../../scene/layers";
 
 export interface IRendererHandleHover extends IBindableRenderer<IRendererHandleHoverTarget> {
     getRoot(): Konva.Group;

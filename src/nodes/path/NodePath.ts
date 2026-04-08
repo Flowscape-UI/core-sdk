@@ -1,8 +1,9 @@
-import { NodeType, type ID } from "../base";
+import { NodeType } from "../base";
 import { ShapeBase } from "../shape";
 import type { Vector2 } from "../../core/transform/types";
 import type { INodePath, PathCommand } from "./types";
 import { PathCommandType } from "./types";
+import type { ID } from "../../core/types";
 
 export class NodePath extends ShapeBase implements INodePath {
     private _commands: PathCommand[];

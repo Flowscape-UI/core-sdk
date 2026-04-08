@@ -1,4 +1,5 @@
-import { NodeType, type ID } from "../base";
+import type { ID } from "../../core/types";
+import { NodeType } from "../base";
 import { ShapeBase } from "../shape";
 import { type INodeRect } from "./types";
 

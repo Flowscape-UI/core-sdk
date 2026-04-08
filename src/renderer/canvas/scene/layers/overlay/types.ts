@@ -1,8 +1,8 @@
 import type { ICamera } from "../../../../../core/camera";
-import type { ILayerOverlay } from "../../../../../core/scene/layers/overlay/types";
-import type { IBindableRenderer } from "../../../../common";
+import type { ILayerOverlay } from "../../../../../scene/layers";
+import type { IRendererLayerBase } from "../types";
 
-export interface IRendererLayerOverlay extends IBindableRenderer<IRendererLayerOverlayTarget> {}
+export interface IRendererLayerOverlay extends IRendererLayerBase<IRendererLayerOverlayTarget> {}
 
 /**
  * Hover handle renderer target.

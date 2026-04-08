@@ -1,8 +1,9 @@
 import { formatRgb, parse, type Color } from "culori";
+import { MathF32 } from "../../core/math";
+import type { ID } from "../../core/types";
 import {
     NodeBase,
     NodeType,
-    type ID,
     type OrientedRect,
     type Rect
 } from "../base";
@@ -14,7 +15,6 @@ import {
 } from "./types";
 import { ShapeEffect } from "./effect";
 import type { Vector2 } from "../../core/transform/types";
-import { MathF32 } from "../../core/math";
 
 export class ShapeBase extends NodeBase implements IShapeBase {
     private static readonly DEFAULT_FILL_COLOR: Color = {

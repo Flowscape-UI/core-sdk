@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../../../core/camera";
-import type { IHandleHover } from "../../../../../../../core/scene/layers/overlay";
+import type { IHandleHover } from "../../../../../../../scene/layers";
 import type { IRendererHandleHoverTarget } from "./types";
 
 export class RendererHandleHoverTarget implements IRendererHandleHoverTarget {

@@ -1,13 +1,13 @@
 import Konva from "konva";
 import type { IRendererHandleHover, IRendererHandleHoverTarget } from "./types";
-import type { IHandleHover } from "../../../../../../../core/scene/layers/overlay";
 import { NodeType, type IShapeBase } from "../../../../../../../nodes";
 import type { ICamera } from "../../../../../../../core/camera";
+import type { IHandleHover } from "../../../../../../../scene/layers";
 
 
 export class RendererHandleHoverCanvas implements IRendererHandleHover {
     private static readonly STROKE = "#4DA3FF";
-    private static readonly STROKE_WIDTH = 2;
+    private static readonly STROKE_WIDTH = 3;
 
     private readonly _root: Konva.Group;
 

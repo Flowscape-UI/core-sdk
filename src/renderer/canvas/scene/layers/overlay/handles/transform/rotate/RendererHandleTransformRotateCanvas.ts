@@ -1,7 +1,7 @@
 import Konva from "konva";
-import type { TransformRotateAxis } from "../../../../../../../../core/scene/layers/overlay/handles/transform/rotate";
 import type { IRendererHandleTransformRotate } from "./types";
 import type { IRendererHandleTransformRotateTarget } from "./types";
+import type { TransformRotateAxis } from "../../../../../../../../scene/layers";
 
 const HANDLE_NAMES: readonly TransformRotateAxis[] = ["ne", "nw", "se", "sw"];
 

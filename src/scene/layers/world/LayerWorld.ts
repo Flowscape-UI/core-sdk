@@ -1,6 +1,7 @@
 import { Camera, type ICamera, type Point } from "../../../core/camera";
 import { MathF32 } from "../../../core/math";
-import type { ID, IShapeBase, Rect } from "../../../nodes";
+import type { ID } from "../../../core/types";
+import type { IShapeBase, Rect } from "../../../nodes";
 import { LayerBase, LayerType } from "../base";
 import type { FixedArray, ILayerWorld } from "./types";
 
@@ -9,9 +10,9 @@ export class LayerWorld extends LayerBase implements ILayerWorld {
     public static readonly DEFAULT_CAMERA_ZOOM_MAX: number = 500;
     private readonly _camera = new Camera();
     private readonly _nodes: IShapeBase[];
-    
+
     constructor(width: number, height: number) {
-        super(width, height, LayerType.World);
+        super(width, height, LayerType.World, 1);
         this._nodes = [];
         this._camera.setLimits(
             LayerWorld.DEFAULT_CAMERA_ZOOM_MIN,
@@ -110,12 +111,13 @@ export class LayerWorld extends LayerBase implements ILayerWorld {
     /****************************************************************/
 
     public findTopNodeAt(worldPoint: Point): IShapeBase | null {
-        if(!this._shouldProcessPointerMove(worldPoint)) {
-            return null;
-        }
+        // TODO: (Optimisation) uncomment when will be optimisational problems
+        // if (!this._shouldProcessPointerMove(worldPoint)) {
+        //     return null;
+        // }
         for (let i = this._nodes.length - 1; i >= 0; i--) {
             const node = this._nodes[i];
-            if(node === undefined) {
+            if (node === undefined) {
                 continue;
             }
             if (!node.isVisibleInHierarchy()) {
@@ -166,20 +168,20 @@ export class LayerWorld extends LayerBase implements ILayerWorld {
 
     private _lastHoverPoint: Point | null = null;
 
-private _shouldProcessPointerMove(point: Point): boolean {
-    if (!this._lastHoverPoint) {
+    private _shouldProcessPointerMove(point: Point): boolean {
+        if (!this._lastHoverPoint) {
+            this._lastHoverPoint = point;
+            return true;
+        }
+
+        const dx = point.x - this._lastHoverPoint.x;
+        const dy = point.y - this._lastHoverPoint.y;
+
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
+            return false;
+        }
+
         this._lastHoverPoint = point;
         return true;
     }
-
-    const dx = point.x - this._lastHoverPoint.x;
-    const dy = point.y - this._lastHoverPoint.y;
-
-    if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-        return false;
-    }
-
-    this._lastHoverPoint = point;
-    return true;
-}
 }

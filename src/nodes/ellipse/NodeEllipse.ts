@@ -1,8 +1,9 @@
 import type { Vector2 } from "../../core/transform/types";
 import { matrixInvert } from "../utils/matrix-invert";
-import { NodeType, type ID } from "../base";
+import { NodeType } from "../base";
 import { ShapeBase } from "../shape";
 import type { INodeEllipse } from "./types";
+import type { ID } from "../../core/types";
 
 export class NodeEllipse extends ShapeBase implements INodeEllipse {
     private static readonly EPSILON = 1e-6;

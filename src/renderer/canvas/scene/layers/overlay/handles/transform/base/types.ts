@@ -1,7 +1,7 @@
 import type Konva from "konva";
 import type { IBindableRenderer } from "../../../../../../../common";
-import type { IHandleTransform } from "../../../../../../../../core/scene/layers/overlay/handles/transform/base";
 import type { ICamera } from "../../../../../../../../core/camera";
+import type { IHandleTransform } from "../../../../../../../../scene/layers";
 
 
 export interface IRendererHandleTransform

@@ -1,5 +1,6 @@
-import type { ID, IShapeBase } from "../../../../../../../nodes";
-import type { Point } from "../../../../../../camera";
+import type { Point } from "../../../../../../core/camera";
+import type { ID } from "../../../../../../core/types";
+import type { IShapeBase } from "../../../../../../nodes";
 import type { ILayerOverlayHandle } from "../../types";
 
 export type TransformRotateAxis =
@@ -19,4 +20,6 @@ export interface IHandleTransformRotate extends ILayerOverlayHandle {
     getAvailableAxes(): readonly TransformRotateAxis[];
     getObbCorners(): readonly Point[];
     getHandleWorldPoint(axis: TransformRotateAxis): Point | null;
+
+    getPivotWorldPoint(): Point | null;
 }

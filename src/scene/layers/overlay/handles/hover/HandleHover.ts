@@ -1,4 +1,6 @@
-import type { ID, IShapeBase } from "../../../../../../nodes";
+
+import type { ID } from "../../../../../core/types";
+import type { IShapeBase } from "../../../../../nodes";
 import type { IHandleHover } from "./types";
 
 export class HandleHover implements IHandleHover {

@@ -1,9 +1,15 @@
+import { Input } from "../input";
+
 import type { IScene } from "./types";
-import { LayerBackground } from "./layers/background/LayerBackground";
-import { LayerOverlay } from "./layers/overlay/LayerOverlay";
-import { LayerUI } from "./layers/ui/LayerUI";
-import { LayerWorld } from "./layers/world/LayerWorld";
-import type { IRendererScene } from "../renderer";
+import {
+    LayerBackground,
+    LayerWorld,
+    LayerOverlay,
+    LayerUI
+} from "./layers";
+import { LayerManager } from "./LayerManager";
+import { ManagerRenderHost } from "./ManagerRenderHost";
+import { InputManager } from "./InputManager";
 
 export class Scene implements IScene {
     public readonly layerBackground: LayerBackground;
@@ -11,7 +17,10 @@ export class Scene implements IScene {
     public readonly layerOverlay: LayerOverlay;
     public readonly layerUI: LayerUI;
 
-    private _renderer: IRendererScene | null = null;
+    public readonly layerManager: LayerManager;
+    public readonly hostManager: ManagerRenderHost;
+    public readonly inputManager: InputManager;
+
     private _isFrameScheduled: boolean = false;
 
     private _width: number;
@@ -23,19 +32,17 @@ export class Scene implements IScene {
         this.layerOverlay = new LayerOverlay(width, height);
         this.layerUI = new LayerUI(this.layerWorld, width, height);
 
+        this.layerManager = new LayerManager();
+        this.hostManager = new ManagerRenderHost(this);
+        this.inputManager = new InputManager();
+
         this._width = width;
         this._height = height;
-    }
 
-    public getRenderer(): IRendererScene | null {
-        return this._renderer;
-    }
-
-    public setRenderer(value: IRendererScene): void {
-        this._renderer?.detach();
-        this._renderer = value;
-        this._renderer.attach(this);
-        this.invalidate();
+        Input._initialize();
+        Input.onInput(() => {
+            this.invalidate();
+        });
     }
 
     public getWidth(): number {
@@ -49,19 +56,28 @@ export class Scene implements IScene {
     public setSize(width: number, height: number): void {
         this._width = width;
         this._height = height;
-        this.layerBackground.setSize(width, height);
-        this.layerWorld.setSize(width, height);
-        this.layerOverlay.setSize(width, height);
-        this.layerUI.setSize(width, height);
+        this.layerManager.getAll().forEach((binding) => {
+            binding.layer.setSize(width, height);
+            binding.renderer.update();
+        });
+
         this.invalidate();
     }
 
     public update(): void {
-        this._renderer?.update();
+        this.inputManager.update();
+        this.layerManager.getAll().forEach((binding) => {
+            binding.renderer.update();
+        });
+        this.hostManager?.update();
     }
 
     public render(): void {
-        this._renderer?.render();
+        this.layerManager.getAll().forEach((binding) => {
+            binding.renderer.render();
+        });
+        this.hostManager?.render();
+        Input._endFrame();
     }
 
     public invalidate(): void {

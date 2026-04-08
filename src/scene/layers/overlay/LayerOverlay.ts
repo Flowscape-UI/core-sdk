@@ -17,18 +17,16 @@ import {
 
     HandleCornerRadius,
 } from "./handles";
-import type { ID, IShapeBase } from "../../../nodes";
+import type { IShapeBase } from "../../../nodes";
+import type { ID } from "../../../core/types";
 
 export class LayerOverlay extends LayerBase implements ILayerOverlay {
-    private _enabled: boolean;
     private readonly _selectedNodes: IShapeBase[];
 
     private readonly _handlerManager: ILayerOverlayHandleManager;
 
     constructor(width: number, height: number) {
-        super(width, height, LayerType.Overlay);
-
-        this._enabled = true;
+        super(width, height, LayerType.Overlay, 2);
         this._selectedNodes = [];
         this._handlerManager = new LayerOverlayHandleManager();
 
@@ -39,22 +37,6 @@ export class LayerOverlay extends LayerBase implements ILayerOverlay {
         this._handlerManager.register(new HandleTransformRotate());
         this._handlerManager.register(new HandleTransformPivot());
         this._handlerManager.register(new HandleCornerRadius());
-    }
-
-    /*****************************************************************/
-    /*                            State                              */
-    /*****************************************************************/
-
-    public isEnabled(): boolean {
-        return this._enabled;
-    }
-
-    public setEnabled(value: boolean): void {
-        if (this._enabled === value) {
-            return;
-        }
-
-        this._enabled = value;
     }
 
     /*****************************************************************/

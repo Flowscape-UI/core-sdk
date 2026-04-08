@@ -1,3 +1,6 @@
+import type { IEnableable } from "../../../core/enableable";
+import type { IEntity } from "../../../core/interfaces";
+
 export enum LayerType {
     Background = 0,
     World = 1,
@@ -22,7 +25,7 @@ export enum LayerType {
  * Каждый слой имеет собственный размер, жизненный цикл и логику рендера,
  * и управляется сценой.
  */
-export interface ILayerBase {
+export interface ILayerBase extends IEntity<LayerType>, IEnableable {
     /**
      * Returns the current width of the layer.
      *
@@ -64,15 +67,6 @@ export interface ILayerBase {
      * Устанавливает размер слоя.
      */
     setSize(width: number, height: number): void;
-
-    /**
-     * Returns the type of the layer.
-     * Used by the scene to determine render order and behavior.
-     *
-     * Возвращает тип слоя.
-     * Используется сценой для определения порядка рендера и поведения.
-     */
-    getType(): LayerType;
 
     /**
      * Destroys the layer and releases all resources.

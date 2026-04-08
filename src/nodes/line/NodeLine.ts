@@ -1,5 +1,6 @@
-import type { Vector2 } from '../../core/transform/types';
-import { NodeType, type ID } from '../base';
+import type { Vector2 } from '../../core/transform';
+import type { ID } from '../../core/types';
+import { NodeType } from '../base';
 import { ShapeBase } from '../shape';
 import { matrixInvert } from '../utils/matrix-invert';
 import { LineCap, LineEnding, type INodeLine } from './types';

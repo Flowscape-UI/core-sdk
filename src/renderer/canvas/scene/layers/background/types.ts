@@ -1,4 +1,3 @@
-import type { ILayerBackground } from "../../../../../core/scene/layers";
-import type { IBindableRenderer } from "../../../../common";
+import type { IRendererLayerBase } from "../types";
 
-export interface IRendererLayerBackground extends IBindableRenderer<ILayerBackground> {}
+export interface IRendererLayerBackground extends IRendererLayerBase {}

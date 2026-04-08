@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../../../../core/camera";
-import type { IHandleTransformPivot } from "../../../../../../../../core/scene/layers/overlay";
+import type { IHandleTransformPivot } from "../../../../../../../../scene/layers";
 import type { IRendererHandleTransformPivotTarget } from "./types";
 
 

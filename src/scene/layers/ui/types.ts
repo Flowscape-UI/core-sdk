@@ -2,11 +2,7 @@ import type { ILayerBase } from "../base";
 import type { IModuleBaseLayerUI, LayerUIModuleType } from "./modules";
 
 export interface ILayerUI extends ILayerBase {
-    isEnabled(): boolean;
-    setEnabled(value: boolean): void;
-
     getManager(): IManagerLayerUI;
-
     clear(): void;
 }
 

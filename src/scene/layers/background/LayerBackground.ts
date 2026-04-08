@@ -44,7 +44,7 @@ export class LayerBackground extends LayerBase implements ILayerBackground {
     private _imageOffsetY: ImageOffset;
 
     constructor(width: number, height: number) {
-        super(width, height, LayerType.Background);
+        super(width, height, LayerType.Background, 0);
         this._fill = LayerBackground.DEFAULT_FILL;
         this._image = "";
         this._imageWidth = "100%";

@@ -1,7 +1,7 @@
 import Konva from "konva";
-import type { TransformResizeAxis } from "../../../../../../../../core/scene/layers/overlay/handles/transform/resize";
 import type { IRendererHandleTransformResize } from "./types";
 import type { IRendererHandleTransformResizeTarget } from "./types";
+import type { TransformResizeAxis } from "../../../../../../../../scene/layers";
 
 const EDGE_NAMES: readonly ["n", "e", "s", "w"] = ["n", "e", "s", "w"];
 const HANDLE_NAMES: readonly TransformResizeAxis[] = [
@@ -13,7 +13,7 @@ const HANDLE_NAMES: readonly TransformResizeAxis[] = [
 
 const HANDLE_SIZE = 8;
 const EDGE_STROKE = "#4C8DFF";
-const EDGE_STROKE_WIDTH = 1;
+const EDGE_STROKE_WIDTH = 2;
 const HANDLE_FILL = "#FFFFFF";
 const HANDLE_STROKE = "#4C8DFF";
 const HANDLE_STROKE_WIDTH = 1;

@@ -5,8 +5,12 @@ import { NodeType } from "../../../../../nodes";
 import type { CameraState } from "../../../../../core/camera";
 import { GridRenderer, KonvaGridView } from "../../../../../grid";
 import { LayerWorld } from "../../../../../scene/layers";
+import type { HostType } from "../../../../hosts";
 
 export class RendererLayerWorldCanvas implements IRendererLayerWorld {
+    public readonly id: number;
+    public readonly type: HostType;
+
     private readonly _layer: Konva.Layer;
     private readonly _content: Konva.Group;
     private readonly _gridContent: Konva.Group;
@@ -20,6 +24,8 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
     private readonly _gridView: KonvaGridView;
 
     constructor() {
+        this.id = 1;
+        this.type = "canvas";
         this._layer = new Konva.Layer({
             listening: false,
         });
@@ -60,6 +66,10 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
     }
 
     public getLayer(): Konva.Layer {
+        return this._layer;
+    }
+
+    public getRenderNode(): Konva.Layer {
         return this._layer;
     }
 

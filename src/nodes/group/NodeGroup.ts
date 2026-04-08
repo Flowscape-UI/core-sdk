@@ -1,4 +1,5 @@
-import { NodeBase, NodeType, type ID } from "../base";
+import type { ID } from "../../core/types";
+import { NodeBase, NodeType } from "../base";
 import type { INodeGroup } from "./types";
 
 export class NodeGroup extends NodeBase implements INodeGroup {
