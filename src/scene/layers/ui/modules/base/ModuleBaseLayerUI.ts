@@ -25,7 +25,7 @@ export abstract class ModuleBaseLayerUI implements IModuleBaseLayerUI {
         this._enabled = value;
     }
 
-    public attach(root: HTMLElement): void {}
+    public attach(_: HTMLElement): void {}
 
     public detach(): void {}
 

@@ -9,7 +9,7 @@ import { NodeRect, StrokeAlign, NodeEllipse, NodePolygon, NodeStar, NodeLine, Li
 // import { RendererSceneCanvas } from '../../src/renderer/canvas/scene/RendererSceneCanvas';
 // import { RendererLayerBackgroundCanvas } from '../../src/renderer';
 
-import { RendererLayerBackgroundCanvas } from '../../src/renderer';
+import { RendererCanvasBase, RendererLayerBackgroundCanvas } from '../../src/renderer';
 import { CanvasRendererHost } from '../../src/renderer/hosts/CanvasRendererHost';
 import { RendererLayerWorldCanvas } from '../../src/renderer/canvas/scene/layers/world';
 import { RendererLayerOverlayCanvas, RendererLayerOverlayTarget } from '../../src/renderer/canvas/scene/layers/overlay';
@@ -40,6 +40,7 @@ scene.layerManager.add(
   layerWorld,
   scene.layerWorld,
 );
+
 
 const layerOverlay = new RendererLayerOverlayCanvas();
 const overlayTarget = new RendererLayerOverlayTarget(
@@ -121,15 +122,28 @@ scene.layerBackground.setImageOffsetX("50%");
 scene.layerBackground.setImageOffsetY("50%");
 scene.layerBackground.setImagePosition("50%", "50%");
 
+const rectNode = new NodeRect(1);
+scene.layerWorld.addNode(rectNode);
+
+scene.invalidate();
+
+// --- AUTO RESIZE ---
+const resizeObserver = new ResizeObserver(() => {
+  const width = container.clientWidth;
+  const height = container.clientHeight;
+
+  scene.setSize(width, height);
+  scene.invalidate();
+});
+
+resizeObserver.observe(container);
 
 
 // --- CAMERA TRANSFORMATION ---
 // scene.layerWorld.getCamera().setRotationRadians(0);
 
 // // --- ADD NODES ---
-const rectNode = new NodeRect(1);
 // const circleNode = new NodeEllipse(2);
-scene.layerWorld.addNode(rectNode);
 // scene.layerWorld.addNode(circleNode);
 
 // rectNode.rotate(0);
@@ -631,15 +645,15 @@ scene.layerWorld.addNode(rectNode);
 
 
 
-scene.invalidate();
+// scene.invalidate();
 
-// --- AUTO RESIZE ---
-const resizeObserver = new ResizeObserver(() => {
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+// // --- AUTO RESIZE ---
+// const resizeObserver = new ResizeObserver(() => {
+//   const width = container.clientWidth;
+//   const height = container.clientHeight;
 
-  scene.setSize(width, height);
-  scene.invalidate();
-});
+//   scene.setSize(width, height);
+//   scene.invalidate();
+// });
 
-resizeObserver.observe(container);
+// resizeObserver.observe(container);

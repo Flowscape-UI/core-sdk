@@ -91,7 +91,7 @@ export class RendererCanvasText extends RendererCanvasBase<NodeText> {
 
     private _resolveVerticalAlign(node: NodeText): "top" | "middle" | "bottom" {
         switch (node.getVerticalAlign()) {
-            case TextVerticalAlign.Middle:
+            case TextVerticalAlign.Center:
                 return "middle";
             case TextVerticalAlign.Bottom:
                 return "bottom";

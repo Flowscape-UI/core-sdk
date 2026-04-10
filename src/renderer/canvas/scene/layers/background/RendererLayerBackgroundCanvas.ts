@@ -28,10 +28,9 @@ export class RendererLayerBackgroundCanvas implements IRendererLayerBackground {
             listening: false,
         });
 
-        this._imageNode = new Konva.Image({
-            listening: false,
-            visible: false,
-        });
+        this._imageNode = new Konva.Image();
+        this._imageNode.listening(false);
+        this._imageNode.visible(false);
 
         this._layer.add(this._fillRect);
         this._layer.add(this._imageNode);

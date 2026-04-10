@@ -18,7 +18,11 @@ export abstract class RendererCanvasBase<
     TView extends Konva.Group = Konva.Group
 > implements IRendererNodeCanvas<TNode, TView> {
     public abstract create(node: TNode): TView;
-    protected static readonly DEBUG_TRANSFORM = false;
+    public static DEBUG_OBB = false;
+    public static DEBUG_AABB = false;
+    public static DEBUG_ORBIT = false;
+    public static DEBUG_PIVOT = false;
+    public static DEBUG_VIEW_BOUNDS = false;
 
     public update(node: TNode, view: TView): void {
         this._updateIdentity(node, view);
@@ -89,45 +93,57 @@ export abstract class RendererCanvasBase<
 
     // Debug
     protected _updateDebug(node: TNode, view: Konva.Group): void {
-        if (!RendererCanvasBase.DEBUG_TRANSFORM) {
-            return;
-        }
-        const debugLayer = this._ensureDebugLayer(view);
-        const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
+    const debugLayer = this._ensureDebugLayer(view);
+    const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
 
-        debugLayer.visible(true);
-        worldDebugLayer.visible(true);
+    let hasAnyDebug = false;
 
-        const boundsShape = this._findOneOrThrow<Konva.Rect>(debugLayer, `.${DEBUG_BOUNDS_NAME}`);
-        const pivotShape = this._findOneOrThrow<Konva.Circle>(debugLayer, `.${DEBUG_PIVOT_NAME}`);
-        const orbit = this._findOneOrThrow<Konva.Circle>(
-            debugLayer,
-            `.${DEBUG_PIVOT_ORBIT_NAME}`
-        );
+    const bounds = node.getLocalOBB();
+    const pivot = node.getPivot();
 
-        const aabbShape = this._findOneOrThrow<Konva.Rect>(
-            worldDebugLayer,
-            `.${DEBUG_AABB_NAME}`
-        );
+    const pivotX = bounds.x + bounds.width * pivot.x;
+    const pivotY = bounds.y + bounds.height * pivot.y;
 
-        const bounds = node.getLocalOBB();
-        const pivot = node.getPivot();
+    // =========================
+    // OBB (Local Bounds)
+    // =========================
+    const boundsShape = this._findOneOrThrow<Konva.Rect>(debugLayer, `.${DEBUG_BOUNDS_NAME}`);
+    boundsShape.visible(RendererCanvasBase.DEBUG_OBB);
 
-        const pivotX = bounds.x + bounds.width * pivot.x;
-        const pivotY = bounds.y + bounds.height * pivot.y;
-
+    if (RendererCanvasBase.DEBUG_OBB) {
         boundsShape.setAttrs({
             x: bounds.x,
             y: bounds.y,
             width: bounds.width,
             height: bounds.height,
         });
+        hasAnyDebug = true;
+    }
 
+    // =========================
+    // Pivot
+    // =========================
+    const pivotShape = this._findOneOrThrow<Konva.Circle>(debugLayer, `.${DEBUG_PIVOT_NAME}`);
+    pivotShape.visible(RendererCanvasBase.DEBUG_PIVOT);
+
+    if (RendererCanvasBase.DEBUG_PIVOT) {
         pivotShape.position({
             x: pivotX,
             y: pivotY,
         });
+        hasAnyDebug = true;
+    }
 
+    // =========================
+    // Orbit
+    // =========================
+    const orbit = this._findOneOrThrow<Konva.Circle>(
+        debugLayer,
+        `.${DEBUG_PIVOT_ORBIT_NAME}`
+    );
+    orbit.visible(RendererCanvasBase.DEBUG_ORBIT);
+
+    if (RendererCanvasBase.DEBUG_ORBIT) {
         const radius = this._getPivotOrbitRadius(bounds, pivotX, pivotY);
 
         orbit.position({
@@ -136,7 +152,19 @@ export abstract class RendererCanvasBase<
         });
 
         orbit.radius(radius);
+        hasAnyDebug = true;
+    }
 
+    // =========================
+    // AABB (World)
+    // =========================
+    const aabbShape = this._findOneOrThrow<Konva.Rect>(
+        worldDebugLayer,
+        `.${DEBUG_AABB_NAME}`
+    );
+    aabbShape.visible(RendererCanvasBase.DEBUG_AABB);
+
+    if (RendererCanvasBase.DEBUG_AABB) {
         const aabb = node.getWorldAABB();
 
         aabbShape.setAttrs({
@@ -145,12 +173,19 @@ export abstract class RendererCanvasBase<
             width: aabb.width,
             height: aabb.height,
         });
+        hasAnyDebug = true;
+    }
 
-        const viewBoundsShape = this._findOneOrThrow<Konva.Rect>(
-            debugLayer,
-            `.${DEBUG_VIEW_BOUNDS_NAME}`
-        );
+    // =========================
+    // View Bounds
+    // =========================
+    const viewBoundsShape = this._findOneOrThrow<Konva.Rect>(
+        debugLayer,
+        `.${DEBUG_VIEW_BOUNDS_NAME}`
+    );
+    viewBoundsShape.visible(RendererCanvasBase.DEBUG_VIEW_BOUNDS);
 
+    if (RendererCanvasBase.DEBUG_VIEW_BOUNDS) {
         const viewBounds = node.getLocalViewOBB();
 
         viewBoundsShape.setAttrs({
@@ -159,10 +194,23 @@ export abstract class RendererCanvasBase<
             width: viewBounds.width,
             height: viewBounds.height,
         });
+        hasAnyDebug = true;
+    }
 
+    // =========================
+    // Layer visibility
+    // =========================
+    debugLayer.visible(hasAnyDebug);
+    worldDebugLayer.visible(RendererCanvasBase.DEBUG_AABB);
+
+    if (hasAnyDebug) {
         debugLayer.moveToTop();
+    }
+
+    if (RendererCanvasBase.DEBUG_AABB) {
         worldDebugLayer.moveToTop();
     }
+}
 
     protected _ensureDebugLayer(view: Konva.Group): Konva.Group {
         let debugLayer = view.findOne<Konva.Group>(`.${DEBUG_LAYER_NAME}`);

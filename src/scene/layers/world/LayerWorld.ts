@@ -131,6 +131,7 @@ export class LayerWorld extends LayerBase implements ILayerWorld {
     }
 
 
+
     /****************************************************************/
     /*                           Overrides                          */
     /****************************************************************/
@@ -163,25 +164,5 @@ export class LayerWorld extends LayerBase implements ILayerWorld {
     /****************************************************************/
     public getCamera(): ICamera {
         return this._camera;
-    }
-
-
-    private _lastHoverPoint: Point | null = null;
-
-    private _shouldProcessPointerMove(point: Point): boolean {
-        if (!this._lastHoverPoint) {
-            this._lastHoverPoint = point;
-            return true;
-        }
-
-        const dx = point.x - this._lastHoverPoint.x;
-        const dy = point.y - this._lastHoverPoint.y;
-
-        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-            return false;
-        }
-
-        this._lastHoverPoint = point;
-        return true;
     }
 }

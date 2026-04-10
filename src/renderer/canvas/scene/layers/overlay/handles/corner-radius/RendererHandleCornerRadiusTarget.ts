@@ -1,5 +1,5 @@
 import type { ICamera } from "../../../../../../../core/camera";
-import type { IHandleCornerRadius } from "../../../../../../../core/scene/layers/overlay";
+import type { IHandleCornerRadius } from "../../../../../../../scene";
 import type { IRendererHandleCornerRadiusTarget } from "./types";
 
 export class RendererHandleCornerRadiusTarget implements IRendererHandleCornerRadiusTarget {

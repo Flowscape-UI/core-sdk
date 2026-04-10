@@ -104,7 +104,7 @@ export class RendererCanvasEllipse extends RendererCanvasBase<NodeEllipse> {
     }
 
     private _appendEllipseArcPath(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         cx: number,
         cy: number,
         rx: number,

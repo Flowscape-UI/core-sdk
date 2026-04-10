@@ -1,7 +1,8 @@
 import Konva from "konva";
 
-import type { INode, ID, Rect } from "../../../../nodes";
+import type { INode, Rect } from "../../../../nodes";
 import { RendererCanvasRegistry } from "./RendererCanvasRegistry";
+import type { ID } from "../../../../core";
 
 export class RendererCanvasManager {
     private readonly _registry: RendererCanvasRegistry;

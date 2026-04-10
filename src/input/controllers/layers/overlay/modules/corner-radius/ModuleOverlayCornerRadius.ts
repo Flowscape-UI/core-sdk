@@ -1,5 +1,4 @@
 import type { Point } from "../../../../../../core/camera";
-import type { ID } from "../../../../../../core/types";
 import type { IShapeBase } from "../../../../../../nodes";
 import { MathF32 } from "../../../../../../core/math";
 import { HandleCornerRadius } from "../../../../../../scene/layers";

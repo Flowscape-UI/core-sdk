@@ -64,7 +64,7 @@ export class RendererCanvasPath extends RendererCanvasBase<NodePath> {
     }
 
     private _appendPathCommands(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         commands: PathCommand[]
     ): void {
         for (const command of commands) {

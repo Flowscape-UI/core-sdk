@@ -126,6 +126,7 @@ export class RendererHandleHoverCanvas implements IRendererHandleHover {
                 });
 
             case NodeType.Ellipse:
+                // @ts-ignore
                 return new Konva.Ellipse({
                     fillEnabled: false,
                     stroke: RendererHandleHoverCanvas.STROKE,
@@ -176,21 +177,21 @@ export class RendererHandleHoverCanvas implements IRendererHandleHover {
         const corners = this._toScreenPoints(node.getWorldViewCorners());
 
         const width = Math.hypot(
-            corners[1].x - corners[0].x,
-            corners[1].y - corners[0].y
+            corners[1]!.x - corners[0]!.x,
+            corners[1]!.y - corners[0]!.y
         );
 
         const height = Math.hypot(
-            corners[2].x - corners[1].x,
-            corners[2].y - corners[1].y
+            corners[2]!.x - corners[1]!.x,
+            corners[2]!.y - corners[1]!.y
         );
 
-        const centerX = (corners[0].x + corners[2].x) / 2;
-        const centerY = (corners[0].y + corners[2].y) / 2;
+        const centerX = (corners[0]!.x + corners[2]!.x) / 2;
+        const centerY = (corners[0]!.y + corners[2]!.y) / 2;
 
         const rotation = Math.atan2(
-            corners[1].y - corners[0].y,
-            corners[1].x - corners[0].x
+            corners[1]!.y - corners[0]!.y,
+            corners[1]!.x - corners[0]!.x
         ) * 180 / Math.PI;
 
         view.setAttrs({
@@ -209,21 +210,21 @@ export class RendererHandleHoverCanvas implements IRendererHandleHover {
         const corners = this._toScreenPoints(node.getWorldViewCorners());
 
         const width = Math.hypot(
-            corners[1].x - corners[0].x,
-            corners[1].y - corners[0].y
+            corners[1]!.x - corners[0]!.x,
+            corners[1]!.y - corners[0]!.y
         );
 
         const height = Math.hypot(
-            corners[2].x - corners[1].x,
-            corners[2].y - corners[1].y
+            corners[2]!.x - corners[1]!.x,
+            corners[2]!.y - corners[1]!.y
         );
 
-        const centerX = (corners[0].x + corners[2].x) / 2;
-        const centerY = (corners[0].y + corners[2].y) / 2;
+        const centerX = (corners[0]!.x + corners[2]!.x) / 2;
+        const centerY = (corners[0]!.y + corners[2]!.y) / 2;
 
         const rotation = Math.atan2(
-            corners[1].y - corners[0].y,
-            corners[1].x - corners[0].x
+            corners[1]!.y - corners[0]!.y,
+            corners[1]!.x - corners[0]!.x
         ) * 180 / Math.PI;
 
         view.setAttrs({
@@ -240,10 +241,10 @@ export class RendererHandleHoverCanvas implements IRendererHandleHover {
         const corners = this._toScreenPoints(node.getWorldViewCorners());
 
         view.points([
-            corners[0].x, corners[0].y,
-            corners[1].x, corners[1].y,
-            corners[2].x, corners[2].y,
-            corners[3].x, corners[3].y,
+            corners[0]!.x, corners[0]!.y,
+            corners[1]!.x, corners[1]!.y,
+            corners[2]!.x, corners[2]!.y,
+            corners[3]!.x, corners[3]!.y,
         ]);
 
         view.visible(true);

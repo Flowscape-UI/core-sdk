@@ -116,26 +116,33 @@ export class RendererCanvasVideo extends RendererCanvasBase<NodeVideo> {
         video.volume = node.isMuted() ? 0 : node.getVolume();
 
         const targetTime = node.getCurrentTime();
-        if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.05) {
-            try {
-                video.currentTime = targetTime;
-            } catch {
-                // ignore seek errors while metadata/buffer is not ready
-            }
-        }
 
         if (node.isPaused()) {
+            if (Number.isFinite(targetTime) && Math.abs(video.currentTime - targetTime) > 0.05) {
+                try {
+                    video.currentTime = targetTime;
+                } catch {
+                    // ignore
+                }
+            }
+
             if (!video.paused) {
-                void video.pause();
+                video.pause();
             }
-        } else {
-            if (video.paused) {
-                void video.play().catch(() => {
-                    node.pause();
-                });
-            }
+            return;
         }
+
+        // playing: не трогаем currentTime, иначе будет дёрганье/откат
+        if (video.paused) {
+            void video.play().catch(() => {
+                // не делай node.pause() здесь
+            });
+        }
+
+        // можно обновлять node-time плавно
+        node.setCurrentTime(video.currentTime);
     }
+
 
     private _applyPoster(
         node: NodeVideo,
@@ -208,6 +215,11 @@ export class RendererCanvasVideo extends RendererCanvasBase<NodeVideo> {
                 drawWidth = boxHeight * sourceRatio;
                 offsetX = (boxWidth - drawWidth) / 2;
             }
+        } else if (fit === ImageFit.None) {
+            drawWidth = sourceWidth;
+            drawHeight = sourceHeight;
+            offsetX = 0;
+            offsetY = 0;
         } else {
             // Cover
             if (sourceRatio > boxRatio) {

@@ -198,7 +198,7 @@ export class HandleCornerRadius implements IHandleCornerRadius {
             return 0;
         }
 
-        const [tl, tr, br, bl] = corners;
+        const [tl, tr, _, bl] = corners;
 
         const width = this._getDistance(tl, tr);
         const height = this._getDistance(tl, bl);

@@ -53,7 +53,7 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
         if (scroll.x === 0 && scroll.y === 0) return;
         if (!Input.scrollCtrl) return;
 
-        const point = Input.mousePosition;
+        const point = this._toStagePoint(Input.mousePosition);
         const factor = scroll.y > 0
             ? 1 / options.zoomFactor
             : options.zoomFactor;
@@ -103,10 +103,7 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
 
         if (this._ctrlMouseZoomStartPoint === null) {
             const origin = Input.getMouseButtonPressOrigin(MouseButton.Right);
-            this._ctrlMouseZoomStartPoint = {
-                x: origin.x,
-                y: origin.y,
-            };
+            this._ctrlMouseZoomStartPoint = this._toStagePoint(origin);
         }
 
         const dy = Input.mousePositionDelta.y;
@@ -126,5 +123,21 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
         }
 
         this._emitChange();
+    }
+
+    private _toStagePoint(client: Point): Point {
+        const stage = this._context!.stage;
+        const rect = stage.container().getBoundingClientRect();
+
+        const stageWidth = stage.width() || 1;
+        const stageHeight = stage.height() || 1;
+
+        const scaleX = rect.width > 0 ? rect.width / stageWidth : 1;
+        const scaleY = rect.height > 0 ? rect.height / stageHeight : 1;
+
+        return {
+            x: (client.x - rect.left) / scaleX,
+            y: (client.y - rect.top) / scaleY,
+        };
     }
 }

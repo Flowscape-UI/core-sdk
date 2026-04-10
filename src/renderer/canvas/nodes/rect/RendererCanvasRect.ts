@@ -72,8 +72,8 @@ export class RendererCanvasRect extends RendererCanvasBase<NodeRect> {
             radiusBottomLeft: bl,
         });
 
-        const shadowEffect = node.effect.get(EffectType.DropShadow);
-        const innerShadowEffect = node.effect.get(EffectType.InnerShadow);
+        const shadowEffect = node.effect.get(EffectType.DropShadow) as any;
+        const innerShadowEffect = node.effect.get(EffectType.InnerShadow) as any;
 
         let shadowRenderer = this._shadowRenderers.get(String(node.id));
         let innerShadowRenderer = this._innerShadowRenderers.get(String(node.id));
@@ -251,7 +251,7 @@ export class RendererCanvasRect extends RendererCanvasBase<NodeRect> {
     }
 
     private _appendInnerShadowHolePath(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         shape: Konva.Shape
     ): void {
         const width = shape.getAttr("rectWidth") ?? 0;
@@ -340,7 +340,7 @@ export class RendererCanvasRect extends RendererCanvasBase<NodeRect> {
     }
 
     private _appendShadowOuterPath(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         shape: Konva.Shape,
         includeSpread: boolean
     ): void {
@@ -426,7 +426,7 @@ export class RendererCanvasRect extends RendererCanvasBase<NodeRect> {
     }
 
     private _appendRoundedRectPath(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         x: number, y: number, width: number, height: number,
         radius: CornerRadius
     ): void {

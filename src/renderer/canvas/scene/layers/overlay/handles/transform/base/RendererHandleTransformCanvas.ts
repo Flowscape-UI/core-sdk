@@ -52,10 +52,10 @@ export class RendererHandleTransformCanvas implements IRendererHandleTransform {
 
         const outline = this._getOrCreateOutline();
 
-        const p0 = camera.worldToScreen(corners[0]);
-        const p1 = camera.worldToScreen(corners[1]);
-        const p2 = camera.worldToScreen(corners[2]);
-        const p3 = camera.worldToScreen(corners[3]);
+        const p0 = camera.worldToScreen(corners[0]!);
+        const p1 = camera.worldToScreen(corners[1]!);
+        const p2 = camera.worldToScreen(corners[2]!);
+        const p3 = camera.worldToScreen(corners[3]!);
 
         outline.points([
             p0.x, p0.y,

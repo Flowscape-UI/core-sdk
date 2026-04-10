@@ -22,6 +22,8 @@ export class NodeVideo extends NodeImage implements INodeVideo {
     private _cachedVolume: number;
     private _isMuted: boolean;
 
+    private _metadataLoadToken: number;
+
     constructor(id: ID, name?: string) {
         super(id, name ?? "Video", NodeType.Video);
 
@@ -42,6 +44,8 @@ export class NodeVideo extends NodeImage implements INodeVideo {
         this._volume = 0.2;
         this._cachedVolume = this._volume;
         this._isMuted = false;
+
+        this._metadataLoadToken = 0;
     }
 
 
@@ -53,17 +57,13 @@ export class NodeVideo extends NodeImage implements INodeVideo {
         const prev = this.getSrc();
         super.setSrc(value);
 
-        if (prev === this.getSrc()) {
-            return;
-        }
+        if (prev === this.getSrc()) return;
 
         this._resetPlaybackState();
+        if (!value) return;
 
-        if (!value) {
-            return;
-        }
-
-        void this._loadVideoMetadata(value);
+        const token = ++this._metadataLoadToken;
+        void this._loadVideoMetadata(value, token);
     }
 
     public getDuration(): number {
@@ -102,11 +102,13 @@ export class NodeVideo extends NodeImage implements INodeVideo {
     }
 
     public setAutoplay(value: boolean): void {
-        if (value === this._isAutoplay) {
-            return;
-        }
-
+        if (value === this._isAutoplay) return;
         this._isAutoplay = value;
+
+        // ключевой фикс: autoplay должен выводить ноду из paused
+        if (value && this._isPaused) {
+            this._isPaused = false;
+        }
     }
 
     public isLooping(): boolean {
@@ -169,14 +171,11 @@ export class NodeVideo extends NodeImage implements INodeVideo {
     }
 
     public setVolume(value: number): void {
-        const volume = Math.max(0, value);
-
-        if (volume === this._volume) {
-            return;
-        }
+        const volume = Math.max(0, Math.min(1, value));
+        if (volume === this._volume) return;
 
         this._volume = volume;
-        this._cachedVolume = volume;
+        if (volume > 0) this._cachedVolume = volume;
         this._isMuted = volume === 0;
     }
 
@@ -221,7 +220,7 @@ export class NodeVideo extends NodeImage implements INodeVideo {
     /*                         Helpers                         */
     /***********************************************************/
     private _resetPlaybackState(): void {
-        this._isPaused = true;
+        this._isPaused = !this._isAutoplay;
         this._currentTime = 0;
         this._currentFrame = 0;
         this._totalFrames = 0;
@@ -230,13 +229,10 @@ export class NodeVideo extends NodeImage implements INodeVideo {
         this.setSize(0, 0);
     }
 
-    private async _loadVideoMetadata(src: string): Promise<void> {
-        if (typeof document === "undefined") {
-            return;
-        }
+    private async _loadVideoMetadata(src: string, token: number): Promise<void> {
+        if (typeof document === "undefined") return;
 
         const video = document.createElement("video");
-
         video.preload = "metadata";
         video.src = src;
 
@@ -245,27 +241,16 @@ export class NodeVideo extends NodeImage implements INodeVideo {
                 video.onloadedmetadata = null;
                 video.onerror = null;
             };
-
-            video.onloadedmetadata = () => {
-                cleanup();
-                resolve();
-            };
-
-            video.onerror = () => {
-                cleanup();
-                resolve();
-            };
+            video.onloadedmetadata = () => { cleanup(); resolve(); };
+            video.onerror = () => { cleanup(); resolve(); };
         });
 
-        if (!Number.isFinite(video.duration)) {
-            return;
-        }
+        // prevent from race
+        if (token !== this._metadataLoadToken || this.getSrc() !== src) return;
+        if (!Number.isFinite(video.duration)) return;
 
         this._duration = video.duration;
         this.setSize(video.videoWidth || 0, video.videoHeight || 0);
-
-        // Exact total frame count is usually not available from plain HTMLVideoElement metadata.
-        // Keep 0 for now until a dedicated renderer/player layer provides frame-accurate data.
         this._totalFrames = 0;
         this._currentFrame = 0;
     }

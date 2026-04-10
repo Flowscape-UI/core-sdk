@@ -71,7 +71,7 @@ export class HandleTransformPosition implements IHandleTransformPosition {
             return false;
         }
 
-        const [tl, tr, br, bl] = corners;
+        const [tl, tr, _, bl] = corners;
 
         const xAxis = this._normalize(this._subtractPoints(tr, tl));
         const yAxis = this._normalize(this._subtractPoints(bl, tl));

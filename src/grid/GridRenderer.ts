@@ -1,3 +1,4 @@
+import type Konva from "konva";
 import type { Rect } from "../nodes";
 
 export type CameraLikeState = {
@@ -51,7 +52,7 @@ export class GridRenderer {
         return { minor: step, major };
     }
 
-    public draw(ctx: CanvasRenderingContext2D, input: GridDrawInput) {
+    public draw(ctx: Konva.Context, input: GridDrawInput) {
         const opts = this._opts;
         if (!opts.enabled) return;
 

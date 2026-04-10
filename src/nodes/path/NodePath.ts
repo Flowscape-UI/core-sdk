@@ -150,18 +150,19 @@ export class NodePath extends ShapeBase implements INodePath {
         while (i < tokens.length) {
             const token = tokens[i++];
 
-            if (!isCommand(token)) {
+
+            if (!isCommand(token ?? "")) {
                 throw new Error(`Expected SVG command, got: ${token}`);
             }
 
             const cmd = token;
-            const isRelative = cmd === cmd.toLowerCase();
+            const isRelative = cmd === cmd?.toLowerCase();
 
-            switch (cmd.toUpperCase()) {
+            switch (cmd?.toUpperCase()) {
                 case "M": {
                     let first = true;
 
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const x = readNumber();
                         const y = readNumber();
 
@@ -193,7 +194,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "L": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const x = readNumber();
                         const y = readNumber();
 
@@ -216,7 +217,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "H": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const x = readNumber();
 
                         const next = {
@@ -238,7 +239,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "V": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const y = readNumber();
 
                         const next = {
@@ -260,7 +261,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "Q": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const cx = readNumber();
                         const cy = readNumber();
                         const x = readNumber();
@@ -291,11 +292,11 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "T": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const x = readNumber();
                         const y = readNumber();
 
-                        const control = lastQuadraticControl
+                        const control: any = lastQuadraticControl
                             ? reflectPoint(lastQuadraticControl, current)
                             : { ...current };
 
@@ -319,7 +320,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "C": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const c1x = readNumber();
                         const c1y = readNumber();
                         const c2x = readNumber();
@@ -358,7 +359,7 @@ export class NodePath extends ShapeBase implements INodePath {
                 }
 
                 case "S": {
-                    while (i < tokens.length && !isCommand(tokens[i])) {
+                    while (i < tokens.length && !isCommand(tokens[i]!)) {
                         const c2x = readNumber();
                         const c2y = readNumber();
                         const x = readNumber();

@@ -1,5 +1,6 @@
+import type { ID } from "../../../core";
 import type { Vector2 } from "../../../core/transform/types";
-import { NodeType, type ID } from "../../base";
+import { NodeType } from "../../base";
 import { NodePolygon } from "../NodePolygon";
 import type { INodeStar } from "./types";
 

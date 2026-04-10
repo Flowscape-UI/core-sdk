@@ -118,7 +118,7 @@ export class RendererCanvasLine extends RendererCanvasBase<NodeLine> {
     }
 
     private _drawDegenerateLine(
-        ctx: CanvasRenderingContext2D,
+        ctx: Konva.Context,
         x: number,
         y: number,
         thickness: number,
