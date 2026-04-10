@@ -4,7 +4,15 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: ['dist', 'node_modules', 'playground/', 'storybook-static/'],
+    ignores: [
+      'dist',
+      'node_modules',
+      'playground/',
+      'storybook-static/',
+      'demos',
+      'tests',
+      'stories'
+    ],
   },
   // {
   //   files: ['src/**/*.{ts,tsx}'],
