@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [2.0.0] - 2026-04-09
+
+### Status
+
+- Not everything planned for version 2.0.0 is fully implemented yet.
+- Some parts are still being finalized and stabilized.
+
+### Architecture
+
+- Reworked project architecture with clearer engine-level boundaries.
+- Added and expanded helper tooling around the core runtime.
+- Made project structure easier to navigate and maintain.
+- Split modules by responsibility so each zone has a clear ownership model.
+
+### Improvements
+
+- The project now aligns with an engine-level direction, not a mixed toolkit state.
+- Returning to previous behavior/version paths is now simpler and higher quality due to clearer module boundaries.
+- Internal development workflows are more predictable and easier to scale.
+
 ## [1.0.7] - 2026-01-18
 
 ### ✨ New Features
