@@ -85,6 +85,7 @@
     "@typescript-eslint/parser": "^8.7.0",
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",
+    "@types/culori": "^4.0.1",
     "canvas": "^3.2.0",
     "eslint": "^9.10.0",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -98,13 +99,12 @@
     "tsup": "^8.2.4",
     "typescript": "^5.6.2",
     "vite": "^5.4.6",
-    "vitest": "^2.1.8"
-  },
-  "dependencies": {
-    "@types/culori": "^4.0.1",
-    "culori": "^4.0.2",
-    "konva": "^10.0.12",
+    "vitest": "^2.1.8",
     "react": "18.3.1",
     "react-dom": "18.3.1"
+  },
+  "dependencies": {
+    "culori": "^4.0.2",
+    "konva": "^10.0.12"
   }
 }
