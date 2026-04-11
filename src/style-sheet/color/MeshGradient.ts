@@ -1,5 +1,4 @@
 import { Color } from "./Color";
-import { clamp01 } from "./utils";
 
 export type MeshPoint = {
     x: number;      // 0..1
@@ -55,13 +54,13 @@ export class MeshGradient {
         
         // 1. Парсим радиус (теперь разрешаем большие значения, не только до 1.0)
         const radiusMatch = raw.match(/circle\s+([\d.]+)/);
-        const radius = radiusMatch ? parseFloat(radiusMatch[1]) : 0.5;
+        const radius = radiusMatch ? parseFloat(radiusMatch[1]!) : 0.5;
 
         // 2. ИСПРАВЛЕННЫЙ RegExp: добавили "-?" для поддержки отрицательных координат
         // Ищем: "at", пробелы, опциональный минус, цифры/точки, знак процента
         const posMatch = raw.match(/at\s+(-?[\d.]+)%\s+(-?[\d.]+)%/);
-        const x = posMatch ? parseFloat(posMatch[1]) / 100 : 0.5;
-        const y = posMatch ? parseFloat(posMatch[2]) / 100 : 0.5;
+        const x = posMatch ? parseFloat(posMatch[1]!) / 100 : 0.5;
+        const y = posMatch ? parseFloat(posMatch[2]!) / 100 : 0.5;
 
         const parts = raw.split(/\s+/);
         const colorStr = parts[parts.length - 1];
@@ -71,7 +70,7 @@ export class MeshGradient {
             x: x, 
             y: y,
             radius: radius, // Радиус тоже можно не клампить, если нужны гигантские пятна
-            color: Color.fromString(colorStr)
+            color: Color.fromString(colorStr!)
         };
     });
 

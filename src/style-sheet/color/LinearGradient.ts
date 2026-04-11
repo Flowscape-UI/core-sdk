@@ -45,19 +45,19 @@ export class LinearGradient extends BaseGradient {
         const lastStop = originalStops[originalStops.length - 1];
 
         // Вычисляем длину одного цикла (период)
-        const cycleLength = lastStop.offset - firstStop.offset;
+        const cycleLength = lastStop!.offset - firstStop!.offset;
 
         // Если все стопы в одной точке, мы не можем зациклить
         if (cycleLength <= 0) {
-            return new LinearGradient(inputs.stops, inputs.direction, isRepeating);
+            return new LinearGradient(inputs.stops, inputs.direction);
         }
 
         const repeatedStops: ColorStopCanonical[] = [];
 
         // Определяем, сколько циклов нам нужно в обе стороны, чтобы покрыть [0, 1]
         // Идем от -N до +N периодов
-        const startShift = Math.floor(-lastStop.offset / cycleLength);
-        const endShift = Math.ceil((1 - firstStop.offset) / cycleLength);
+        const startShift = Math.floor(-lastStop!.offset / cycleLength);
+        const endShift = Math.ceil((1 - firstStop!.offset) / cycleLength);
 
         for (let i = startShift; i <= endShift; i++) {
             const shift = i * cycleLength;

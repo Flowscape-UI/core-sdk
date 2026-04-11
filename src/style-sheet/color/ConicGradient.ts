@@ -64,18 +64,18 @@ export class ConicGradient {
         let position = "center"; // По умолчанию
 
         // ПАРСИНГ ЗАГОЛОВКА (from... at...)
-        if (params.length > 0 && (params[0].includes("from ") || params[0].includes("at "))) {
+        if (params.length > 0 && (params[0]!.includes("from ") || params[0]!.includes("at "))) {
             const header = params[0];
 
             // Извлекаем угол
-            const fromMatch = header.match(/from\s+([^ ]+)/);
-            if (fromMatch) angle = fromMatch[1];
+            const fromMatch = header!.match(/from\s+([^ ]+)/);
+            if (fromMatch) angle = fromMatch[1]!;
 
             // Извлекаем позицию
-            const atMatch = header.match(/at\s+(.+)$/);
+            const atMatch = header!.match(/at\s+(.+)$/);
             if (atMatch) {
                 // Очищаем позицию от лишних пробелов, чтобы соответствовать Enum
-                position = atMatch[1].trim().replace(/\s+/g, ' ');
+                position = atMatch[1]!.trim().replace(/\s+/g, ' ');
             }
 
             params.shift();
@@ -88,10 +88,10 @@ export class ConicGradient {
             if (parts.length === 1) return { color: Color.fromString(item) };
 
             const lastPart = parts[parts.length - 1];
-            const isOffset = /^-?\d*\.?\d+(%|deg)?$/.test(lastPart);
+            const isOffset = /^-?\d*\.?\d+(%|deg)?$/.test(lastPart!);
 
             if (isOffset) {
-                const colorPart = item.slice(0, item.lastIndexOf(lastPart)).trim();
+                const colorPart = item.slice(0, item.lastIndexOf(lastPart!)).trim();
                 return {
                     color: Color.fromString(colorPart),
                     offset: this._parseOffset(lastPart as any)
@@ -133,8 +133,8 @@ export class ConicGradient {
 
         // Если это не ключевое слово, парсим как проценты/пиксели
         const parts = pos.split(/\s+/);
-        const x = this._parseCoord(parts[0]);
-        const y = parts.length > 1 ? this._parseCoord(parts[1]) : 0.5;
+        const x = this._parseCoord(parts[0]!);
+        const y = parts.length > 1 ? this._parseCoord(parts[1]!) : 0.5;
 
         return { x, y };
     }
@@ -208,28 +208,28 @@ export class ConicGradient {
 
         if (!hasAny) {
             for (let i = 0; i < out.length; i++) {
-                out[i].offset = i / (out.length - 1);
+                out[i]!.offset = i / (out.length - 1);
             }
             return out as ColorStopCanonical[];
         }
 
         if (out[0] && !Number.isFinite(out[0].offset)) out[0].offset = 0;
-        if (out[out.length - 1] && !Number.isFinite(out[out.length - 1].offset)) out[out.length - 1].offset = 1;
+        if (out[out.length - 1] && !Number.isFinite(out[out.length - 1]!.offset)) out[out.length - 1]!.offset = 1;
 
         let i = 0;
         while (i < out.length) {
-            if (Number.isFinite(out[i].offset)) { i++; continue; }
+            if (Number.isFinite(out[i]!.offset)) { i++; continue; }
             const startIdx = i - 1;
             let endIdx = i;
-            while (endIdx < out.length && !Number.isFinite(out[endIdx].offset)) endIdx++;
+            while (endIdx < out.length && !Number.isFinite(out[endIdx]!.offset)) endIdx++;
 
-            const start = out[startIdx].offset;
-            const end = out[endIdx].offset;
+            const start = out[startIdx]!.offset;
+            const end = out[endIdx]!.offset;
             const missing = endIdx - startIdx - 1;
             const step = (end - start) / (missing + 1);
 
             for (let k = 1; k <= missing; k++) {
-                out[startIdx + k].offset = start + step * k;
+                out[startIdx + k]!.offset = start + step * k;
             }
             i = endIdx + 1;
         }

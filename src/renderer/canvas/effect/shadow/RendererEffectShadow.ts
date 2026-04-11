@@ -158,17 +158,4 @@ export class RendererEffectShadow {
             height: Math.max(1, Math.ceil(height + spread * 2 + padding * 2)),
         };
     }
-
-    private _getGroupCacheBounds(blur: number, spread: number) {
-        const width = this._shadowShape.getAttr("rectWidth") ?? 0;
-        const height = this._shadowShape.getAttr("rectHeight") ?? 0;
-        const padding = Math.max(4, Math.ceil(blur * 3));
-
-        return {
-            x: Math.floor(-spread - padding),
-            y: Math.floor(-spread - padding),
-            width: Math.max(1, Math.ceil(width + spread * 2 + padding * 2)),
-            height: Math.max(1, Math.ceil(height + spread * 2 + padding * 2)),
-        };
-    }
 }

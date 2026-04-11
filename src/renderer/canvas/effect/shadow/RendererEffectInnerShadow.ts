@@ -144,7 +144,7 @@ export class RendererEffectInnerShadow {
 
     public clear(): void {
         this._clipGroup.visible(false);
-        this._clipGroup.clipFunc(undefined as unknown as Konva.Group["clipFunc"]);
+        this._clipGroup.clipFunc(undefined);
         this._blurRoot.filters([]);
         this._blurRoot.blurRadius(0);
         this._blurRoot.clearCache();

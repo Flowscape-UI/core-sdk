@@ -1,5 +1,5 @@
 import { Color } from "./Color";
-import type { ColorStopCanonical, ColorStopInput } from "./types";
+import type { ColorStopCanonical } from "./types";
 
 
 export class DiamondGradient {
@@ -44,24 +44,24 @@ export class DiamondGradient {
         let position = 'center';
         
         // Парсим заголовок (позицию)
-        if (params.length > 0 && params[0].includes('at ')) {
-            const firstParam = params[0].trim();
+        if (params.length > 0 && params[0]!.includes('at ')) {
+            const firstParam = params[0]!.trim();
             const atIdx = firstParam.indexOf('at');
             position = firstParam.slice(atIdx + 2).trim().replace(/\s+/g, ' ');
             params.shift();
         }
 
         // Парсим стопы
-        const stopInputs: ColorStopInput[] = params.map((p) => {
+        const stopInputs = params.map((p) => {
             const item = p.trim();
             const parts = item.split(/\s+/);
             if (parts.length === 1) return { color: Color.fromString(item) };
 
             const lastPart = parts[parts.length - 1];
-            const isOffset = /^-?\d*\.?\d+(%|px)?$/.test(lastPart);
+            const isOffset = /^-?\d*\.?\d+(%|px)?$/.test(lastPart!);
 
             if (isOffset) {
-                const colorPart = item.slice(0, item.lastIndexOf(lastPart)).trim();
+                const colorPart = item.slice(0, item.lastIndexOf(lastPart!)).trim();
                 return { color: Color.fromString(colorPart), offset: lastPart };
             }
             return { color: Color.fromString(item) };
@@ -93,7 +93,7 @@ export class DiamondGradient {
         if (map[pos]) return map[pos];
 
         const parts = pos.split(/\s+/);
-        const x = parts[0].includes('%') ? parseFloat(parts[0]) / 100 : 0.5;
+        const x = parts[0]!.includes('%') ? parseFloat(parts[0]!) / 100 : 0.5;
         const y = (parts[1] && parts[1].includes('%')) ? parseFloat(parts[1]) / 100 : 0.5;
         return { x, y };
     }
@@ -113,18 +113,18 @@ export class DiamondGradient {
         if (!out.some(s => Number.isFinite(s.offset))) {
             out.forEach((s, i) => s.offset = i / (out.length - 1));
         } else {
-            if (!Number.isFinite(out[0].offset)) out[0].offset = 0;
-            if (!Number.isFinite(out[out.length - 1].offset)) out[out.length - 1].offset = 1;
+            if (!Number.isFinite(out[0]!.offset)) out[0]!.offset = 0;
+            if (!Number.isFinite(out[out.length - 1]!.offset)) out[out.length - 1]!.offset = 1;
 
             for (let i = 1; i < out.length - 1; i++) {
-                if (!Number.isFinite(out[i].offset)) {
+                if (!Number.isFinite(out[i]!.offset)) {
                     let nextIdx = i + 1;
-                    while (nextIdx < out.length && !Number.isFinite(out[nextIdx].offset)) nextIdx++;
-                    const start = out[i - 1].offset;
-                    const end = out[nextIdx].offset;
+                    while (nextIdx < out.length && !Number.isFinite(out[nextIdx]!.offset)) nextIdx++;
+                    const start = out[i - 1]!.offset;
+                    const end = out[nextIdx]!.offset;
                     const count = nextIdx - i;
                     const step = (end - start) / (count + 1);
-                    for (let j = 0; j < count; j++) out[i + j].offset = start + step * (j + 1);
+                    for (let j = 0; j < count; j++) out[i + j]!.offset = start + step * (j + 1);
                     i = nextIdx - 1;
                 }
             }

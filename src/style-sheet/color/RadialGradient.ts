@@ -99,7 +99,7 @@ export class RadialGradient {
         let position = 'center';
         let extent: RadialGradientExtent = 'farthest-corner';
 
-        const firstParam = params[0].trim();
+        const firstParam = params[0]!.trim();
         const hasOptions = /circle|ellipse|at|closest|farthest/.test(firstParam);
 
         if (hasOptions) {
@@ -122,16 +122,16 @@ export class RadialGradient {
             params.shift();
         }
 
-        const stops: ColorStopInput[] = params.map((p) => {
+        const stops = params.map((p) => {
             const item = p.trim();
             const parts = item.split(/\s+/);
             if (parts.length === 1) return { color: Color.fromString(item) };
 
             const lastPart = parts[parts.length - 1];
-            const isOffset = /^-?\d*\.?\d+(%|px|deg)?$/.test(lastPart);
+            const isOffset = /^-?\d*\.?\d+(%|px|deg)?$/.test(lastPart!);
 
             if (isOffset) {
-                const colorPart = item.slice(0, item.lastIndexOf(lastPart)).trim();
+                const colorPart = item.slice(0, item.lastIndexOf(lastPart!)).trim();
                 return {
                     color: Color.fromString(colorPart),
                     offset: lastPart
@@ -140,7 +140,7 @@ export class RadialGradient {
             return { color: Color.fromString(item) };
         });
 
-        return RadialGradient.fromStops(stops, {
+        return RadialGradient.fromStops(stops as ColorStopInput[], {
             shape,
             position,
             extent,
@@ -174,9 +174,9 @@ export class RadialGradient {
 
         // Парсинг процентов/чисел
         const parts = pos.split(/\s+/);
-        const x = this._parseCoord(parts[0]);
+        const x = this._parseCoord(parts[0]!);
         // Если указано одно значение (напр. "20%"), второе — 50%
-        const y = parts.length > 1 ? this._parseCoord(parts[1]) : 0.5;
+        const y = parts.length > 1 ? this._parseCoord(parts[1]!) : 0.5;
 
         return { x, y };
     }
@@ -215,18 +215,18 @@ export class RadialGradient {
         if (!out.some(s => Number.isFinite(s.offset))) {
             out.forEach((s, i) => s.offset = i / (out.length - 1));
         } else {
-            if (!Number.isFinite(out[0].offset)) out[0].offset = 0;
-            if (!Number.isFinite(out[out.length - 1].offset)) out[out.length - 1].offset = 1;
+            if (!Number.isFinite(out[0]!.offset)) out[0]!.offset = 0;
+            if (!Number.isFinite(out[out.length - 1]!.offset)) out[out.length - 1]!.offset = 1;
 
             for (let i = 1; i < out.length - 1; i++) {
-                if (!Number.isFinite(out[i].offset)) {
+                if (!Number.isFinite(out[i]!.offset)) {
                     let nextIdx = i + 1;
-                    while (nextIdx < out.length && !Number.isFinite(out[nextIdx].offset)) nextIdx++;
-                    const start = out[i - 1].offset;
-                    const end = out[nextIdx].offset;
+                    while (nextIdx < out.length && !Number.isFinite(out[nextIdx]!.offset)) nextIdx++;
+                    const start = out[i - 1]!.offset;
+                    const end = out[nextIdx]!.offset;
                     const count = nextIdx - i;
                     const step = (end - start) / (count + 1);
-                    for (let j = 0; j < count; j++) out[i + j].offset = start + step * (j + 1);
+                    for (let j = 0; j < count; j++) out[i + j]!.offset = start + step * (j + 1);
                     i = nextIdx - 1;
                 }
             }

@@ -131,24 +131,24 @@ export abstract class BaseGradient implements IGradient {
         // 2. Гарантируем края (если не заданы явно)
         if (intermediateStops[0]?.offset === null) intermediateStops[0].offset = 0;
         if (intermediateStops[intermediateStops.length - 1]?.offset === null) {
-            intermediateStops[intermediateStops.length - 1].offset = 1;
+            intermediateStops[intermediateStops.length - 1]!.offset = 1;
         }
 
         // 3. Заполняем пропуски (null) линейной интерполяцией
         for (let i = 0; i < intermediateStops.length; i++) {
-            if (intermediateStops[i].offset === null) {
+            if (intermediateStops[i]!.offset === null) {
                 let leftIdx = i - 1;
-                while (leftIdx >= 0 && intermediateStops[leftIdx].offset === null) leftIdx--;
+                while (leftIdx >= 0 && intermediateStops[leftIdx]!.offset === null) leftIdx--;
 
                 let rightIdx = i + 1;
-                while (rightIdx < intermediateStops.length && intermediateStops[rightIdx].offset === null) rightIdx++;
+                while (rightIdx < intermediateStops.length && intermediateStops[rightIdx]!.offset === null) rightIdx++;
 
-                const startOffset = intermediateStops[leftIdx].offset!;
-                const endOffset = intermediateStops[rightIdx].offset!;
+                const startOffset = intermediateStops[leftIdx]!.offset!;
+                const endOffset = intermediateStops[rightIdx]!.offset!;
                 const steps = rightIdx - leftIdx;
 
                 const val = startOffset + (endOffset - startOffset) * ((i - leftIdx) / steps);
-                intermediateStops[i].offset = Math.round(val * 1000) / 1000;
+                intermediateStops[i]!.offset = Math.round(val * 1000) / 1000;
             }
         }
 

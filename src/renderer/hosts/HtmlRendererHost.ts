@@ -1,5 +1,5 @@
-import type { IScene } from "../../scene/types";
-import { BaseRendererHost } from "./BaseRendererHost";
+// import type { IScene } from "../../scene/types";
+// import { BaseRendererHost } from "./BaseRendererHost";
 
 // TODO: fix it later
 // export class HtmlRendererHost extends BaseRendererHost {
