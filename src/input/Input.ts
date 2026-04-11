@@ -1,28 +1,7 @@
 import type { Vector2 } from "../core/transform";
-import { KeyCode } from "./types";
+import { KeyCode, type InputEventInfo, type InputOptions, type InputSurface } from "./types";
 import { getBrowserKeyCode } from "./utils";
 
-type InputSurface = HTMLElement;
-
-export type InputEventInfo = {
-    keyCode?: KeyCode;
-    mouseButton?: number;
-    type:
-    | "keydown" | "keyup"
-    | "mousedown" | "mouseup" | "mousemove"
-    | "mouseenter" | "mouseleave"
-    | "wheel"
-    | "pointerdown" | "pointermove" | "pointerup" | "pointercancel"
-    | "pointerenter" | "pointerleave" | "pointerover" | "pointerout"
-    | "gotpointercapture" | "lostpointercapture";
-};
-
-type InputOptions = {
-    preventAltDefault?: boolean,
-    preventContextMenu?: boolean;
-    preventWheelDefault?: boolean;
-    usePointerCapture?: boolean;
-};
 
 // =========================================================
 // TODO (Input System Review / Future Improvements)

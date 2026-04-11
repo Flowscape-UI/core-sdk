@@ -1,4 +1,11 @@
-import { DEG_TO_RAD, EPSILON, FLOAT32_MAX, FLOAT32_MIN, PI, RAD_TO_DEG } from "./constants";
+import {
+    DEG_TO_RAD,
+    EPSILON,
+    FLOAT32_MAX,
+    FLOAT32_MIN,
+    PI,
+    RAD_TO_DEG,
+} from "./constants";
 
 export class MathF32 {
     public static isValidNumber(value: number): boolean {

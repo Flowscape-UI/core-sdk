@@ -1,3 +1,4 @@
+import type { Rect } from "../../nodes";
 import { EventEmitter } from "../events/event-emitter/EventEmitter";
 import { MathF32 } from "../math";
 import type { CameraState, ICamera, Point, Viewport } from "./types";
@@ -7,18 +8,43 @@ type CameraEvents = {
     change: CameraState,
 }
 
+type CameraLocks = {
+    x: boolean,
+    y: boolean,
+    scale: boolean,
+    rotation: boolean,
+};
+
 export class Camera implements ICamera {
-    private _x = 0;
-    private _y = 0;
-    private _scale = 1;
-    private _rotation = 0; // radians
-
-    private _minScale = 0.01;
-    private _maxScale = 500;
-
-    private _viewport: Viewport = { width: 1, height: 1 };
+    public static readonly DEFAULT_MIN_SCALE = 0.01;
+    public static readonly DEFAULT_MAX_SCALE = 500;
 
     private readonly _events = new EventEmitter<CameraEvents>();
+
+    private _x: number;
+    private _y: number;
+    private _scale: number;
+    private _rotation: number; // radians
+
+    private _minScale: number;
+    private _maxScale: number;
+
+    private _viewport: Viewport;
+    private _locks: CameraLocks;
+
+    constructor() {
+        this._x = 0;
+        this._y = 0;
+        this._scale = 1;
+        this._rotation = 0;
+
+        this._minScale = Camera.DEFAULT_MIN_SCALE;
+        this._maxScale = Camera.DEFAULT_MAX_SCALE;
+
+        this._viewport = { width: 1, height: 1 };
+        this._locks = { x: false, y: false, scale: false, rotation: false };
+    }
+
 
 
     /***************************************************************************/
@@ -76,7 +102,7 @@ export class Camera implements ICamera {
     public setLimits(minScale: number, maxScale: number): void {
         const newMinScale = MathF32.toF32(minScale);
         const newMaxScale = MathF32.toF32(maxScale);
-        if(
+        if (
             this._minScale === newMinScale &&
             this._maxScale === newMaxScale
         ) {
@@ -179,6 +205,93 @@ export class Camera implements ICamera {
         });
     }
 
+    public fitToRect(rect: Rect, options?: { padding?: number; resetRotation?: boolean }): void {
+        const padding = options?.padding ?? 0;
+        const resetRotation = options?.resetRotation ?? false;
+
+        const paddedWidth = rect.width + padding * 2;
+        const paddedHeight = rect.height + padding * 2;
+
+        const rotation = resetRotation ? 0 : this._rotation;
+
+        // If there is rotation, we count the AABB rotated viewport so that the rect fits
+        let scaleX: number;
+        let scaleY: number;
+
+        if (rotation === 0) {
+            scaleX = this._viewport.width / paddedWidth;
+            scaleY = this._viewport.height / paddedHeight;
+        } else {
+            const cos = MathF32.abs(MathF32.cos(rotation));
+            const sin = MathF32.abs(MathF32.sin(rotation));
+
+            // Size of rotated viewport in world units
+            const rotatedWidth = this._viewport.width * cos + this._viewport.height * sin;
+            const rotatedHeight = this._viewport.width * sin + this._viewport.height * cos;
+
+            scaleX = rotatedWidth / paddedWidth;
+            scaleY = rotatedHeight / paddedHeight;
+        }
+
+        const scale = MathF32.min(scaleX, scaleY);
+
+        const centerX = MathF32.toF32(rect.x + rect.width / 2);
+        const centerY = MathF32.toF32(rect.y + rect.height / 2);
+
+        this._update({
+            x: centerX,
+            y: centerY,
+            scale,
+            rotation,
+        });
+    }
+
+
+
+    /***************************************************************************/
+    /*                                 Lockers                                 */
+    /***************************************************************************/
+    public lockX(): void {
+        this._locks.x = true;
+    }
+    public lockY(): void {
+        this._locks.y = true;
+    }
+    public lockScale(): void {
+        this._locks.scale = true;
+    }
+    public lockRotation(): void {
+        this._locks.rotation = true;
+    }
+    public lock(): void {
+        this._locks = { x: true, y: true, scale: true, rotation: true };
+    }
+
+    public unlockX(): void {
+        this._locks.x = false;
+    }
+    public unlockY(): void {
+        this._locks.y = false;
+    }
+    public unlockScale(): void {
+        this._locks.scale = false;
+    }
+    public unlockRotation(): void {
+        this._locks.rotation = false;
+    }
+    public unlock(): void {
+        this._locks = { x: false, y: false, scale: false, rotation: false };
+    }
+
+    public isLocked(): boolean {
+        return this._locks.x && this._locks.y && this._locks.scale && this._locks.rotation;
+    }
+
+    public getLocks(): CameraLocks {
+        return { ...this._locks };
+    }
+
+
 
     /***************************************************************************/
     /*                           Overridable Methods                           */
@@ -195,12 +308,18 @@ export class Camera implements ICamera {
     protected _update(state: Partial<CameraState>): void {
         const prev = this.getState();
 
-        if (state.x !== undefined) this._x = state.x;
-        if (state.y !== undefined) this._y = state.y;
-        if (state.scale !== undefined) {
+        if (state.x !== undefined && !this._locks.x) {
+            this._x = state.x;
+        }
+        if (state.y !== undefined && !this._locks.y) {
+            this._y = state.y;
+        }
+        if (state.scale !== undefined && !this._locks.scale) {
             this._scale = MathF32.clamp(state.scale, this._minScale, this._maxScale);
         }
-        if (state.rotation !== undefined) this._rotation = state.rotation;
+        if (state.rotation !== undefined && !this._locks.rotation) {
+            this._rotation = state.rotation;
+        }
 
         this._emitIfChanged(prev);
     }

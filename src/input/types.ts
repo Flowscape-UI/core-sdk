@@ -297,3 +297,71 @@ export type BrowserKeyCode =
 
     | "ContextMenu"
     | "PrintScreen";
+
+
+
+/** HTML element used as the input capture surface. / HTML элемент используемый как поверхность захвата ввода. */
+export type InputSurface = HTMLElement;
+
+/**
+ * All supported input event types.
+ *
+ * Все поддерживаемые типы событий ввода.
+ */
+export type InputEventType =
+    | "keydown"
+    | "keyup"
+    
+    | "mousedown"
+    | "mouseup"
+    | "mousemove"
+    | "mouseenter"
+    | "mouseleave"
+    | "wheel"
+    
+    | "pointerdown"
+    | "pointermove"
+    | "pointerup"
+    | "pointercancel"
+    | "pointerenter"
+    | "pointerleave"
+    | "pointerover"
+    | "pointerout"
+    
+    | "gotpointercapture"
+    | "lostpointercapture";
+
+/**
+ * Describes an input event with its type and optional key or mouse button info.
+ *
+ * Описывает событие ввода с его типом и опциональной информацией о клавише или кнопке мыши.
+ */
+export type InputEventInfo = {
+    /** The type of the input event. / Тип события ввода. */
+    type: InputEventType;
+
+    /** Keyboard key code if the event is keyboard-related. / Код клавиши если событие связано с клавиатурой. */
+    keyCode?: KeyCode;
+
+    /** Mouse button index if the event is mouse-related. / Индекс кнопки мыши если событие связано с мышью. */
+    mouseButton?: number;
+};
+
+/**
+ * Configuration options for the input handler.
+ *
+ * Параметры конфигурации обработчика ввода.
+ */
+export type InputOptions = {
+    /** Prevents default browser behavior for Alt key combinations. / Отменяет стандартное поведение браузера для комбинаций с Alt. */
+    preventAltDefault?: boolean;
+
+    /** Prevents the context menu from appearing on right click. / Отменяет появление контекстного меню по правому клику. */
+    preventContextMenu?: boolean;
+
+    /** Prevents default browser behavior for wheel events (e.g. page scroll). / Отменяет стандартное поведение браузера для событий колеса (например прокрутку страницы). */
+    preventWheelDefault?: boolean;
+
+    /** Enables pointer capture on the input surface. / Включает захват указателя на поверхности ввода. */
+    usePointerCapture?: boolean;
+};
