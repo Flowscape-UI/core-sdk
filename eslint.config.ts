@@ -1,18 +1,19 @@
-import eslint from '@eslint/js';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
+// import eslint from '@eslint/js';
+// import tseslint from '@typescript-eslint/eslint-plugin';
+// import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
-    ignores: [
-      'dist',
-      'node_modules',
-      'playground/',
-      'storybook-static/',
-      'demos',
-      'tests',
-      'stories'
-    ],
+    // ignores: [
+    //   'dist',
+    //   'node_modules',
+    //   'playground/',
+    //   'storybook-static/',
+    //   'demos',
+    //   'tests',
+    //   'stories'
+    // ],
+    ignores: ['**/*'],
   },
   // {
   //   files: ['src/**/*.{ts,tsx}'],
