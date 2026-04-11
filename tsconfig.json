@@ -30,5 +30,16 @@
     "noImplicitAny": true
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "playground"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "playground",
+    "src/**/__test__/**",
+    "src/**/__tests__/**",
+    "src/**/__spec__/**",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/*.spec.ts",
+    "src/**/*.spec.tsx"
+  ]
 }
