@@ -1,7 +1,7 @@
 import type { Color } from "culori";
 import type { ShapeEffect } from "./effect";
 import type { INode, OrientedRect, Rect } from "../base";
-import type { Vector2 } from "../../core/transform/types";
+import type { Matrix, Vector2 } from "../../core/transform/types";
 
 export type CornerRadius = {
     tl: number;
@@ -23,8 +23,59 @@ export enum StrokeAlign {
     Outside = 2,
 }
 
+export type ShapeGeometry = {
+    worldMatrix: Matrix;
+
+    localOBB: Rect;
+    worldCorners: [Vector2, Vector2, Vector2, Vector2];
+    worldOBB: OrientedRect;
+    worldAABB: Rect;
+
+    localViewOBB: Rect;
+    worldViewCorners: [Vector2, Vector2, Vector2, Vector2];
+    worldViewOBB: OrientedRect;
+    worldViewAABB: Rect;
+};
+
+export type ShapePathCommand =
+    | {
+        type: "moveTo";
+        point: Vector2;
+    }
+    | {
+        type: "lineTo";
+        point: Vector2;
+    }
+    | {
+        type: "arcTo";
+        center: Vector2;
+        radiusX: number;
+        radiusY: number;
+        startAngle: number;
+        endAngle: number;
+        clockwise: boolean;
+    }
+    | {
+        type: "closePath";
+    };
+
 export interface IShapeBase extends INode {
     readonly effect: ShapeEffect;
+
+    /**
+     * Returns a geometry snapshot of this shape.
+     *
+     * Includes transform matrix and both pure-geometry and view (stroke-aware) bounds
+     * in local/world space for overlay and editor tooling.
+     *
+     * Возвращает снимок геометрии этой фигуры.
+     *
+     * Включает матрицу трансформации, а также геометрические и визуальные
+     * (с учетом stroke) границы в локальном/мировом пространстве для overlay-инструментов.
+     */
+    getGeometry(): ShapeGeometry;
+
+    toPathCommands(): readonly ShapePathCommand[];
 
     /***********************************************************/
     /*                        Appearance                       */

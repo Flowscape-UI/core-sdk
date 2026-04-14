@@ -1,6 +1,8 @@
 import { formatHex, parse, type Color } from "culori";
 import { NodeType } from "../base";
-import { ShapeBase } from "../shape";
+import { ShapeBase, type ShapePathCommand } from "../shape";
+import { matrixInvert } from "../utils/matrix-invert";
+import type { Vector2 } from "../../core/transform/types";
 import {
     FontDecoration,
     FontDecorationUnderlineStyle,
@@ -16,6 +18,8 @@ import {
 import type { ID } from "../../core/types";
 
 export class NodeText extends ShapeBase implements INodeText {
+    private static _measureContext: CanvasRenderingContext2D | null = null;
+
     public static readonly TEXT_SCALE = {
         xs: 12,
         sm: 14,
@@ -110,6 +114,123 @@ export class NodeText extends ShapeBase implements INodeText {
         }
 
         this._text = value;
+    }
+
+    public getLineHitBoxes(): { x: number; y: number; width: number; height: number }[] {
+        return this._computeLineHitBoxes().map((box) => ({ ...box }));
+    }
+
+    public override hitTest(worldPoint: Vector2): boolean {
+        const bounds = this.getWorldAABB();
+
+        if (
+            worldPoint.x < bounds.x ||
+            worldPoint.x > bounds.x + bounds.width ||
+            worldPoint.y < bounds.y ||
+            worldPoint.y > bounds.y + bounds.height
+        ) {
+            return false;
+        }
+
+        try {
+            const invMatrix = matrixInvert(this.getWorldMatrix());
+            const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+
+            const hitBoxes = this._computeLineHitBoxes();
+            if (hitBoxes.length === 0) {
+                return false;
+            }
+
+            const padding = Math.max(1, this._fontSize * 0.08);
+
+            for (const box of hitBoxes) {
+                if (
+                    localPoint.x >= box.x - padding &&
+                    localPoint.x <= box.x + box.width + padding &&
+                    localPoint.y >= box.y - padding &&
+                    localPoint.y <= box.y + box.height + padding
+                ) {
+                    return true;
+                }
+            }
+
+            return false;
+        } catch {
+            return false;
+        }
+    }
+
+    public override toPathCommands(): readonly ShapePathCommand[] {
+        const lines = this._getLayoutLines();
+
+        if (lines.length === 0) {
+            return [];
+        }
+
+        const width = Math.max(0, this.getWidth());
+        const height = Math.max(0, this.getHeight());
+
+        const lineHeightPx = Math.max(1, this._fontSize * Math.max(0, this._lineHeight));
+        const textHeight = lines.length * lineHeightPx;
+
+        let offsetY = 0;
+
+        switch (this._verticalAlign) {
+            case TextVerticalAlign.Center:
+                offsetY = (height - textHeight) / 2;
+                break;
+            case TextVerticalAlign.Bottom:
+                offsetY = height - textHeight;
+                break;
+            case TextVerticalAlign.Top:
+            default:
+                offsetY = 0;
+                break;
+        }
+
+        const commands: ShapePathCommand[] = [];
+
+        for (let i = 0; i < lines.length; i += 1) {
+            const line = lines[i]!;
+            let lineWidth = line.width;
+
+            if (this._textAlign === TextAlign.Justify && line.text.trim().length > 0) {
+                lineWidth = width;
+            }
+
+            if (lineWidth <= 0) {
+                continue;
+            }
+
+            let x = 0;
+
+            switch (this._textAlign) {
+                case TextAlign.Center:
+                    x = (width - lineWidth) / 2;
+                    break;
+                case TextAlign.Right:
+                    x = width - lineWidth;
+                    break;
+                case TextAlign.Left:
+                case TextAlign.Justify:
+                default:
+                    x = 0;
+                    break;
+            }
+
+            const y = offsetY + (i + 1) * lineHeightPx;
+
+            commands.push({
+                type: "moveTo",
+                point: { x, y },
+            });
+            commands.push({
+                type: "lineTo",
+                point: { x: x + lineWidth, y },
+            });
+        }
+
+        return commands;
     }
 
     /*********************************************************/
@@ -318,5 +439,226 @@ export class NodeText extends ShapeBase implements INodeText {
             ...this._underline,
             offset: value,
         };
+    }
+
+    private _getLayoutLines(): { text: string; width: number }[] {
+        const source = this._text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        const paragraphs = source.split("\n");
+
+        const maxWidth = Math.max(0, this.getWidth());
+        const lines: string[] = [];
+
+        for (const paragraph of paragraphs) {
+            if (this._wrapMode === TextWrapMode.None || maxWidth <= 0) {
+                lines.push(paragraph);
+                continue;
+            }
+
+            const wrapped = this._wrapMode === TextWrapMode.Word
+                ? this._wrapParagraphByWords(paragraph, maxWidth)
+                : this._wrapParagraphByCharacters(paragraph, maxWidth);
+
+            if (wrapped.length === 0) {
+                lines.push("");
+            } else {
+                lines.push(...wrapped);
+            }
+        }
+
+        if (lines.length === 0) {
+            return [];
+        }
+
+        return lines.map((text) => ({
+            text,
+            width: this._measureTextWidth(text),
+        }));
+    }
+
+    private _computeLineHitBoxes(): { x: number; y: number; width: number; height: number }[] {
+        const lines = this._getLayoutLines();
+
+        if (lines.length === 0) {
+            return [];
+        }
+
+        const width = Math.max(0, this.getWidth());
+        const height = Math.max(0, this.getHeight());
+
+        const lineHeightPx = Math.max(1, this._fontSize * Math.max(0, this._lineHeight));
+        const textHeight = lines.length * lineHeightPx;
+
+        let offsetY = 0;
+
+        switch (this._verticalAlign) {
+            case TextVerticalAlign.Center:
+                offsetY = (height - textHeight) / 2;
+                break;
+            case TextVerticalAlign.Bottom:
+                offsetY = height - textHeight;
+                break;
+            case TextVerticalAlign.Top:
+            default:
+                offsetY = 0;
+                break;
+        }
+
+        const boxes: { x: number; y: number; width: number; height: number }[] = [];
+
+        for (let i = 0; i < lines.length; i += 1) {
+            const line = lines[i]!;
+            let lineWidth = line.width;
+
+            if (this._textAlign === TextAlign.Justify && line.text.trim().length > 0) {
+                lineWidth = width;
+            }
+
+            if (lineWidth <= 0) {
+                continue;
+            }
+
+            let x = 0;
+
+            switch (this._textAlign) {
+                case TextAlign.Center:
+                    x = (width - lineWidth) / 2;
+                    break;
+                case TextAlign.Right:
+                    x = width - lineWidth;
+                    break;
+                case TextAlign.Left:
+                case TextAlign.Justify:
+                default:
+                    x = 0;
+                    break;
+            }
+
+            const baselineY = offsetY + (i + 1) * lineHeightPx;
+            const glyphHeight = Math.max(1, this._fontSize);
+            const glyphTop = baselineY - glyphHeight;
+
+            boxes.push({
+                x,
+                y: glyphTop,
+                width: lineWidth,
+                height: glyphHeight,
+            });
+        }
+
+        return boxes;
+    }
+
+    private _wrapParagraphByWords(paragraph: string, maxWidth: number): string[] {
+        if (paragraph.length === 0) {
+            return [""];
+        }
+
+        const words = paragraph.trim().split(/\s+/).filter((word) => word.length > 0);
+
+        if (words.length === 0) {
+            return [""];
+        }
+
+        const lines: string[] = [];
+        let current = "";
+
+        for (const word of words) {
+            const candidate = current.length === 0 ? word : `${current} ${word}`;
+
+            if (current.length > 0 && this._measureTextWidth(candidate) > maxWidth) {
+                lines.push(current);
+
+                if (this._measureTextWidth(word) > maxWidth) {
+                    const splitWord = this._wrapParagraphByCharacters(word, maxWidth);
+                    lines.push(...splitWord.slice(0, -1));
+                    current = splitWord[splitWord.length - 1] ?? "";
+                } else {
+                    current = word;
+                }
+            } else {
+                current = candidate;
+            }
+        }
+
+        if (current.length > 0) {
+            lines.push(current);
+        }
+
+        return lines;
+    }
+
+    private _wrapParagraphByCharacters(paragraph: string, maxWidth: number): string[] {
+        if (paragraph.length === 0) {
+            return [""];
+        }
+
+        const lines: string[] = [];
+        let current = "";
+
+        for (const char of paragraph) {
+            const candidate = current + char;
+
+            if (current.length > 0 && this._measureTextWidth(candidate) > maxWidth) {
+                lines.push(current);
+                current = char;
+            } else {
+                current = candidate;
+            }
+        }
+
+        if (current.length > 0) {
+            lines.push(current);
+        }
+
+        return lines;
+    }
+
+    private _measureTextWidth(value: string): number {
+        if (value.length === 0) {
+            return 0;
+        }
+
+        const context = NodeText._getMeasureContext();
+
+        let width = value.length * this._fontSize * 0.6;
+
+        if (context) {
+            context.font = this._getFontShorthand();
+            width = context.measureText(value).width;
+        }
+
+        if (this._letterSpacing !== 0 && value.length > 1) {
+            width += this._letterSpacing * (value.length - 1);
+        }
+
+        return Math.max(0, width);
+    }
+
+    private _getFontShorthand(): string {
+        const style = this._fontStyle === FontStyle.Normal
+            ? "normal"
+            : this._fontStyle;
+
+        return `${style} ${this._fontWeight} ${this._fontSize}px ${this._fontFamily}`;
+    }
+
+    private static _getMeasureContext(): CanvasRenderingContext2D | null {
+        if (NodeText._measureContext) {
+            return NodeText._measureContext;
+        }
+
+        if (typeof document === "undefined") {
+            return null;
+        }
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+
+        if (!context) {
+            return null;
+        }
+
+        NodeText._measureContext = context;
+        return NodeText._measureContext;
     }
 }

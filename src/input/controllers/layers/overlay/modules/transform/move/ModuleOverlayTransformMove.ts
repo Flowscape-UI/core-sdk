@@ -2,7 +2,7 @@ import type { Point } from "../../../../../../../core/camera";
 import type { ID } from "../../../../../../../core/types";
 import type { IShapeBase } from "../../../../../../../nodes";
 import { MathF32 } from "../../../../../../../core/math";
-import { HandleTransformPosition, type IHandleTransformPosition } from "../../../../../../../scene/layers";
+import type { IHandleTransformPosition } from "../../../../../../../scene/layers";
 import { Input } from "../../../../../../Input";
 import { MouseButton } from "../../../../../../types";
 import type { OverlayInputContext } from "../../../LayerOverlayInputController";
@@ -10,12 +10,16 @@ import type { IOverlayTransformSubModule } from "../types";
 
 export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
     public readonly id = "overlay-transform-move";
+    private static readonly DRAG_START_THRESHOLD_PX = 3;
 
     private _context: OverlayInputContext | null = null;
 
     private _isMoving = false;
+    private _hasMoved = false;
+    private _moveStartScreenPoint: Point | null = null;
     private _moveStartWorldPoint: Point | null = null;
     private _moveStartNodePosition: Point | null = null;
+    private _pendingClickSelectNode: IShapeBase | null = null;
 
     public attach(context: OverlayInputContext): void {
         this._context = context;
@@ -39,7 +43,12 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return;
         }
 
-        this._updateMoveFromInput();
+        this._updateMoveState();
+
+        if (this._hasMoved) {
+            this._updateMoveFromInput();
+        }
+
         this._tryEndMove();
     }
 
@@ -58,9 +67,7 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return false;
         }
 
-        const transformPositionHandle = overlay
-            .getHandlerManager()
-            .get(HandleTransformPosition.TYPE) as IHandleTransformPosition | null;
+        const transformPositionHandle = this._getHandle();
 
         if (
             !transformPositionHandle ||
@@ -70,8 +77,8 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return false;
         }
 
-        const worldPoint = world.getCamera().screenToWorld(screenPoint);
-        return transformPositionHandle.containsPoint(worldPoint);
+        const worldPoint = world.camera.screenToWorld(screenPoint);
+        return transformPositionHandle.hitTest(worldPoint);
     }
 
     public tryBegin(screenPoint: Point): boolean {
@@ -85,9 +92,7 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return false;
         }
 
-        const transformPositionHandle = overlay
-            .getHandlerManager()
-            .get(HandleTransformPosition.TYPE) as IHandleTransformPosition | null;
+        const transformPositionHandle = this._getHandle();
 
         if (
             !transformPositionHandle ||
@@ -97,9 +102,9 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return false;
         }
 
-        const worldPoint = world.getCamera().screenToWorld(screenPoint);
+        const worldPoint = world.camera.screenToWorld(screenPoint);
 
-        if (!transformPositionHandle.containsPoint(worldPoint)) {
+        if (!transformPositionHandle.hitTest(worldPoint)) {
             return false;
         }
 
@@ -109,6 +114,8 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
         }
 
         this._isMoving = true;
+        this._hasMoved = false;
+        this._moveStartScreenPoint = screenPoint;
         this._moveStartWorldPoint = worldPoint;
         this._moveStartNodePosition = node.getPosition();
         Input.setCursor('grab');
@@ -123,17 +130,47 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
 
     public getNodeId(): ID | null {
         const handle = this._getHandle();
-        return handle?.getNodeId() ?? null;
+        return handle?.getNode()?.id ?? null;
     }
 
     public setNode(node: IShapeBase): void {
         const handle = this._getHandle();
-        handle?.setNode(node);
+        if (!handle) {
+            return;
+        }
+
+        handle.setNode(node);
+        handle.setEnabled(true);
     }
 
     public clearNode(): void {
         const handle = this._getHandle();
-        handle?.clearNode();
+        if (!handle) {
+            return;
+        }
+
+        handle.clearNode();
+        handle.setEnabled(false);
+    }
+
+    public consumeClickSelectNode(): IShapeBase | null {
+        const node = this._pendingClickSelectNode;
+        this._pendingClickSelectNode = null;
+        return node;
+    }
+
+    private _updateMoveState(): void {
+        if (!this._moveStartScreenPoint) {
+            return;
+        }
+
+        const screenPoint = this._getStagePointerFromInput();
+        const dx = screenPoint.x - this._moveStartScreenPoint.x;
+        const dy = screenPoint.y - this._moveStartScreenPoint.y;
+
+        if (Math.hypot(dx, dy) >= ModuleOverlayTransformMove.DRAG_START_THRESHOLD_PX) {
+            this._hasMoved = true;
+        }
     }
 
     private _updateMoveFromInput(): void {
@@ -154,7 +191,7 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
         }
 
         const screenPoint = this._getStagePointerFromInput();
-        const currentWorldPoint = world.getCamera().screenToWorld(screenPoint);
+        const currentWorldPoint = world.camera.screenToWorld(screenPoint);
 
         const dx = currentWorldPoint.x - this._moveStartWorldPoint.x;
         const dy = currentWorldPoint.y - this._moveStartWorldPoint.y;
@@ -173,12 +210,23 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
         }
 
         if (Input.getMouseButtonUp(MouseButton.Left) || !Input.getMouseButton(MouseButton.Left)) {
+            if (!this._hasMoved && this._context) {
+                const hoveredNode = this._context.overlay.getHoveredNode();
+                const activeNode = this._getHandle()?.getNode() ?? null;
+
+                if (hoveredNode && activeNode && hoveredNode.id !== activeNode.id) {
+                    this._pendingClickSelectNode = hoveredNode;
+                }
+            }
+
             this._resetMoveSession();
         }
     }
 
     private _resetMoveSession(): void {
         this._isMoving = false;
+        this._hasMoved = false;
+        this._moveStartScreenPoint = null;
         this._moveStartWorldPoint = null;
         this._moveStartNodePosition = null;
         Input.resetCursor();
@@ -189,17 +237,38 @@ export class ModuleOverlayTransformMove implements IOverlayTransformSubModule {
             return null;
         }
 
-        return this._context.overlay
-            .getHandlerManager()
-            .get(HandleTransformPosition.TYPE) as IHandleTransformPosition | null;
+        const handle = this._context.overlay.transformHandleManager.getById("transform-position");
+
+        if (!this._isTransformPositionHandle(handle)) {
+            return null;
+        }
+
+        return handle;
+    }
+
+    private _isTransformPositionHandle(value: unknown): value is IHandleTransformPosition {
+        if (!value || typeof value !== "object") {
+            return false;
+        }
+
+        const handle = value as Partial<IHandleTransformPosition>;
+
+        return (
+            typeof handle.hitTest === "function" &&
+            typeof handle.getNode === "function" &&
+            typeof handle.hasNode === "function" &&
+            typeof handle.setNode === "function" &&
+            typeof handle.clearNode === "function" &&
+            typeof handle.setEnabled === "function"
+        );
     }
 
     private _getStagePointerFromInput(): Point {
-        const rect = this._context!.stage.container().getBoundingClientRect();
+        const stage = this._context!.stage;
 
-        return {
-            x: Input.pointerPosition.x - rect.left,
-            y: Input.pointerPosition.y - rect.top,
-        };
+        return Input.pointerToSurfacePoint(stage.container(), {
+            width: stage.width(),
+            height: stage.height(),
+        });
     }
 }

@@ -1,4 +1,4 @@
-export * from "./base";
+export * from "./LayerOverlayTransformHandlesManager";
 export * from "./pivot";
 export * from "./position";
 export * from "./resize";

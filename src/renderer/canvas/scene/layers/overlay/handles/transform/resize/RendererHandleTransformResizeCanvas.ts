@@ -1,259 +1,270 @@
 import Konva from "konva";
-import type { IRendererHandleTransformResize } from "./types";
-import type { IRendererHandleTransformResizeTarget } from "./types";
-import type { TransformResizeAxis } from "../../../../../../../../scene/layers";
+import type { Point } from "../../../../../../../../core/camera";
+import type { IShapeBase } from "../../../../../../../../nodes";
+import type {
+    IHandleTransformResizeEdge,
+    IHandleTransformResizeVertex,
+} from "../../../../../../../../scene/layers";
+import { RendererHandleBase } from "../../base";
+import type { RendererHandleTarget } from "../../base/RendererHandleTarget";
+import { Direction } from "../../../../../../../../core";
 
-const EDGE_NAMES: readonly ["n", "e", "s", "w"] = ["n", "e", "s", "w"];
-const HANDLE_NAMES: readonly TransformResizeAxis[] = [
-    "ne",
-    "nw",
-    "se",
-    "sw",
-];
+function resolveHitWidth(
+    handle: IHandleTransformResizeEdge | IHandleTransformResizeVertex,
+): number {
+    const hitWidth = handle.getHitWidth();
 
-const HANDLE_SIZE = 8;
-const EDGE_STROKE = "#4C8DFF";
-const EDGE_STROKE_WIDTH = 2;
-const HANDLE_FILL = "#FFFFFF";
-const HANDLE_STROKE = "#4C8DFF";
-const HANDLE_STROKE_WIDTH = 1;
-
-export class RendererHandleTransformResizeCanvas
-    implements IRendererHandleTransformResize {
-
-    private _target: IRendererHandleTransformResizeTarget | null = null;
-
-    private _group: Konva.Group;
-    private _edgesGroup: Konva.Group;
-    private _handlesGroup: Konva.Group;
-
-    private _edges: Map<string, Konva.Line>;
-    private _handles: Map<string, Konva.Rect>;
-
-    constructor() {
-        this._group = new Konva.Group({
-            listening: false,
-            visible: true,
-        });
-
-        this._edgesGroup = new Konva.Group({
-            listening: false,
-            visible: true,
-        });
-
-        this._handlesGroup = new Konva.Group({
-            listening: false,
-            visible: true,
-        });
-
-        this._edges = new Map();
-        this._handles = new Map();
-
-        this._group.add(this._edgesGroup);
-        this._group.add(this._handlesGroup);
+    if (hitWidth > 0) {
+        return hitWidth;
     }
 
-    public attach(target: IRendererHandleTransformResizeTarget): void {
-        this._target = target;
+    return handle.getWidth();
+}
+
+function resolveHitHeight(
+    handle: IHandleTransformResizeEdge | IHandleTransformResizeVertex,
+): number {
+    const hitHeight = handle.getHitHeight();
+
+    if (hitHeight > 0) {
+        return hitHeight;
     }
 
-    public detach(): void {
-        this._target = null;
-        this._destroyView();
+    return handle.getHeight();
+}
+
+function isNear(a: number, b: number, epsilon: number = 1e-6): boolean {
+    return Math.abs(a - b) <= epsilon;
+}
+
+function resolveEdgeDirection(handle: IHandleTransformResizeEdge): Direction | null {
+    const x = handle.getX();
+    const y = handle.getY();
+
+    if (isNear(y, 0)) {
+        return Direction.N;
     }
 
-    public getRoot(): Konva.Group {
-        return this._group;
+    if (isNear(x, 1)) {
+        return Direction.E;
     }
 
-    public render(): void {
-
+    if (isNear(y, 1)) {
+        return Direction.S;
     }
 
-    public update(): void {
-        const handle = this._target?.getHandle();
-        const camera = this._target?.getCamera();
+    if (isNear(x, 0)) {
+        return Direction.W;
+    }
 
-        if (!handle || !camera || !handle.isEnabled() || !handle.hasNode()) {
-            this._destroyView();
+    return null;
+}
+
+function getEdgeWorldPoints(node: IShapeBase, direction: Direction): [Point, Point] {
+    const corners = node.getWorldViewCorners();
+    switch (direction) {
+        case Direction.E:
+            return [corners[1], corners[2]];
+        case Direction.S:
+            return [corners[2], corners[3]];
+        case Direction.W:
+            return [corners[3], corners[0]];
+        default:
+            return [corners[0], corners[1]];
+    }
+}
+
+export class RendererHandleTransformResizeEdgeCanvas extends RendererHandleBase<IHandleTransformResizeEdge> {
+
+    private _hitView: Konva.Line | null = null;
+    private _view: Konva.Line | null = null;
+
+    protected override _onUpdate(target: RendererHandleTarget<IHandleTransformResizeEdge>): void {
+        const handle = target.getHandle();
+        const node = handle.getNode();
+
+        if (!node) {
+            this._hideViews();
             return;
         }
 
-        this._updateEdges();
-        this._updateHandles();
-    }
+        const direction = resolveEdgeDirection(handle);
 
-    public destroy(): void {
-        this.detach();
-        this._group.destroy();
-        this._edges.clear();
-        this._handles.clear();
-    }
-
-    /****************************************************************/
-    /*                           Update                             */
-    /****************************************************************/
-
-    private _updateEdges(): void {
-        const handle = this._target?.getHandle();
-        const camera = this._target?.getCamera();
-
-        if (!handle || !camera) {
-            this._destroyEdges();
+        if (!direction) {
+            this._hideViews();
             return;
         }
 
-        for (const axis of EDGE_NAMES) {
-            const edge = handle.getEdgeWorldPoints(axis);
+        if (!this._hitView || !this._view) {
+            this._recreateView();
+        }
 
-            if (!edge) {
-                this._destroyEdge(axis);
-                continue;
-            }
+        if (!this._hitView || !this._view) {
+            return;
+        }
 
-            const p0 = camera.worldToScreen(edge[0]);
-            const p1 = camera.worldToScreen(edge[1]);
+        const worldPoints = getEdgeWorldPoints(node, direction);
+        const screenPoints = this._toScreenPoints(worldPoints);
 
-            const line = this._getOrCreateEdge(axis);
-            line.points([
-                p0.x, p0.y,
-                p1.x, p1.y,
-            ]);
-            line.visible(true);
+        if (screenPoints.length < 2) {
+            this._hideViews();
+            return;
+        }
+
+        const hitStrokeWidth =
+            direction === "n" || direction === "s"
+                ? resolveHitHeight(handle)
+                : resolveHitWidth(handle);
+
+        this._hitView.setAttrs({
+            points: this._flattenPoints(screenPoints),
+            stroke: handle.getHitFill(),
+            strokeWidth: hitStrokeWidth,
+            opacity: handle.getHitOpacity(),
+            visible: handle.isVisible() && hitStrokeWidth > 0 && handle.getHitOpacity() > 0,
+        });
+
+        this._view.setAttrs({
+            points: this._flattenPoints(screenPoints),
+            stroke: handle.getStrokeFill(),
+            strokeWidth: handle.getStrokeWidth(),
+            opacity: handle.getOpacity(),
+            visible: handle.isVisible(),
+        });
+    }
+
+    protected override _onClearView(): void {
+        this._hitView = null;
+        this._view = null;
+    }
+
+    private _hideViews(): void {
+        if (this._hitView) {
+            this._hitView.visible(false);
+        }
+
+        if (this._view) {
+            this._view.visible(false);
         }
     }
 
-    private _updateHandles(): void {
-    const handle = this._target?.getHandle();
-    const camera = this._target?.getCamera();
+    private _recreateView(): void {
+        this._clearGroup(this._contentGroup);
 
-    if (!handle || !camera) {
-        this._destroyHandles();
-        return;
+        const hitView = new Konva.Line({
+            listening: false,
+            perfectDrawEnabled: false,
+            lineJoin: "round",
+            lineCap: "round",
+            visible: true,
+        });
+
+        const view = new Konva.Line({
+            listening: false,
+            perfectDrawEnabled: false,
+            lineJoin: "round",
+            lineCap: "round",
+            visible: true,
+        });
+
+        this._contentGroup.add(hitView);
+        this._contentGroup.add(view);
+
+        this._hitView = hitView;
+        this._view = view;
     }
+}
 
-    const topEdge = handle.getEdgeWorldPoints("n");
+export class RendererHandleTransformResizeVertexCanvas extends RendererHandleBase<IHandleTransformResizeVertex> {
+    private _hitView: Konva.Rect | null = null;
+    private _view: Konva.Rect | null = null;
 
-    if (!topEdge) {
-        this._destroyHandles();
-        return;
-    }
+    protected override _onUpdate(target: RendererHandleTarget<IHandleTransformResizeVertex>): void {
+        const handle = target.getHandle();
+        const node = handle.getNode();
 
-    const topStart = camera.worldToScreen(topEdge[0]);
-    const topEnd = camera.worldToScreen(topEdge[1]);
-
-    const angleRad = Math.atan2(topEnd.y - topStart.y, topEnd.x - topStart.x);
-    const angleDeg = angleRad * 180 / Math.PI;
-
-    for (const axis of HANDLE_NAMES) {
-        const point = handle.getHandleWorldPoint(axis);
-
-        if (!point) {
-            this._destroyHandle(axis);
-            continue;
+        if (!node) {
+            this._hideViews();
+            return;
         }
 
-        const screenPoint = camera.worldToScreen(point);
-        const rect = this._getOrCreateHandle(axis);
+        if (!this._hitView || !this._view) {
+            this._recreateView();
+        }
 
-        rect.position({
+        if (!this._hitView || !this._view) {
+            return;
+        }
+
+        const worldPoint = this._getHandleWorldPoint(handle, node);
+        const screenPoint = this._toScreenPoint(worldPoint);
+
+        const hitWidth = resolveHitWidth(handle);
+        const hitHeight = resolveHitHeight(handle);
+
+        this._hitView.setAttrs({
             x: screenPoint.x,
             y: screenPoint.y,
+            width: hitWidth,
+            height: hitHeight,
+            offsetX: handle.getOffsetX(),
+            offsetY: handle.getOffsetY(),
+            rotation: node.getWorldRotation(),
+            fill: handle.getHitFill(),
+            opacity: handle.getHitOpacity(),
+            visible: handle.isVisible() && hitWidth > 0 && hitHeight > 0 && handle.getHitOpacity() > 0,
         });
 
-        rect.rotation(angleDeg);
-        rect.visible(true);
+        this._view.setAttrs({
+            x: screenPoint.x,
+            y: screenPoint.y,
+            width: handle.getWidth(),
+            height: handle.getHeight(),
+            offsetX: handle.getOffsetX(),
+            offsetY: handle.getOffsetY(),
+            rotation: node.getWorldRotation(),
+            fill: handle.getFill(),
+            stroke: handle.getStrokeFill(),
+            strokeWidth: handle.getStrokeWidth(),
+            opacity: handle.getOpacity(),
+            visible: handle.isVisible(),
+        });
     }
-}
 
-    /****************************************************************/
-    /*                            View                              */
-    /****************************************************************/
+    protected override _onClearView(): void {
+        this._hitView = null;
+        this._view = null;
+    }
 
-    private _getOrCreateEdge(axis: string): Konva.Line {
-        const existing = this._edges.get(axis);
-
-        if (existing) {
-            return existing;
+    private _hideViews(): void {
+        if (this._hitView) {
+            this._hitView.visible(false);
         }
 
-        const line = new Konva.Line({
-            name: `transform-resize-edge-${axis}`,
+        if (this._view) {
+            this._view.visible(false);
+        }
+    }
+
+    private _recreateView(): void {
+        this._clearGroup(this._contentGroup);
+
+        const hitView = new Konva.Rect({
             listening: false,
-            stroke: EDGE_STROKE,
-            strokeWidth: EDGE_STROKE_WIDTH,
             perfectDrawEnabled: false,
+            visible: true,
         });
 
-        this._edges.set(axis, line);
-        this._edgesGroup.add(line);
+        const view = new Konva.Rect({
+            listening: false,
+            perfectDrawEnabled: false,
+            visible: true,
+        });
 
-        return line;
-    }
+        this._contentGroup.add(hitView);
+        this._contentGroup.add(view);
 
-    private _getOrCreateHandle(axis: string): Konva.Rect {
-    const existing = this._handles.get(axis);
-
-    if (existing) {
-        return existing;
-    }
-
-    const rect = new Konva.Rect({
-        name: `transform-resize-handle-${axis}`,
-        listening: false,
-        fill: HANDLE_FILL,
-        stroke: HANDLE_STROKE,
-        strokeWidth: HANDLE_STROKE_WIDTH,
-        width: HANDLE_SIZE,
-        height: HANDLE_SIZE,
-        offsetX: HANDLE_SIZE * 0.5,
-        offsetY: HANDLE_SIZE * 0.5,
-        perfectDrawEnabled: false,
-        visible: true,
-    });
-
-    this._handles.set(axis, rect);
-    this._handlesGroup.add(rect);
-
-    return rect;
-}
-
-    private _destroyEdge(axis: string): void {
-        const edge = this._edges.get(axis);
-
-        if (!edge) {
-            return;
-        }
-
-        edge.destroy();
-        this._edges.delete(axis);
-    }
-
-    private _destroyHandle(axis: string): void {
-        const handle = this._handles.get(axis);
-
-        if (!handle) {
-            return;
-        }
-
-        handle.destroy();
-        this._handles.delete(axis);
-    }
-
-    private _destroyEdges(): void {
-        for (const axis of Array.from(this._edges.keys())) {
-            this._destroyEdge(axis);
-        }
-    }
-
-    private _destroyHandles(): void {
-        for (const axis of Array.from(this._handles.keys())) {
-            this._destroyHandle(axis);
-        }
-    }
-
-    private _destroyView(): void {
-        this._destroyEdges();
-        this._destroyHandles();
+        this._hitView = hitView;
+        this._view = view;
     }
 }

@@ -1,3 +1,4 @@
+import type { Point } from "../../../../../../core/camera";
 import { Input } from "../../../../../Input";
 import type { IInputModule } from "../../../../base";
 import type { OverlayInputContext } from "../../LayerOverlayInputController";
@@ -6,6 +7,11 @@ import type { OverlayInputContext } from "../../LayerOverlayInputController";
 export class ModuleOverlayHover implements IInputModule<OverlayInputContext> {
     public readonly id = "overlay-hover";
     private _context: OverlayInputContext | null = null;
+    private readonly _isHoverBlockedByHandle: ((screenPoint: Point) => boolean) | null;
+
+    constructor(isHoverBlockedByHandle?: (screenPoint: Point) => boolean) {
+        this._isHoverBlockedByHandle = isHoverBlockedByHandle ?? null;
+    }
 
     public attach(context: OverlayInputContext): void {
         this._context = context;
@@ -64,7 +70,12 @@ export class ModuleOverlayHover implements IInputModule<OverlayInputContext> {
         }
 
         const screenPoint = this._getStagePointerFromInput();
-        const worldPoint = world.getCamera().screenToWorld(screenPoint);
+
+        if (this._isHoverBlockedByHandle?.(screenPoint)) {
+            return;
+        }
+
+        const worldPoint = world.camera.screenToWorld(screenPoint);
 
         const hoveredNode = world.findTopNodeAt(worldPoint);
         const currentHoveredNode = overlay.getHoveredNode();
@@ -83,11 +94,11 @@ export class ModuleOverlayHover implements IInputModule<OverlayInputContext> {
     }
 
     private _getStagePointerFromInput(): { x: number; y: number } {
-        const rect = this._context!.stage.container().getBoundingClientRect();
+        const stage = this._context!.stage;
 
-        return {
-            x: Input.pointerPosition.x - rect.left,
-            y: Input.pointerPosition.y - rect.top,
-        };
+        return Input.pointerToSurfacePoint(stage.container(), {
+            width: stage.width(),
+            height: stage.height(),
+        });
     }
 }

@@ -2,6 +2,7 @@ export * from "./LayerOverlayHandlesManager";
 export * from "./types";
 
 // Handles
-export * from "./hover";
+export * from "./base";
+export * from "./free";
+export * from "./shape";
 export * from "./transform";
-export * from "./corner-radius";

@@ -190,6 +190,49 @@ export class Input {
     public static get pointerPressure(): number { return this._pointerPressure; }
     public static get activePointerId(): number | null { return this._activePointerId; }
 
+    public static pointerToSurfacePoint(
+        surface: InputSurface,
+        logicalSize?: { width: number; height: number },
+    ): Vector2 {
+        return this.clientToSurfacePoint(surface, this._pointerPosition, logicalSize);
+    }
+
+    public static mouseToSurfacePoint(
+        surface: InputSurface,
+        logicalSize?: { width: number; height: number },
+    ): Vector2 {
+        return this.clientToSurfacePoint(surface, this._mousePosition, logicalSize);
+    }
+
+    public static clientToSurfacePoint(
+        surface: InputSurface,
+        clientPoint: Vector2,
+        logicalSize?: { width: number; height: number },
+    ): Vector2 {
+        const rect = surface.getBoundingClientRect();
+
+        const logicalWidth = logicalSize?.width ?? rect.width;
+        const logicalHeight = logicalSize?.height ?? rect.height;
+
+        const safeLogicalWidth =
+            Number.isFinite(logicalWidth) && logicalWidth > 0
+                ? logicalWidth
+                : 1;
+
+        const safeLogicalHeight =
+            Number.isFinite(logicalHeight) && logicalHeight > 0
+                ? logicalHeight
+                : 1;
+
+        const scaleX = rect.width > 0 ? rect.width / safeLogicalWidth : 1;
+        const scaleY = rect.height > 0 ? rect.height / safeLogicalHeight : 1;
+
+        return {
+            x: (clientPoint.x - rect.left) / scaleX,
+            y: (clientPoint.y - rect.top) / scaleY,
+        };
+    }
+
     // --- Coalesced / Predicted ---
     public static get coalescedEvents(): ReadonlyArray<PointerEvent> { return this._coalescedEvents; }
     public static get predictedEvents(): ReadonlyArray<PointerEvent> { return this._predictedEvents; }
@@ -619,8 +662,12 @@ export class Input {
     };
 
     private static _onWheel = (e: WheelEvent): void => {
-        if (this._options.preventWheelDefault && e.cancelable) e.preventDefault();
-        this._mouseScroll = { x: e.deltaX, y: e.deltaY };
+        const shouldPreventDefault = this._options.preventWheelDefault || e.ctrlKey;
+        if (shouldPreventDefault && e.cancelable) e.preventDefault();
+        this._mouseScroll = {
+            x: this._mouseScroll.x + e.deltaX,
+            y: this._mouseScroll.y + e.deltaY,
+        };
         this._scrollCtrl = e.ctrlKey;
         this._scrollShift = e.shiftKey;
         this._scrollAlt = e.altKey;

@@ -1,104 +1,67 @@
 import Konva from "konva";
-import type {
-    IRendererHandleTransformPivotTarget,
-    IRendererHandleTransformPivot
-} from "./types";
-const HANDLE_RADIUS = 6;
-const HANDLE_FILL = "#FFFFFF";
-const HANDLE_STROKE = "#4C8DFF";
-const HANDLE_STROKE_WIDTH = 1;
+import type { IHandleTransformPivot } from "../../../../../../../../scene/layers";
+import { RendererHandleBase } from "../../base";
+import type { RendererHandleTarget } from "../../base/RendererHandleTarget";
 
-export class RendererHandleTransformPivotCanvas
-    implements IRendererHandleTransformPivot {
+export class RendererHandleTransformPivotCanvas extends RendererHandleBase<IHandleTransformPivot> {
+    private _view: Konva.Circle | null = null;
+    private _nodeId: string | null = null;
 
-    private _target: IRendererHandleTransformPivotTarget | null = null;
+    protected override _onUpdate(target: RendererHandleTarget<IHandleTransformPivot>): void {
+        const handle = target.getHandle();
+        const node = handle.getNode();
 
-    private _group: Konva.Group;
-    private _handle: Konva.Circle | null = null;
-
-    constructor() {
-        this._group = new Konva.Group({
-            listening: false,
-            visible: true,
-        });
-    }
-
-    public attach(target: IRendererHandleTransformPivotTarget): void {
-        this._target = target;
-    }
-
-    public detach(): void {
-        this._target = null;
-        this._destroyHandle();
-    }
-
-    public getRoot(): Konva.Group {
-        return this._group;
-    }
-
-    public render(): void {
-    }
-
-    public update(): void {
-        const handle = this._target?.getHandle();
-        const camera = this._target?.getCamera();
-
-        if (!handle || !camera || !handle.isEnabled() || !handle.hasNode()) {
-            this._destroyHandle();
+        if (!node) {
+            if (this._view) {
+                this._view.visible(false);
+            }
             return;
         }
 
-        const worldPoint = handle.getPivotWorldPoint();
+        const nodeId = String(node.id);
+        const idChanged = this._nodeId !== nodeId;
 
-        if (!worldPoint) {
-            this._destroyHandle();
+        if (!this._view || idChanged) {
+            this._recreateView(nodeId);
+        }
+
+        if (!this._view) {
             return;
         }
 
-        const screenPoint = camera.worldToScreen(worldPoint);
-        const circle = this._getOrCreateHandle();
+        const worldPoint = this._getHandleWorldPoint(handle, node);
+        const screenPoint = this._toScreenPoint(worldPoint);
+        const radius = Math.max(handle.getWidth(), handle.getHeight()) * 0.5;
 
-        circle.position({
+        this._view.setAttrs({
             x: screenPoint.x,
             y: screenPoint.y,
+            radius,
+            fill: handle.getFill(),
+            stroke: handle.getStrokeFill(),
+            strokeWidth: handle.getStrokeWidth(),
+            opacity: handle.getOpacity(),
+            visible: handle.isVisible() && radius > 0,
         });
-
-        circle.visible(true);
     }
 
-    public destroy(): void {
-        this.detach();
-        this._group.destroy();
-        this._handle = null;
+    protected override _onClearView(): void {
+        this._view = null;
+        this._nodeId = null;
     }
 
-    private _getOrCreateHandle(): Konva.Circle {
-        if (this._handle) {
-            return this._handle;
-        }
+    private _recreateView(nodeId: string): void {
+        this._clearGroup(this._contentGroup);
 
-        this._handle = new Konva.Circle({
+        const view = new Konva.Circle({
             name: "transform-pivot-handle",
             listening: false,
-            radius: HANDLE_RADIUS,
-            fill: HANDLE_FILL,
-            stroke: HANDLE_STROKE,
-            strokeWidth: HANDLE_STROKE_WIDTH,
             perfectDrawEnabled: false,
             visible: true,
         });
 
-        this._group.add(this._handle);
-
-        return this._handle;
-    }
-
-    private _destroyHandle(): void {
-        if (!this._handle) {
-            return;
-        }
-
-        this._handle.destroy();
-        this._handle = null;
+        this._contentGroup.add(view);
+        this._view = view;
+        this._nodeId = nodeId;
     }
 }

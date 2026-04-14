@@ -1,2 +1,2 @@
-export * from "./HandleTranformResize";
+export * from "./HandleTransformResize";
 export * from "./types";

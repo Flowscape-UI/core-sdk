@@ -1,7 +1,8 @@
+import { EPSILON } from '../../core';
 import type { Vector2 } from '../../core/transform';
 import type { ID } from '../../core/types';
 import { NodeType } from '../base';
-import { ShapeBase } from '../shape';
+import { ShapeBase, type ShapePathCommand } from '../shape';
 import { matrixInvert } from '../utils/matrix-invert';
 import { LineCap, LineEnding, type INodeLine } from './types';
 
@@ -132,6 +133,132 @@ export class NodeLine extends ShapeBase implements INodeLine {
     /*********************************************************/
     /*                        Overrides                      */
     /*********************************************************/
+    public override toPathCommands(): readonly ShapePathCommand[] {
+        const startX = this._start.x;
+        const startY = this._start.y;
+        const endX = this._end.x;
+        const endY = this._end.y;
+
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const length = Math.hypot(dx, dy);
+
+        if (length <= EPSILON) {
+            return [];
+        }
+
+        return [
+            {
+                type: "moveTo",
+                point: { x: startX, y: startY },
+            },
+            {
+                type: "lineTo",
+                point: { x: endX, y: endY },
+            },
+        ];
+    }
+
+    // TODO: Implement when will make transfer ToPath
+    // public override toPathCommands(): readonly ShapePathCommand[] {
+    //     const halfThickness = this._thickness / 2;
+
+    //     if (halfThickness <= 0) {
+    //         return [];
+    //     }
+
+    //     const startX = this._start.x;
+    //     const startY = this._start.y;
+    //     const endX = this._end.x;
+    //     const endY = this._end.y;
+
+    //     const dx = endX - startX;
+    //     const dy = endY - startY;
+    //     const length = Math.sqrt(dx * dx + dy * dy);
+
+    //     const commands: ShapePathCommand[] = [];
+
+    //     if (length <= NodeLine.EPSILON) {
+    //         if (this._lineCapStart === LineCap.Round || this._lineCapEnd === LineCap.Round) {
+    //             this._appendCirclePath(commands, startX, startY, halfThickness);
+    //             return commands;
+    //         }
+
+    //         commands.push({
+    //             type: "moveTo",
+    //             point: { x: startX - halfThickness, y: startY - halfThickness },
+    //         });
+    //         commands.push({
+    //             type: "lineTo",
+    //             point: { x: startX + halfThickness, y: startY - halfThickness },
+    //         });
+    //         commands.push({
+    //             type: "lineTo",
+    //             point: { x: startX + halfThickness, y: startY + halfThickness },
+    //         });
+    //         commands.push({
+    //             type: "lineTo",
+    //             point: { x: startX - halfThickness, y: startY + halfThickness },
+    //         });
+    //         commands.push({ type: "closePath" });
+    //         return commands;
+    //     }
+
+    //     const nx = dx / length;
+    //     const ny = dy / length;
+
+    //     const px = -ny;
+    //     const py = nx;
+
+    //     const startExtend = this._lineCapStart === LineCap.Square ? halfThickness : 0;
+    //     const endExtend = this._lineCapEnd === LineCap.Square ? halfThickness : 0;
+
+    //     const ax = startX - nx * startExtend;
+    //     const ay = startY - ny * startExtend;
+    //     const bx = endX + nx * endExtend;
+    //     const by = endY + ny * endExtend;
+
+    //     const p1x = ax + px * halfThickness;
+    //     const p1y = ay + py * halfThickness;
+
+    //     const p2x = bx + px * halfThickness;
+    //     const p2y = by + py * halfThickness;
+
+    //     const p3x = bx - px * halfThickness;
+    //     const p3y = by - py * halfThickness;
+
+    //     const p4x = ax - px * halfThickness;
+    //     const p4y = ay - py * halfThickness;
+
+    //     commands.push({
+    //         type: "moveTo",
+    //         point: { x: p1x, y: p1y },
+    //     });
+    //     commands.push({
+    //         type: "lineTo",
+    //         point: { x: p2x, y: p2y },
+    //     });
+    //     commands.push({
+    //         type: "lineTo",
+    //         point: { x: p3x, y: p3y },
+    //     });
+    //     commands.push({
+    //         type: "lineTo",
+    //         point: { x: p4x, y: p4y },
+    //     });
+    //     commands.push({ type: "closePath" });
+
+    //     if (this._lineCapStart === LineCap.Round) {
+    //         this._appendCirclePath(commands, startX, startY, halfThickness);
+    //     }
+
+    //     if (this._lineCapEnd === LineCap.Round) {
+    //         this._appendCirclePath(commands, endX, endY, halfThickness);
+    //     }
+
+    //     return commands;
+    // }
+
     public override setWidth(value: number): void {
         if (this.isLockedInHierarchy()) {
             return;
@@ -220,20 +347,22 @@ export class NodeLine extends ShapeBase implements INodeLine {
 
 
     public override hitTest(worldPoint: Vector2): boolean {
-        const bounds = this.getWorldAABB();
-
-        if (
-            worldPoint.x < bounds.x ||
-            worldPoint.x > bounds.x + bounds.width ||
-            worldPoint.y < bounds.y ||
-            worldPoint.y > bounds.y + bounds.height
-        ) {
-            return false;
-        }
-
         try {
             const invMatrix = matrixInvert(this.getWorldMatrix());
             const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+            const localBounds = this._getLocalVisualBounds();
+
+            if (
+                localBounds &&
+                (
+                    localPoint.x < localBounds.x ||
+                    localPoint.x > localBounds.x + localBounds.width ||
+                    localPoint.y < localBounds.y ||
+                    localPoint.y > localBounds.y + localBounds.height
+                )
+            ) {
+                return false;
+            }
 
             const ax = this._start.x;
             const ay = this._start.y;
@@ -313,6 +442,79 @@ export class NodeLine extends ShapeBase implements INodeLine {
     /*********************************************************/
     /*                         Helpers                       */
     /*********************************************************/
+    // TODO: uncomment when need this
+    // private _appendCirclePath(
+    //     commands: ShapePathCommand[],
+    //     cx: number,
+    //     cy: number,
+    //     radius: number
+    // ): void {
+    //     if (radius <= 0) {
+    //         return;
+    //     }
+
+    //     commands.push({
+    //         type: "moveTo",
+    //         point: { x: cx + radius, y: cy },
+    //     });
+    //     commands.push({
+    //         type: "arcTo",
+    //         center: { x: cx, y: cy },
+    //         radiusX: radius,
+    //         radiusY: radius,
+    //         startAngle: 0,
+    //         endAngle: 360,
+    //         clockwise: true,
+    //     });
+    //     commands.push({ type: "closePath" });
+    // }
+
+    private _getLocalVisualBounds(): {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    } | null {
+        const commands = this.toPathCommands();
+
+        if (commands.length === 0) {
+            return null;
+        }
+
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+
+        for (const command of commands) {
+            if (command.type === "moveTo" || command.type === "lineTo") {
+                if (command.point.x < minX) minX = command.point.x;
+                if (command.point.y < minY) minY = command.point.y;
+                if (command.point.x > maxX) maxX = command.point.x;
+                if (command.point.y > maxY) maxY = command.point.y;
+                continue;
+            }
+
+            if (command.type === "arcTo") {
+                if (command.center.x - command.radiusX < minX) minX = command.center.x - command.radiusX;
+                if (command.center.y - command.radiusY < minY) minY = command.center.y - command.radiusY;
+                if (command.center.x + command.radiusX > maxX) maxX = command.center.x + command.radiusX;
+                if (command.center.y + command.radiusY > maxY) maxY = command.center.y + command.radiusY;
+            }
+        }
+
+        if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+            return null;
+        }
+
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+        };
+    }
+
     private _updateBounds(): void {
         const minX = Math.min(this._start.x, this._end.x);
         const minY = Math.min(this._start.y, this._end.y);

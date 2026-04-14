@@ -328,7 +328,7 @@ export class ModuleRulerUI extends ModuleBaseLayerUI implements IModuleRulerUI {
         e.preventDefault();
 
         const rect = this._portal.getBoundingClientRect();
-        const cam = this._world.getCamera();
+        const cam = this._world.camera;
 
         if (this._activeDraggedGuideId !== null && this._activeDraggedGuideAxis) {
             const axis = this._activeDraggedGuideAxis;
@@ -364,7 +364,7 @@ export class ModuleRulerUI extends ModuleBaseLayerUI implements IModuleRulerUI {
         }
 
         const rect = this._portal.getBoundingClientRect();
-        const cam = this._world.getCamera();
+        const cam = this._world.camera;
         const cancelZone = this._thickness + 2;
         const axis = this._activeGuideAxis;
 
@@ -644,7 +644,7 @@ export class ModuleRulerUI extends ModuleBaseLayerUI implements IModuleRulerUI {
         const line = el.firstElementChild as HTMLDivElement | null;
         if (!line) return;
 
-        const cam = this._world.getCamera();
+        const cam = this._world.camera;
         line.style.background = guide.getColor();
 
         if (axis === "vertical") {
@@ -733,7 +733,7 @@ export class ModuleRulerUI extends ModuleBaseLayerUI implements IModuleRulerUI {
 
         if (viewW <= 1 || viewH <= 1) return;
 
-        const cam = this._world.getCamera().getState();
+        const cam = this._world.camera.getState();
 
         this._resizeCanvas(this._topCanvas,  viewW - this._thickness, this._thickness, dpr);
         this._resizeCanvas(this._leftCanvas, this._thickness, viewH - this._thickness, dpr);
