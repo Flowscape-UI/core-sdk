@@ -9,12 +9,12 @@ export class LayerBase extends Enableable implements ILayerBase {
     private _width: number;
     private _height: number;
 
-    constructor(width: number, height: number, type: LayerType, id: ID) {
+    constructor(type: LayerType, id: ID) {
         super();
         this.type = type;
         this.id = id;
-        this._width = width;
-        this._height = height;
+        this._width = 0;
+        this._height = 0;
     }
 
     /*****************************************************************/

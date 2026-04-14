@@ -1,93 +1,41 @@
-import type { Point } from "../../../../../../core/camera";
-import type { ID } from "../../../../../../core/types";
-import type { IShapeBase } from "../../../../../../nodes";
+
+import { FLOAT32_MAX, MathF32 } from "../../../../../../core";
+import { HandleBase, HandleType } from "../../base";
 import type { IHandleTransformPivot } from "./types";
+import type { IShapeBase } from "../../../../../../nodes";
 
-export class HandleTransformPivot implements IHandleTransformPivot {
-    public static readonly TYPE = "transform-pivot";
-
-    private _enabled: boolean;
-    private _node: IShapeBase | null;
-
+export class HandleTransformPivot extends HandleBase implements IHandleTransformPivot {
     constructor() {
-        this._enabled = false;
-        this._node = null;
+        const size = 8;
+        super(HandleType.TransformPivot);
+        super.setSize(size, size);
+        super.setHitSize(size, size);
+        super.setFill("#FFFFFF");
+        super.setStrokeFill("#4DA3FF");
+        super.setStrokeWidth(1);
+        super.setOffset({
+            x: size * 0.5,
+            y: size * 0.5,
+        });
     }
 
-    public getType(): string {
-        return HandleTransformPivot.TYPE;
-    }
+    public override setNode(value: IShapeBase | null): boolean {
+        const changed = super.setNode(value);
 
-    public isEnabled(): boolean {
-        return this._enabled;
-    }
-
-    public setEnabled(value: boolean): void {
-        if (this._enabled === value) {
-            return;
+        if (!value) {
+            return changed;
         }
 
-        this._enabled = value;
+        this.setPosition(value.getPivot());
+
+        return changed;
     }
 
-    public hasNode(): boolean {
-        return this._node !== null;
+    protected override _normalizePositionX(value: number): number {
+        return MathF32.clamp(value, -FLOAT32_MAX, FLOAT32_MAX);
     }
 
-    public getNode(): IShapeBase | null {
-        return this._node;
-    }
-
-    public getNodeId(): ID | null {
-        return this._node?.id ?? null;
-    }
-
-    public setNode(node: IShapeBase): void {
-        this._node = node;
-        this._enabled = true;
-    }
-
-    public clearNode(): void {
-        this._node = null;
-        this._enabled = false;
-    }
-
-    public getObbCorners(): readonly Point[] {
-        if (!this._node) {
-            return [];
-        }
-
-        return this._node.getWorldViewCorners();
-    }
-
-    public getPivotWorldPoint(): Point | null {
-        if (!this._enabled || !this._node) {
-            return null;
-        }
-
-        const node = this._node;
-        const matrix = node.getWorldMatrix();
-
-        const pivot = node.getPivot();
-        const width = node.getWidth();
-        const height = node.getHeight();
-
-        const localPivot = {
-            x: pivot.x * width,
-            y: pivot.y * height,
-        };
-
-        return {
-            x: matrix.a * localPivot.x + matrix.c * localPivot.y + matrix.tx,
-            y: matrix.b * localPivot.x + matrix.d * localPivot.y + matrix.ty,
-        };
-    }
-
-    public clear(): void {
-        this.clearNode();
-    }
-
-    public destroy(): void {
-        this.clearNode();
+    protected override _normalizePositionY(value: number): number {
+        return MathF32.clamp(value, -FLOAT32_MAX, FLOAT32_MAX);
     }
 }

@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.1] - 2026-04-14
+
+### Architecture
+
+- Scene now owns the lifecycle of layer renderers (`attach/update/render/detach/destroy`).
+- Renderer hosts were simplified to host concerns and no longer manage layer-renderer lifecycle.
+- Overlay was split into dedicated handle domains: `shape`, `transform`, `free`, each with its own manager layer.
+- Added a shared `RendererHandleBase` and migrated overlay handle renderers to a common foundation.
+
+### Added
+
+- `LayerWorld` query and ordering API:
+  - `hasNode`
+  - `findAllNodesAt`, `findNodesInRect`, `findNodesFullyInRect`
+  - `findAllNodesAtScreen`, `findNodesInScreenRect`, `findNodesFullyInScreenRect`
+  - `moveNodesToTop`, `moveNodesToBottom`, `moveNodesTo`
+- Shape path export API through `toPathCommands()` in `ShapeBase` and node overrides.
+- New transform-handle structure with separate resize edge/vertex handles and per-handle renderer binding.
+
+### Changed
+
+- `HandleBase` became the unified model for handle behavior:
+  - node binding/clearing flow
+  - normalized positioning defaults (`0.5, 0.5`)
+  - hit-area sizing API (`hitWidth/hitHeight`)
+  - debug styling API (fill/stroke type, opacity, size, enable/disable)
+- Overlay renderer composition now follows the registration order in `LayerOverlay`, keeping hover and visual stacking consistent.
+- Input coordinate conversion in controllers was centralized via `Input.clientToSurfacePoint(...)` helpers.
+
+### Fixed
+
+- Improved shape-accurate hover/hit behavior for complex nodes (`rect`, `ellipse`, `polygon`, `path`, `line`, `text`) using per-node path commands and node-specific hit testing.
+- Fixed geometry/render sync issues in polygon/path rendering and NodePath resize behavior.
+- Improved transform interaction flow (handle priority, click-vs-drag selection behavior, cursor consistency for resize/pivot/rotate).
+- Improved touchpad wheel responsiveness:
+  - wheel delta is accumulated per frame (instead of last-event overwrite),
+  - wheel default prevention is scoped to `Ctrl + wheel` (or explicit global option).
+
 ## [2.0.0] - 2026-04-09
 
 ### Status
@@ -278,7 +316,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 🔧 Optimized Konva layer handling (reduced layer count)
 - 🔧 Improved keyboard event handling in production
 
-[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.8...HEAD
+[Unreleased]: https://github.com/Flowscape-UI/core-sdk/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/Flowscape-UI/core-sdk/compare/v2.0.0...v2.0.1
+[2.0.0]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.8...v2.0.0
 [1.0.8]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.7...v1.0.8
 [1.0.7]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.6...v1.0.7
 [1.0.3]: https://github.com/Flowscape-UI/core-sdk/compare/v1.0.1...v1.0.3

@@ -23,11 +23,8 @@ export abstract class BaseRendererHost implements IRendererHost {
         if (!this._scene) {
             return;
         }
-        this._scene.layerManager.getAll().forEach((binding) => {
-            binding.renderer.detach();
-        });
-        this._onDetach(this._scene);
 
+        this._onDetach(this._scene);
         this._scene = null;
     }
 
@@ -35,10 +32,6 @@ export abstract class BaseRendererHost implements IRendererHost {
         if (!this._scene) {
             return;
         }
-
-        this._scene.layerManager.getAll().forEach((binding) => {
-            binding.renderer.render();
-        });
 
         this._onRender(this._scene);
     }
@@ -49,21 +42,14 @@ export abstract class BaseRendererHost implements IRendererHost {
         }
 
         this._onUpdate(this._scene);
-
-        this._scene.layerManager.getAll().forEach((binding) => {
-            binding.renderer.update();
-        });
     }
 
     public destroy(): void {
-        if (!this._scene) {
-            return;
+        if (this._scene) {
+            this.detach();
         }
-        this._scene.layerManager.getAll().forEach((binding) => {
-            binding.renderer.destroy();
-        });
-        this._onDestroy(this._scene);
-        this.detach();
+
+        this._onDestroy();
     }
 
     protected _onAttachBindings(scene: IScene, callback: (binding: LayerBinding) => void): void {
@@ -71,7 +57,7 @@ export abstract class BaseRendererHost implements IRendererHost {
             this.detach();
         }
 
-        scene.layerManager.getAll().forEach((binding) => {
+        scene.getLayerRendererBindings().forEach((binding) => {
             const renderer = binding.renderer;
 
             const typeMatch =
@@ -94,5 +80,5 @@ export abstract class BaseRendererHost implements IRendererHost {
     protected abstract _onRender(scene: IScene): void;
     protected abstract _onDetach(scene: IScene): void;
     protected abstract _onUpdate(scene: IScene): void;
-    protected abstract _onDestroy(scene: IScene): void;
+    protected abstract _onDestroy(): void;
 }

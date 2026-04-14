@@ -6,21 +6,11 @@ import type { LayerBinding } from "./types";
 export class LayerManager {
     private readonly _bindings = new Map<string, LayerBinding>();
 
-    public add<TTarget>(
+    public add(
         layer: ILayerBase,
-        renderer: IRendererLayerBase<TTarget>,
-        target: TTarget
+        renderer: IRendererLayerBase<unknown>,
     ): void {
         const idString = String(layer.id);
-        const existing = this._bindings.get(idString);
-
-        if (existing) {
-            existing.layer.destroy();
-            existing.renderer.detach();
-            existing.renderer.destroy();
-        }
-
-        renderer.attach(target);
 
         this._bindings.set(idString, {
             layer,
@@ -30,15 +20,9 @@ export class LayerManager {
 
     public remove(id: ID): boolean {
         const idString = String(id);
-        const binding = this._bindings.get(idString);
-
-        if (!binding) {
+        if (!this._bindings.has(idString)) {
             return false;
         }
-
-        binding.layer.destroy();
-        binding.renderer.detach();
-        binding.renderer.destroy();
 
         this._bindings.delete(idString);
         return true;

@@ -3,40 +3,36 @@ import { LayerBase, LayerType } from "../base";
 import type { ILayerOverlay } from "./types";
 
 import {
+    LayerOverlayFreeHandlesManager,
+    LayerOverlayShapeHandlesManager,
+    LayerOverlayTransformHandlesManager,
     LayerOverlayHandleManager,
-    type ILayerOverlayHandleManager,
-
-    HandleHover,
-
-    // Transform handles
-    HandleTransform,
-    HandleTransformResize,
-    HandleTransformPosition,
-    HandleTransformRotate,
-    HandleTransformPivot,
-
-    HandleCornerRadius,
+    type IHandleHover,
 } from "./handles";
 import type { IShapeBase } from "../../../nodes";
-import type { ID } from "../../../core/types";
+import { type ID } from "../../../core/types";
+import type { ILayerWorld } from "../world";
 
 export class LayerOverlay extends LayerBase implements ILayerOverlay {
+    public readonly layerWorld: ILayerWorld;
+    public readonly handleManager: LayerOverlayHandleManager;
+    public readonly freeHandleManager: LayerOverlayFreeHandlesManager;
+    public readonly shapeHandleManager: LayerOverlayShapeHandlesManager;
+    public readonly transformHandleManager: LayerOverlayTransformHandlesManager;
     private readonly _selectedNodes: IShapeBase[];
 
-    private readonly _handlerManager: ILayerOverlayHandleManager;
-
-    constructor(width: number, height: number) {
-        super(width, height, LayerType.Overlay, 2);
+    constructor(world: ILayerWorld) {
+        super(LayerType.Overlay, 2);
+        this.layerWorld = world;
         this._selectedNodes = [];
-        this._handlerManager = new LayerOverlayHandleManager();
 
-        this._handlerManager.register(new HandleHover());
-        this._handlerManager.register(new HandleTransform());
-        this._handlerManager.register(new HandleTransformResize());
-        this._handlerManager.register(new HandleTransformPosition());
-        this._handlerManager.register(new HandleTransformRotate());
-        this._handlerManager.register(new HandleTransformPivot());
-        this._handlerManager.register(new HandleCornerRadius());
+        this.handleManager = new LayerOverlayHandleManager();
+        this.freeHandleManager = new LayerOverlayFreeHandlesManager();
+        this.shapeHandleManager = new LayerOverlayShapeHandlesManager();
+        this.transformHandleManager = new LayerOverlayTransformHandlesManager();
+        this.freeHandleManager.registerTo(this.handleManager);
+        this.shapeHandleManager.registerTo(this.handleManager);
+        this.transformHandleManager.registerTo(this.handleManager);
     }
 
     /*****************************************************************/
@@ -48,13 +44,14 @@ export class LayerOverlay extends LayerBase implements ILayerOverlay {
     }
 
     public getHoveredNodeId(): ID | null {
-        return this._getHoverHandle().getNodeId();
+        return this._getHoverHandle().getNode()?.id ?? null;
     }
 
     public setHoveredNode(node: IShapeBase | null): void {
         const handle = this._getHoverHandle();
+        const currentNodeId = handle.getNode()?.id ?? null;
 
-        if (handle.getNodeId() === (node?.id ?? null)) {
+        if (currentNodeId === (node?.id ?? null)) {
             return;
         }
 
@@ -82,7 +79,6 @@ export class LayerOverlay extends LayerBase implements ILayerOverlay {
     /*****************************************************************/
     /*                          Selection                            */
     /*****************************************************************/
-
     public getSelectedNodes(): IShapeBase[] {
         return [...this._selectedNodes];
     }
@@ -135,13 +131,7 @@ export class LayerOverlay extends LayerBase implements ILayerOverlay {
         this._selectedNodes.length = 0;
     }
 
-    /*****************************************************************/
-    /*                           Handlers                            */
-    /*****************************************************************/
 
-    public getHandlerManager(): ILayerOverlayHandleManager {
-        return this._handlerManager;
-    }
 
     /*****************************************************************/
     /*                           Lifecycle                           */
@@ -149,23 +139,51 @@ export class LayerOverlay extends LayerBase implements ILayerOverlay {
 
     public clear(): void {
         this._selectedNodes.length = 0;
-        this._handlerManager.clear();
+
+        for (const handler of this.handleManager.getAll()) {
+            handler.clear();
+        }
     }
 
     public override destroy(): void {
         this.clear();
-        this._handlerManager.destroy();
+
+        for (const handler of this.handleManager.getAll()) {
+            handler.destroy();
+        }
+
         super.destroy();
     }
 
 
-    private _getHoverHandle(): HandleHover {
-        const handler = this._handlerManager.get(HandleHover.TYPE);
+    private _getHoverHandle(): IHandleHover {
+        const handler = this.handleManager.getById("hover");
 
-        if (!(handler instanceof HandleHover)) {
-            throw new Error("Hover handle is not registered.");
+        if (this._isHoverHandle(handler)) {
+            return handler;
         }
 
-        return handler;
+        for (const item of this.handleManager.getAll()) {
+            if (this._isHoverHandle(item)) {
+                return item;
+            }
+        }
+
+        throw new Error("Hover handle is not registered.");
+    }
+
+    private _isHoverHandle(value: unknown): value is IHandleHover {
+        if (!value || typeof value !== "object") {
+            return false;
+        }
+
+        const handle = value as Partial<IHandleHover>;
+
+        return (
+            typeof handle.getNode === "function" &&
+            typeof handle.setNode === "function" &&
+            typeof handle.hasNode === "function" &&
+            typeof handle.clearNode === "function"
+        );
     }
 }

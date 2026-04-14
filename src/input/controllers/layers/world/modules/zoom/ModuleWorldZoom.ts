@@ -36,7 +36,7 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
     }
 
     private _getCamera() {
-        return this._context!.world.getCamera();
+        return this._context!.world.camera;
     }
 
     private _emitChange(): void {
@@ -46,8 +46,6 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
     private _updateCtrlWheelZoom(): void {
         const { options } = this._context!;
         if (!options.zoomEnabled) return;
-
-        Input.configure({ preventWheelDefault: true });
 
         const scroll = Input.mouseScrollDelta;
         if (scroll.x === 0 && scroll.y === 0) return;
@@ -127,17 +125,13 @@ export class ModuleWorldZoom implements IInputModule<WorldInputContext> {
 
     private _toStagePoint(client: Point): Point {
         const stage = this._context!.stage;
-        const rect = stage.container().getBoundingClientRect();
-
-        const stageWidth = stage.width() || 1;
-        const stageHeight = stage.height() || 1;
-
-        const scaleX = rect.width > 0 ? rect.width / stageWidth : 1;
-        const scaleY = rect.height > 0 ? rect.height / stageHeight : 1;
-
-        return {
-            x: (client.x - rect.left) / scaleX,
-            y: (client.y - rect.top) / scaleY,
-        };
+        return Input.clientToSurfacePoint(
+            stage.container(),
+            client,
+            {
+                width: stage.width(),
+                height: stage.height(),
+            },
+        );
     }
 }

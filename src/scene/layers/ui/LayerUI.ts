@@ -8,8 +8,8 @@ import type { ILayerUI, IManagerLayerUI } from "./types";
 export class LayerUI extends LayerBase implements ILayerUI {
     private readonly _manager: IManagerLayerUI;
 
-    constructor(world: LayerWorld, width: number, height: number) {
-        super(width, height, LayerType.UI, 3);
+    constructor(world: LayerWorld) {
+        super(LayerType.UI, 3);
         this._manager = new ManagerLayerUI();
         this._enabled = true;
 

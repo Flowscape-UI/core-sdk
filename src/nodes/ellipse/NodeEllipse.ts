@@ -1,7 +1,7 @@
 import type { Vector2 } from "../../core/transform/types";
 import { matrixInvert } from "../utils/matrix-invert";
 import { NodeType } from "../base";
-import { ShapeBase } from "../shape";
+import { ShapeBase, type ShapePathCommand } from "../shape";
 import type { INodeEllipse } from "./types";
 import type { ID } from "../../core/types";
 
@@ -71,8 +71,121 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
         return this._radToDeg(this._endAngle - this._startAngle);
     }
 
+    public override toPathCommands(): readonly ShapePathCommand[] {
+        const view = this.getLocalViewOBB();
+        const rx = view.width / 2;
+        const ry = view.height / 2;
+
+        if (rx <= 0 || ry <= 0) {
+            return [];
+        }
+
+        const cx = view.x + rx;
+        const cy = view.y + ry;
+
+        const start = this._normalizeAngle(this._startAngle);
+        const end = this._normalizeAngle(this._endAngle);
+        const sweep = this._normalizeAngle(this._endAngle - this._startAngle);
+
+        const isFullEllipse =
+            Math.abs(sweep) < NodeEllipse.EPSILON ||
+            Math.abs(sweep - Math.PI * 2) < NodeEllipse.EPSILON;
+
+        const commands: ShapePathCommand[] = [];
+
+        if (isFullEllipse) {
+            commands.push({
+                type: "moveTo",
+                point: { x: cx + rx, y: cy },
+            });
+            commands.push({
+                type: "arcTo",
+                center: { x: cx, y: cy },
+                radiusX: rx,
+                radiusY: ry,
+                startAngle: 0,
+                endAngle: 360,
+                clockwise: true,
+            });
+            commands.push({ type: "closePath" });
+
+            if (this._innerRatio > 0) {
+                const innerRx = rx * this._innerRatio;
+                const innerRy = ry * this._innerRatio;
+
+                commands.push({
+                    type: "moveTo",
+                    point: { x: cx + innerRx, y: cy },
+                });
+                commands.push({
+                    type: "arcTo",
+                    center: { x: cx, y: cy },
+                    radiusX: innerRx,
+                    radiusY: innerRy,
+                    startAngle: 360,
+                    endAngle: 0,
+                    clockwise: false,
+                });
+                commands.push({ type: "closePath" });
+            }
+
+            return commands;
+        }
+
+        const startPoint = {
+            x: cx + Math.cos(start) * rx,
+            y: cy + Math.sin(start) * ry,
+        };
+
+        commands.push({
+            type: "moveTo",
+            point: startPoint,
+        });
+        commands.push({
+            type: "arcTo",
+            center: { x: cx, y: cy },
+            radiusX: rx,
+            radiusY: ry,
+            startAngle: this._radToDeg(start),
+            endAngle: this._radToDeg(end),
+            clockwise: true,
+        });
+
+        if (this._innerRatio > 0) {
+            const innerRx = rx * this._innerRatio;
+            const innerRy = ry * this._innerRatio;
+
+            const innerEndPoint = {
+                x: cx + Math.cos(end) * innerRx,
+                y: cy + Math.sin(end) * innerRy,
+            };
+
+            commands.push({
+                type: "lineTo",
+                point: innerEndPoint,
+            });
+            commands.push({
+                type: "arcTo",
+                center: { x: cx, y: cy },
+                radiusX: innerRx,
+                radiusY: innerRy,
+                startAngle: this._radToDeg(end),
+                endAngle: this._radToDeg(start),
+                clockwise: false,
+            });
+        } else {
+            commands.push({
+                type: "lineTo",
+                point: { x: cx, y: cy },
+            });
+        }
+
+        commands.push({ type: "closePath" });
+        return commands;
+    }
+
     public override hitTest(worldPoint: Vector2): boolean {
-        const bounds = this.getWorldAABB();
+        const bounds = this.getWorldViewAABB();
 
         if (
             worldPoint.x < bounds.x ||
@@ -86,16 +199,17 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
         try {
             const invMatrix = matrixInvert(this.getWorldMatrix());
             const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+            const view = this.getLocalViewOBB();
 
-            const halfWidth = this.getWidth() / 2;
-            const halfHeight = this.getHeight() / 2;
+            const halfWidth = view.width / 2;
+            const halfHeight = view.height / 2;
 
             if (halfWidth === 0 || halfHeight === 0) {
                 return false;
             }
 
-            const centerX = halfWidth;
-            const centerY = halfHeight;
+            const centerX = view.x + halfWidth;
+            const centerY = view.y + halfHeight;
 
             const normalizedX = (localPoint.x - centerX) / halfWidth;
             const normalizedY = (localPoint.y - centerY) / halfHeight;
@@ -127,9 +241,9 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
             }
 
             // 4. Angle check
-            const deltaX = localPoint.x - centerX;
-            const deltaY = localPoint.y - centerY;
-            const angle = this._normalizeAngle(Math.atan2(deltaY, deltaX));
+            // Angle for ellipse sector check must be computed in normalized
+            // ellipse space, otherwise arc boundaries drift on stretched shapes.
+            const angle = this._normalizeAngle(Math.atan2(normalizedY, normalizedX));
 
             const start = this._normalizeAngle(this._startAngle);
             const end = this._normalizeAngle(this._endAngle);

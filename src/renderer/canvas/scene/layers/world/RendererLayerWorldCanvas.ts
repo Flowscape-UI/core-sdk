@@ -53,7 +53,7 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
                 }
 
                 return {
-                    camera: this._world.getCamera().getState(),
+                    camera: this._world.camera.getState(),
                     viewportAabbWorld: this._world.getViewportWorldAABB(),
                 };
             },
@@ -107,7 +107,7 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
             return;
         }
 
-        this._applyCamera(this._world.getCamera().getState());
+        this._applyCamera(this._world.camera.getState());
 
         const viewport = this._world.getViewportWorldAABB();
         this._manager.renderNodes(this._world.getNodes(), viewport);

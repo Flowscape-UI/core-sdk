@@ -1,8 +1,7 @@
 import Konva from "konva";
 import {
-    PathCommandType,
+    type ShapePathCommand,
     type NodePath,
-    type PathCommand
 } from "../../../../nodes";
 import { RendererCanvasBase } from "../base";
 
@@ -20,7 +19,7 @@ export class RendererCanvasPath extends RendererCanvasBase<NodePath> {
             name: FILL_NAME,
             listening: false,
             sceneFunc: (ctx, shape) => {
-                const commands = (shape.getAttr("commands") ?? []) as PathCommand[];
+                const commands = (shape.getAttr("pathCommands") ?? []) as readonly ShapePathCommand[];
 
                 if (!commands.length) {
                     return;
@@ -55,7 +54,7 @@ export class RendererCanvasPath extends RendererCanvasBase<NodePath> {
         const fill = this._findOneOrThrow<Konva.Shape>(view, FILL_SELECTOR);
 
         fill.setAttrs({
-            commands: node.getCommands(),
+            pathCommands: node.toPathCommands(),
             strokeColor: "getStrokeFill" in node ? (node as any).getStrokeFill() : undefined,
             strokeWidth: "getStrokeWidth" in node ? (node as any).getStrokeWidth() : 0,
         });
@@ -65,42 +64,39 @@ export class RendererCanvasPath extends RendererCanvasBase<NodePath> {
 
     private _appendPathCommands(
         ctx: Konva.Context,
-        commands: PathCommand[]
+        commands: readonly ShapePathCommand[]
     ): void {
         for (const command of commands) {
             switch (command.type) {
-                case PathCommandType.MoveTo:
-                    ctx.moveTo(command.to.x, command.to.y);
+                case "moveTo":
+                    ctx.moveTo(command.point.x, command.point.y);
                     break;
 
-                case PathCommandType.LineTo:
-                    ctx.lineTo(command.to.x, command.to.y);
+                case "lineTo":
+                    ctx.lineTo(command.point.x, command.point.y);
                     break;
 
-                case PathCommandType.QuadTo:
-                    ctx.quadraticCurveTo(
-                        command.control.x,
-                        command.control.y,
-                        command.to.x,
-                        command.to.y
+                case "arcTo":
+                    ctx.ellipse(
+                        command.center.x,
+                        command.center.y,
+                        command.radiusX,
+                        command.radiusY,
+                        0,
+                        this._degToRad(command.startAngle),
+                        this._degToRad(command.endAngle),
+                        !command.clockwise
                     );
                     break;
 
-                case PathCommandType.CubicTo:
-                    ctx.bezierCurveTo(
-                        command.control1.x,
-                        command.control1.y,
-                        command.control2.x,
-                        command.control2.y,
-                        command.to.x,
-                        command.to.y
-                    );
-                    break;
-
-                case PathCommandType.Close:
+                case "closePath":
                     ctx.closePath();
                     break;
             }
         }
+    }
+
+    private _degToRad(value: number): number {
+        return (value * Math.PI) / 180;
     }
 }

@@ -1,13 +1,11 @@
 import type { IInputControllerBase } from "../input";
+import type { ID } from "../core/types";
 import type { IRendererLayerBase } from "../renderer/canvas/scene/layers/types";
+import type { IRendererHost } from "../renderer/hosts";
 import type { InputManager } from "./InputManager";
-import type { LayerManager } from "./LayerManager";
 import type { ILayerBase } from "./layers";
-import type { LayerBackground } from "./layers/background/LayerBackground";
-import type { LayerOverlay } from "./layers/overlay/LayerOverlay";
-import type { LayerUI } from "./layers/ui";
-import type { LayerWorld } from "./layers/world/LayerWorld";
 import type { ManagerRenderHost } from "./ManagerRenderHost";
+import type { IRenderable, IUpdatable } from "../core";
 
 export type LayerBinding = {
     layer: ILayerBase;
@@ -19,15 +17,22 @@ export type InputBinding = {
     controller: IInputControllerBase<unknown>;
 };
 
-export interface IScene {
-    readonly layerManager: LayerManager;
+export interface IScene extends IUpdatable, IRenderable {
     readonly hostManager: ManagerRenderHost;
     readonly inputManager: InputManager;
 
-    readonly layerBackground: LayerBackground;
-    readonly layerWorld: LayerWorld;
-    readonly layerOverlay: LayerOverlay;
-    readonly layerUI: LayerUI;
+    addHost(host: IRendererHost): void;
+    removeHost(id: number): boolean;
+
+    addLayer(layer: ILayerBase): boolean;
+    bindLayerRenderer<TLayer extends ILayerBase>(layer: TLayer, renderer: IRendererLayerBase<TLayer>): void;
+    unbindLayerRenderer(id: ID): boolean;
+    getLayerRendererBindings(): readonly LayerBinding[];
+
+    removeLayer(id: ID): boolean;
+    hasLayer(id: ID): boolean;
+    getLayerById<TLayer extends ILayerBase = ILayerBase>(id: ID): TLayer | null;
+    getLayers(): readonly ILayerBase[];
 
     // setRenderHost(value: IRendererRoot): void;
 

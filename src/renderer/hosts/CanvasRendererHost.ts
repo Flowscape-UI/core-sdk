@@ -41,8 +41,10 @@ export class CanvasRendererHost extends BaseRendererHost {
     }
 
     protected override _onRender(_: IScene): void {}
-    protected override _onDetach(_: IScene): void {}
-    protected override _onDestroy(_: IScene): void {
+    protected override _onDetach(_: IScene): void {
+        this._stage.removeChildren();
+    }
+    protected override _onDestroy(): void {
         this._stage.destroy();
     }
 }

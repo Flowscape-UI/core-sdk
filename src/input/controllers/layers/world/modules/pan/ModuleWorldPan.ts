@@ -45,7 +45,7 @@ export class ModuleWorldPan implements IInputModule<WorldInputContext> {
     }
 
     private _getCamera(): ICamera {
-        return this._context!.world.getCamera();
+        return this._context!.world.camera;
     }
 
     private _emitChange(): void {
@@ -55,10 +55,7 @@ export class ModuleWorldPan implements IInputModule<WorldInputContext> {
     private _stopDrag(): void {
         this._isDragging = false;
         this._activeButton = null;
-
-        if (this._context) {
-            this._context.stage.container().style.cursor = "";
-        }
+        Input.resetCursor();
     }
 
     private _canStartRightPan(): boolean {
@@ -74,20 +71,18 @@ export class ModuleWorldPan implements IInputModule<WorldInputContext> {
             return;
         }
 
-        const stage = this._context.stage;
-
         if (!this._isDragging) {
             if (this._canStartRightPan()) {
                 this._isDragging = true;
                 this._activeButton = MouseButton.Right;
-                stage.container().style.cursor = "grab";
+                Input.setCursor("grab");
                 return;
             }
 
             if (this._canStartMiddlePan()) {
                 this._isDragging = true;
                 this._activeButton = MouseButton.Middle;
-                stage.container().style.cursor = "grab";
+                Input.setCursor("grab");
                 return;
             }
 

@@ -108,6 +108,11 @@ export class RendererCanvasManager {
                 parentContainer.add(view);
             }
 
+            // Keep Konva stacking in sync with node traversal order every frame.
+            // Traversal goes from bottom to top, so repeated moveToTop reproduces
+            // the expected world draw order deterministically.
+            view.moveToTop();
+
             renderer.update(node, view);
             currentContainer = view;
         }

@@ -1,7 +1,7 @@
 import type { Vector2 } from "../../core/transform/types";
 import type { ID } from "../../core/types";
 import { NodeType } from "../base";
-import { ShapeBase } from "../shape";
+import { ShapeBase, type ShapePathCommand } from "../shape";
 import { matrixInvert } from "../utils/matrix-invert";
 import type { INodePolygon } from "./types";
 
@@ -42,8 +42,33 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
     /*********************************************************/
     /*                       Overrides                       */
     /*********************************************************/
+    public override toPathCommands(): readonly ShapePathCommand[] {
+        const vertices = this._toViewVertices(this._getVertices());
+
+        if (vertices.length === 0) {
+            return [];
+        }
+
+        const commands: ShapePathCommand[] = [
+            {
+                type: "moveTo",
+                point: vertices[0]!,
+            },
+        ];
+
+        for (let i = 1; i < vertices.length; i += 1) {
+            commands.push({
+                type: "lineTo",
+                point: vertices[i]!,
+            });
+        }
+
+        commands.push({ type: "closePath" });
+        return commands;
+    }
+
     public override hitTest(worldPoint: Vector2): boolean {
-        const bounds = this.getWorldAABB();
+        const bounds = this.getWorldViewAABB();
 
         if (
             worldPoint.x < bounds.x ||
@@ -58,7 +83,7 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
             const invMatrix = matrixInvert(this.getWorldMatrix());
             const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
 
-            const vertices = this._getVertices();
+            const vertices = this._toViewVertices(this._getVertices());
 
             let inside = false;
 
@@ -121,5 +146,22 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
         }
 
         return vertices;
+    }
+
+    private _toViewVertices(vertices: readonly Vector2[]): Vector2[] {
+        const local = this.getLocalOBB();
+        const view = this.getLocalViewOBB();
+
+        if (vertices.length === 0) {
+            return [];
+        }
+
+        const scaleX = local.width !== 0 ? view.width / local.width : 1;
+        const scaleY = local.height !== 0 ? view.height / local.height : 1;
+
+        return vertices.map((point) => ({
+            x: view.x + (point.x - local.x) * scaleX,
+            y: view.y + (point.y - local.y) * scaleY,
+        }));
     }
 }

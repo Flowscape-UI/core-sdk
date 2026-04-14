@@ -9,9 +9,9 @@
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 [![X (Twitter)](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
 
-[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](flowscape-ui.github.io/docs/)
 [![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
-[![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](./CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge)](./CHANGELOG.md)
 
 <img 
   src="./assets/readme/preview.gif" 
@@ -55,11 +55,16 @@ bun add @flowscape-ui/core-sdk
 ```ts
 import {
   Scene,
+  LayerBackground,
+  LayerWorld,
+  LayerOverlay,
   NodeRect,
   RendererLayerBackgroundCanvas,
   RendererLayerWorldCanvas,
+  RendererLayerOverlayCanvas,
   CanvasRendererHost,
   LayerWorldInputController,
+  LayerOverlayInputController,
 } from '@flowscape-ui/core-sdk';
 
 const container = document.getElementById('app');
@@ -67,23 +72,30 @@ if (!container) throw new Error('Container #app not found');
 
 const scene = new Scene(container.clientWidth, container.clientHeight);
 
-// Background layer
-const bgRenderer = new RendererLayerBackgroundCanvas();
-scene.layerManager.add(scene.layerBackground, bgRenderer, scene.layerBackground);
-scene.layerBackground.setFill('#101010');
+// Layers
+const layerBackground = new LayerBackground();
+const layerWorld = new LayerWorld();
+const layerOverlay = new LayerOverlay(layerWorld);
 
-// World layer
-const worldRenderer = new RendererLayerWorldCanvas();
-scene.layerManager.add(scene.layerWorld, worldRenderer, scene.layerWorld);
+scene.addLayer(layerBackground);
+scene.addLayer(layerWorld);
+scene.addLayer(layerOverlay);
+
+layerBackground.setFill('#101010');
+
+// Layer renderers
+scene.bindLayerRenderer(layerBackground, new RendererLayerBackgroundCanvas());
+scene.bindLayerRenderer(layerWorld, new RendererLayerWorldCanvas());
+scene.bindLayerRenderer(layerOverlay, new RendererLayerOverlayCanvas());
 
 // Render host
 const host = new CanvasRendererHost(container, -1);
-scene.hostManager.add(host);
+scene.addHost(host);
 
 // Input controller (pan/zoom)
-scene.inputManager.add(scene.layerWorld, new LayerWorldInputController(), {
+scene.inputManager.add(layerWorld, new LayerWorldInputController(), {
   stage: host.getRenderNode(),
-  world: scene.layerWorld,
+  world: layerWorld,
   options: {
     enabled: true,
     panMode: 'right',
@@ -96,12 +108,36 @@ scene.inputManager.add(scene.layerWorld, new LayerWorldInputController(), {
   emitChange: () => scene.invalidate(),
 });
 
+// Input controller (overlay hover/select/transform)
+let interactionOwner: string | null = null;
+
+scene.inputManager.add(layerOverlay, new LayerOverlayInputController(), {
+  stage: host.getRenderNode(),
+  world: layerWorld,
+  overlay: layerOverlay,
+  emitChange: () => scene.invalidate(),
+  getInteractionOwner: () => interactionOwner,
+  tryBeginInteraction: (ownerId: string) => {
+    if (interactionOwner !== null && interactionOwner !== ownerId) {
+      return false;
+    }
+
+    interactionOwner = ownerId;
+    return true;
+  },
+  endInteraction: (ownerId: string) => {
+    if (interactionOwner === ownerId) {
+      interactionOwner = null;
+    }
+  },
+});
+
 // Add a node
 const rect = new NodeRect(1);
 rect.setPosition(300, 220);
 rect.setSize(220, 140);
 rect.setFill('#2f7cf6');
-scene.layerWorld.addNode(rect);
+layerWorld.addNode(rect);
 
 scene.invalidate();
 ```
@@ -114,7 +150,7 @@ scene.invalidate();
 
 ## 📚 Links
 
-- Documentation: https://flowscape-ui.github.io/core-sdk/
+- Documentation: flowscape-ui.github.io/docs/
 - Interactive demo: https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground
 - GitHub Issues: https://github.com/Flowscape-UI/core-sdk/issues
 - Changelog: `./CHANGELOG.md`

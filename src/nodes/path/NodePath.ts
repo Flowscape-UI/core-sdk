@@ -1,9 +1,10 @@
 import { NodeType } from "../base";
-import { ShapeBase } from "../shape";
+import { ShapeBase, type ShapePathCommand } from "../shape";
 import type { Vector2 } from "../../core/transform/types";
 import type { INodePath, PathCommand } from "./types";
 import { PathCommandType } from "./types";
 import type { ID } from "../../core/types";
+import { matrixInvert } from "../utils/matrix-invert";
 
 export class NodePath extends ShapeBase implements INodePath {
     private _commands: PathCommand[];
@@ -73,6 +74,53 @@ export class NodePath extends ShapeBase implements INodePath {
 
     public isClosed(): boolean {
         return this._commands[this._commands.length - 1]?.type === PathCommandType.Close;
+    }
+
+    public override toPathCommands(): readonly ShapePathCommand[] {
+        if (this._commands.length === 0) {
+            return [];
+        }
+
+        return this._toShapePathCommands();
+    }
+
+    public override hitTest(worldPoint: Vector2): boolean {
+        const bounds = this.getWorldViewAABB();
+
+        if (
+            worldPoint.x < bounds.x ||
+            worldPoint.x > bounds.x + bounds.width ||
+            worldPoint.y < bounds.y ||
+            worldPoint.y > bounds.y + bounds.height
+        ) {
+            return false;
+        }
+
+        try {
+            const invMatrix = matrixInvert(this.getWorldMatrix());
+            const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+
+            const contours = this._toContours();
+            if (contours.length === 0) {
+                return false;
+            }
+
+            let inside = false;
+
+            for (const contour of contours) {
+                if (!contour.closed || contour.points.length < 3) {
+                    continue;
+                }
+
+                if (this._isPointInPolygon(localPoint, contour.points)) {
+                    inside = !inside;
+                }
+            }
+
+            return inside;
+        } catch {
+            return false;
+        }
     }
 
 
@@ -415,6 +463,393 @@ export class NodePath extends ShapeBase implements INodePath {
         }
 
         return commands;
+    }
+
+    private _toShapePathCommands(): ShapePathCommand[] {
+        const sourceBounds = this._getPathSourceBounds();
+
+        if (!sourceBounds) {
+            return [];
+        }
+
+        const shapeCommands: ShapePathCommand[] = [];
+
+        const mapPoint = (point: Vector2): Vector2 => this._toViewPoint(point, sourceBounds);
+
+        let currentPoint: Vector2 | null = null;
+
+        for (const command of this._commands) {
+            switch (command.type) {
+                case PathCommandType.MoveTo: {
+                    const point = mapPoint(command.to);
+                    currentPoint = point;
+                    shapeCommands.push({
+                        type: "moveTo",
+                        point,
+                    });
+                    break;
+                }
+
+                case PathCommandType.LineTo: {
+                    const point = mapPoint(command.to);
+                    currentPoint = point;
+                    shapeCommands.push({
+                        type: "lineTo",
+                        point,
+                    });
+                    break;
+                }
+
+                case PathCommandType.QuadTo: {
+                    if (!currentPoint) {
+                        currentPoint = mapPoint(command.to);
+                        shapeCommands.push({
+                            type: "moveTo",
+                            point: currentPoint,
+                        });
+                        break;
+                    }
+
+                    const control = mapPoint(command.control);
+                    const to = mapPoint(command.to);
+                    const points = this._flattenQuadraticBezier(currentPoint, control, to);
+
+                    for (const point of points) {
+                        shapeCommands.push({
+                            type: "lineTo",
+                            point,
+                        });
+                    }
+
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.CubicTo: {
+                    if (!currentPoint) {
+                        currentPoint = mapPoint(command.to);
+                        shapeCommands.push({
+                            type: "moveTo",
+                            point: currentPoint,
+                        });
+                        break;
+                    }
+
+                    const control1 = mapPoint(command.control1);
+                    const control2 = mapPoint(command.control2);
+                    const to = mapPoint(command.to);
+                    const points = this._flattenCubicBezier(currentPoint, control1, control2, to);
+
+                    for (const point of points) {
+                        shapeCommands.push({
+                            type: "lineTo",
+                            point,
+                        });
+                    }
+
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.Close: {
+                    shapeCommands.push({ type: "closePath" });
+                    currentPoint = null;
+                    break;
+                }
+            }
+        }
+
+        return shapeCommands;
+    }
+
+    private _toContours(): { points: Vector2[]; closed: boolean }[] {
+        const sourceBounds = this._getPathSourceBounds();
+
+        if (!sourceBounds) {
+            return [];
+        }
+
+        const contours: { points: Vector2[]; closed: boolean }[] = [];
+
+        let current: Vector2[] = [];
+        let currentPoint: Vector2 | null = null;
+
+        for (const command of this._commands) {
+            switch (command.type) {
+                case PathCommandType.MoveTo: {
+                    if (current.length > 0) {
+                        contours.push({
+                            points: current,
+                            closed: false,
+                        });
+                    }
+
+                    current = [this._toViewPoint(command.to, sourceBounds)];
+                    currentPoint = current[0]!;
+                    break;
+                }
+
+                case PathCommandType.LineTo: {
+                    const point = this._toViewPoint(command.to, sourceBounds);
+                    if (current.length === 0) {
+                        current = [point];
+                    } else {
+                        current.push(point);
+                    }
+                    currentPoint = point;
+                    break;
+                }
+
+                case PathCommandType.QuadTo: {
+                    const to = this._toViewPoint(command.to, sourceBounds);
+
+                    if (!currentPoint) {
+                        current = [to];
+                        currentPoint = to;
+                        break;
+                    }
+
+                    const control = this._toViewPoint(command.control, sourceBounds);
+                    const points = this._flattenQuadraticBezier(currentPoint, control, to);
+                    current.push(...points);
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.CubicTo: {
+                    const to = this._toViewPoint(command.to, sourceBounds);
+
+                    if (!currentPoint) {
+                        current = [to];
+                        currentPoint = to;
+                        break;
+                    }
+
+                    const control1 = this._toViewPoint(command.control1, sourceBounds);
+                    const control2 = this._toViewPoint(command.control2, sourceBounds);
+                    const points = this._flattenCubicBezier(currentPoint, control1, control2, to);
+                    current.push(...points);
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.Close: {
+                    if (current.length > 0) {
+                        contours.push({
+                            points: current,
+                            closed: true,
+                        });
+                    }
+                    current = [];
+                    currentPoint = null;
+                    break;
+                }
+            }
+        }
+
+        if (current.length > 0) {
+            contours.push({
+                points: current,
+                closed: false,
+            });
+        }
+
+        return contours;
+    }
+
+    private _toViewPoint(
+        point: Vector2,
+        sourceBounds: {
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+        }
+    ): Vector2 {
+        const view = this.getLocalViewOBB();
+
+        const nx = sourceBounds.width > 0
+            ? (point.x - sourceBounds.x) / sourceBounds.width
+            : 0.5;
+        const ny = sourceBounds.height > 0
+            ? (point.y - sourceBounds.y) / sourceBounds.height
+            : 0.5;
+
+        return {
+            x: view.x + view.width * nx,
+            y: view.y + view.height * ny,
+        };
+    }
+
+    private _getPathSourceBounds(): {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    } | null {
+        if (this._commands.length === 0) {
+            return null;
+        }
+
+        const points: Vector2[] = [];
+        let currentPoint: Vector2 | null = null;
+
+        for (const command of this._commands) {
+            switch (command.type) {
+                case PathCommandType.MoveTo: {
+                    const point = { ...command.to };
+                    points.push(point);
+                    currentPoint = point;
+                    break;
+                }
+
+                case PathCommandType.LineTo: {
+                    const point = { ...command.to };
+                    points.push(point);
+                    currentPoint = point;
+                    break;
+                }
+
+                case PathCommandType.QuadTo: {
+                    const to = { ...command.to };
+
+                    if (!currentPoint) {
+                        points.push(to);
+                        currentPoint = to;
+                        break;
+                    }
+
+                    const flattened = this._flattenQuadraticBezier(
+                        currentPoint,
+                        command.control,
+                        to
+                    );
+
+                    points.push(...flattened);
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.CubicTo: {
+                    const to = { ...command.to };
+
+                    if (!currentPoint) {
+                        points.push(to);
+                        currentPoint = to;
+                        break;
+                    }
+
+                    const flattened = this._flattenCubicBezier(
+                        currentPoint,
+                        command.control1,
+                        command.control2,
+                        to
+                    );
+
+                    points.push(...flattened);
+                    currentPoint = to;
+                    break;
+                }
+
+                case PathCommandType.Close: {
+                    currentPoint = null;
+                    break;
+                }
+            }
+        }
+
+        if (points.length === 0) {
+            return null;
+        }
+
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
+
+        for (const point of points) {
+            if (point.x < minX) minX = point.x;
+            if (point.y < minY) minY = point.y;
+            if (point.x > maxX) maxX = point.x;
+            if (point.y > maxY) maxY = point.y;
+        }
+
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+        };
+    }
+
+    private _flattenQuadraticBezier(
+        from: Vector2,
+        control: Vector2,
+        to: Vector2
+    ): Vector2[] {
+        const points: Vector2[] = [];
+        const segments = 16;
+
+        for (let i = 1; i <= segments; i += 1) {
+            const t = i / segments;
+            const omt = 1 - t;
+
+            points.push({
+                x: omt * omt * from.x + 2 * omt * t * control.x + t * t * to.x,
+                y: omt * omt * from.y + 2 * omt * t * control.y + t * t * to.y,
+            });
+        }
+
+        return points;
+    }
+
+    private _flattenCubicBezier(
+        from: Vector2,
+        control1: Vector2,
+        control2: Vector2,
+        to: Vector2
+    ): Vector2[] {
+        const points: Vector2[] = [];
+        const segments = 20;
+
+        for (let i = 1; i <= segments; i += 1) {
+            const t = i / segments;
+            const omt = 1 - t;
+
+            points.push({
+                x:
+                    omt * omt * omt * from.x +
+                    3 * omt * omt * t * control1.x +
+                    3 * omt * t * t * control2.x +
+                    t * t * t * to.x,
+                y:
+                    omt * omt * omt * from.y +
+                    3 * omt * omt * t * control1.y +
+                    3 * omt * t * t * control2.y +
+                    t * t * t * to.y,
+            });
+        }
+
+        return points;
+    }
+
+    private _isPointInPolygon(point: Vector2, polygon: readonly Vector2[]): boolean {
+        let inside = false;
+
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const a = polygon[i]!;
+            const b = polygon[j]!;
+
+            const intersects =
+                (a.y > point.y) !== (b.y > point.y) &&
+                point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+
+            if (intersects) {
+                inside = !inside;
+            }
+        }
+
+        return inside;
     }
 
 

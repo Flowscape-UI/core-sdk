@@ -1,13 +1,20 @@
 import type { Point } from "../../../../../../core/camera";
 import type { IShapeBase } from "../../../../../../nodes";
 import { MathF32 } from "../../../../../../core/math";
-import { HandleCornerRadius } from "../../../../../../scene/layers";
+import type { IHandleCornerRadius } from "../../../../../../scene/layers";
 import { Input } from "../../../../../Input";
 import { MouseButton } from "../../../../../types";
 import type { OverlayInputContext } from "../../LayerOverlayInputController";
 import type { IInputModule } from "../../../../base";
 
 type CornerRadiusAxis = "tl" | "tr" | "br" | "bl";
+
+type AxisHandleEntry = {
+    axis: CornerRadiusAxis;
+    handle: IHandleCornerRadius;
+};
+
+const CORNER_RADIUS_AXES: readonly CornerRadiusAxis[] = ["tl", "tr", "br", "bl"];
 
 export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputContext> {
     public readonly id = "overlay-corner-radius";
@@ -38,6 +45,18 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         this.detach();
     }
 
+    public isBlockingHover(screenPoint: Point): boolean {
+        if (!this._context) {
+            return false;
+        }
+
+        if (!this._context.overlay.isEnabled()) {
+            return false;
+        }
+
+        return this._hitTest(screenPoint) !== null;
+    }
+
     public update(): void {
         if (!this._context) {
             return;
@@ -55,13 +74,17 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
             return;
         }
 
+        const screenPoint = this._getStagePointerFromInput();
+        const hitAxis = this._hitTest(screenPoint);
+
+        if (hitAxis) {
+            Input.setCursor("pointer");
+        }
+
         if (!Input.getMouseButtonDown(MouseButton.Left)) {
             return;
         }
 
-        const screenPoint = this._getStagePointerFromInput();
-
-        const hitAxis = this._hitTest(screenPoint);
         if (hitAxis) {
             if (this._tryBegin()) {
                 return;
@@ -69,31 +92,23 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         }
 
         const hoveredNode = this._context.overlay.getHoveredNode();
-        const handle = this._getHandle();
-
-        if (!handle) {
-            return;
-        }
 
         if (hoveredNode && this._isCornerRadiusSupported(hoveredNode)) {
-            if (handle.getNodeId() !== hoveredNode.id) {
-                handle.setNode(hoveredNode);
+            if (this._setNodeForAllHandles(hoveredNode)) {
                 this._context.emitChange();
             }
             return;
         }
 
-        if (handle.hasNode()) {
-            handle.clearNode();
+        if (this._clearAllHandles()) {
             this._context.emitChange();
         }
     }
 
     private _tryBegin(): boolean {
-        const handle = this._getHandle();
-        const node = handle?.getNode();
+        const node = this._getActiveNode();
 
-        if (!handle || !node || !this._context) {
+        if (!node || !this._context) {
             return false;
         }
 
@@ -139,7 +154,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 
         this._singleMode = Input.altPressed ?? false;
 
-        const handle = this._getHandle();
+        const handle = this._activeAxis ? this._getHandleByAxis(this._activeAxis) : null;
         const node = handle?.getNode();
 
         if (!handle || !node) {
@@ -147,9 +162,9 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         }
 
         const screenPoint = this._getStagePointerFromInput();
-        const worldPoint = this._context.world.getCamera().screenToWorld(screenPoint);
+        const worldPoint = this._context.world.camera.screenToWorld(screenPoint);
 
-        const section = handle.getSection(this._activeAxis);
+        const section = handle.getSection();
         if (!section) {
             return;
         }
@@ -229,31 +244,39 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
     }
 
     private _hitTest(screenPoint: Point): CornerRadiusAxis | null {
-        const handle = this._getHandle();
+        const entries = this._getAxisHandles();
 
-        if (!handle || !handle.isEnabled() || !handle.hasNode()) {
-            return null;
-        }
+        let topAxis: CornerRadiusAxis | null = null;
+        let topZIndex = -Infinity;
+        let topOrder = -1;
 
-        const camera = this._context!.world.getCamera();
-        const hitRadius = 8;
+        for (let i = 0; i < entries.length; i += 1) {
+            const entry = entries[i]!;
+            const handle = entry.handle;
 
-        for (const axis of ["tl", "tr", "br", "bl"] as const) {
-            const worldPoint = handle.getHandleWorldPoint(axis);
-            if (!worldPoint) {
+            if (!handle.isEnabled() || !handle.isVisible() || !handle.hasNode()) {
                 continue;
             }
 
-            const sp = camera.worldToScreen(worldPoint);
-            const dx = screenPoint.x - sp.x;
-            const dy = screenPoint.y - sp.y;
-
-            if (Math.hypot(dx, dy) <= hitRadius) {
-                return axis;
+            if (!this._isPointOnHandle(handle, screenPoint)) {
+                continue;
             }
+
+            const zIndex = handle.getZIndex();
+            const isAbove =
+                zIndex > topZIndex ||
+                (zIndex === topZIndex && i > topOrder);
+
+            if (!isAbove) {
+                continue;
+            }
+
+            topAxis = entry.axis;
+            topZIndex = zIndex;
+            topOrder = i;
         }
 
-        return null;
+        return topAxis;
     }
 
     private _isCornerRadiusSupported(node: IShapeBase): boolean {
@@ -263,48 +286,27 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         );
     }
 
-    private _getHandle(): HandleCornerRadius | null {
-        if (!this._context) {
-            return null;
-        }
-
-        return this._context.overlay
-            .getHandlerManager()
-            .get(HandleCornerRadius.TYPE) as HandleCornerRadius | null;
-    }
-
     private _getStagePointerFromInput(): Point {
-        const rect = this._context!.stage.container().getBoundingClientRect();
+        const stage = this._context!.stage;
 
-        return {
-            x: Input.pointerPosition.x - rect.left,
-            y: Input.pointerPosition.y - rect.top,
-        };
+        return Input.pointerToSurfacePoint(stage.container(), {
+            width: stage.width(),
+            height: stage.height(),
+        });
     }
 
     private _getHitAxes(screenPoint: Point): CornerRadiusAxis[] {
-        const handle = this._getHandle();
-
-        if (!handle || !handle.isEnabled() || !handle.hasNode()) {
-            return [];
-        }
-
-        const camera = this._context!.world.getCamera();
-        const hitRadius = 8;
         const result: CornerRadiusAxis[] = [];
 
-        for (const axis of ["tl", "tr", "br", "bl"] as const) {
-            const worldPoint = handle.getHandleWorldPoint(axis);
-            if (!worldPoint) {
+        for (const entry of this._getAxisHandles()) {
+            const handle = entry.handle;
+
+            if (!handle.isEnabled() || !handle.isVisible() || !handle.hasNode()) {
                 continue;
             }
 
-            const sp = camera.worldToScreen(worldPoint);
-            const dx = screenPoint.x - sp.x;
-            const dy = screenPoint.y - sp.y;
-
-            if (Math.hypot(dx, dy) <= hitRadius) {
-                result.push(axis);
+            if (this._isPointOnHandle(handle, screenPoint)) {
+                result.push(entry.axis);
             }
         }
 
@@ -312,9 +314,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
     }
 
     private _resolveAxisFromDirection(screenPoint: Point): CornerRadiusAxis | null {
-        const handle = this._getHandle();
-
-        if (!handle || !handle.hasNode() || !this._dragStartScreenPoint) {
+        if (!this._context || !this._dragStartScreenPoint) {
             return null;
         }
 
@@ -337,15 +337,16 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         let bestScore = -Infinity;
 
         for (const axis of this._candidateAxes) {
-            const section = handle.getSection(axis);
-            const handlePoint = handle.getHandleWorldPoint(axis);
+            const handle = this._getHandleByAxis(axis);
+            const section = handle?.getSection();
+            const handlePoint = handle?.getHandleWorldPoint();
 
             if (!section || !handlePoint) {
                 continue;
             }
 
-            const handleScreenPoint = this._context!.world.getCamera().worldToScreen(handlePoint);
-            const originScreenPoint = this._context!.world.getCamera().worldToScreen(section.origin);
+            const handleScreenPoint = this._context.world.camera.worldToScreen(handlePoint);
+            const originScreenPoint = this._context.world.camera.worldToScreen(section.origin);
 
             const dir = {
                 x: originScreenPoint.x - handleScreenPoint.x,
@@ -373,5 +374,121 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
         }
 
         return bestAxis;
+    }
+
+    private _getAxisHandles(): AxisHandleEntry[] {
+        const entries: AxisHandleEntry[] = [];
+
+        for (const axis of CORNER_RADIUS_AXES) {
+            const handle = this._getHandleByAxis(axis);
+
+            if (!handle) {
+                continue;
+            }
+
+            entries.push({ axis, handle });
+        }
+
+        return entries;
+    }
+
+    private _getHandleByAxis(axis: CornerRadiusAxis): IHandleCornerRadius | null {
+        if (!this._context) {
+            return null;
+        }
+
+        const handle = this._context.overlay.shapeHandleManager.getById(`corner-radius-${axis}`);
+
+        if (!this._isCornerRadiusHandle(handle)) {
+            return null;
+        }
+
+        return handle;
+    }
+
+    private _isCornerRadiusHandle(value: unknown): value is IHandleCornerRadius {
+        if (!value || typeof value !== "object") {
+            return false;
+        }
+
+        const handle = value as Partial<IHandleCornerRadius>;
+
+        return (
+            typeof handle.getNode === "function" &&
+            typeof handle.setNode === "function" &&
+            typeof handle.hasNode === "function" &&
+            typeof handle.clearNode === "function" &&
+            typeof handle.getHandleWorldPoint === "function" &&
+            typeof handle.getSection === "function"
+        );
+    }
+
+    private _getActiveNode(): IShapeBase | null {
+        for (const { handle } of this._getAxisHandles()) {
+            const node = handle.getNode();
+
+            if (node) {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    private _setNodeForAllHandles(node: IShapeBase): boolean {
+        let changed = false;
+
+        for (const { handle } of this._getAxisHandles()) {
+            changed = handle.setNode(node) || changed;
+        }
+
+        return changed;
+    }
+
+    private _clearAllHandles(): boolean {
+        let changed = false;
+
+        for (const { handle } of this._getAxisHandles()) {
+            if (!handle.hasNode()) {
+                continue;
+            }
+
+            handle.clearNode();
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private _isPointOnHandle(handle: IHandleCornerRadius, screenPoint: Point): boolean {
+        if (!this._context) {
+            return false;
+        }
+
+        const worldPoint = handle.getHandleWorldPoint();
+
+        if (!worldPoint) {
+            return false;
+        }
+
+        const camera = this._context.world.camera;
+        const screenHandlePoint = camera.worldToScreen(worldPoint);
+        const hitRadius = this._getHitRadius(handle);
+
+        if (hitRadius <= 0) {
+            return false;
+        }
+
+        const dx = screenPoint.x - screenHandlePoint.x;
+        const dy = screenPoint.y - screenHandlePoint.y;
+
+        return Math.hypot(dx, dy) <= hitRadius;
+    }
+
+    private _getHitRadius(handle: IHandleCornerRadius): number {
+        const hitWidth = handle.getHitWidth() > 0 ? handle.getHitWidth() : handle.getWidth();
+        const hitHeight = handle.getHitHeight() > 0 ? handle.getHitHeight() : handle.getHeight();
+
+        return Math.max(8, Math.max(hitWidth, hitHeight)) * 0.5;
     }
 }

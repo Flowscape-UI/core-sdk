@@ -10,7 +10,9 @@ import {
 import {
     StrokeAlign,
     type CornerRadius,
+    type ShapeGeometry,
     type IShapeBase,
+    type ShapePathCommand,
     type StrokeWidth
 } from "./types";
 import { ShapeEffect } from "./effect";
@@ -172,6 +174,69 @@ export class ShapeBase extends NodeBase implements IShapeBase {
     /***********************************************************/
     /*                       View Bounds                       */
     /***********************************************************/
+    public getGeometry(): ShapeGeometry {
+        const worldMatrix = this.getWorldMatrix();
+
+        return {
+            worldMatrix: {
+                a: worldMatrix.a,
+                b: worldMatrix.b,
+                c: worldMatrix.c,
+                d: worldMatrix.d,
+                tx: worldMatrix.tx,
+                ty: worldMatrix.ty,
+            },
+
+            localOBB: this.getLocalOBB(),
+            worldCorners: this.getWorldCorners(),
+            worldOBB: this.getWorldOBB(),
+            worldAABB: this.getWorldAABB(),
+
+            localViewOBB: this.getLocalViewOBB(),
+            worldViewCorners: this.getWorldViewCorners(),
+            worldViewOBB: this.getWorldViewOBB(),
+            worldViewAABB: this.getWorldViewAABB(),
+        };
+    }
+
+    public toPathCommands(): readonly ShapePathCommand[] {
+        const view = this.getLocalViewOBB();
+
+        return [
+            {
+                type: "moveTo",
+                point: {
+                    x: view.x,
+                    y: view.y,
+                },
+            },
+            {
+                type: "lineTo",
+                point: {
+                    x: MathF32.add(view.x, view.width),
+                    y: view.y,
+                },
+            },
+            {
+                type: "lineTo",
+                point: {
+                    x: MathF32.add(view.x, view.width),
+                    y: MathF32.add(view.y, view.height),
+                },
+            },
+            {
+                type: "lineTo",
+                point: {
+                    x: view.x,
+                    y: MathF32.add(view.y, view.height),
+                },
+            },
+            {
+                type: "closePath",
+            },
+        ];
+    }
+
     public getLocalViewOBB(): Rect {
         const bounds = this.getLocalOBB();
         const outset = this._getViewStrokeOutset();

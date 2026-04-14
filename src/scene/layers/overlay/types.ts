@@ -1,9 +1,21 @@
 import type { ID } from "../../../core/types";
 import type { IShapeBase } from "../../../nodes";
 import type { ILayerBase } from "../base";
-import type { ILayerOverlayHandleManager } from "./handles";
+import type { ILayerWorld } from "../world";
+import type {
+    LayerOverlayFreeHandlesManager,
+    LayerOverlayHandleManager,
+    LayerOverlayShapeHandlesManager,
+    LayerOverlayTransformHandlesManager,
+} from "./handles";
 
 export interface ILayerOverlay extends ILayerBase {
+    readonly layerWorld: ILayerWorld;
+    readonly handleManager: LayerOverlayHandleManager;
+    readonly freeHandleManager: LayerOverlayFreeHandlesManager;
+    readonly shapeHandleManager: LayerOverlayShapeHandlesManager;
+    readonly transformHandleManager: LayerOverlayTransformHandlesManager;
+
     /**
      * Returns the currently hovered node.
      *
@@ -81,12 +93,6 @@ export interface ILayerOverlay extends ILayerBase {
      */
     clearSelectedNodes(): void;
 
-    /**
-     * Returns overlay handler manager.
-     *
-     * Возвращает менеджер overlay-хендлеров.
-     */
-    getHandlerManager(): ILayerOverlayHandleManager;
 
     /**
      * Clears overlay runtime state.

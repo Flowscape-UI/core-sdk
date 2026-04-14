@@ -2,10 +2,7 @@ import type { Point } from "../../../../../../../core/camera";
 import type { ID } from "../../../../../../../core/types";
 import type { IShapeBase } from "../../../../../../../nodes";
 import { matrixInvert } from "../../../../../../../nodes/utils/matrix-invert";
-import {
-    HandleTransformPivot,
-    type IHandleTransformPivot,
-} from "../../../../../../../scene/layers";
+import type { IHandleTransformPivot } from "../../../../../../../scene/layers";
 import { Input } from "../../../../../../Input";
 import { MouseButton } from "../../../../../../types";
 import type { OverlayInputContext } from "../../../LayerOverlayInputController";
@@ -47,6 +44,24 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
         return this._isPivoting;
     }
 
+    public getHoverCursor(screenPoint: Point): string | null {
+        if (!this._context) {
+            return null;
+        }
+
+        if (this._isPivoting) {
+            return "pointer";
+        }
+
+        const { overlay } = this._context;
+
+        if (!overlay.isEnabled()) {
+            return null;
+        }
+
+        return this._hitTestPivot(screenPoint) ? "pointer" : null;
+    }
+
     public hitTest(screenPoint: Point): boolean {
         if (!this._context) {
             return false;
@@ -82,6 +97,7 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
         }
 
         this._isPivoting = true;
+        Input.setCursor("pointer");
         return true;
     }
 
@@ -92,17 +108,29 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
 
     public getNodeId(): ID | null {
         const handle = this._getHandle();
-        return handle?.getNodeId() ?? null;
+        return handle?.getNode()?.id ?? null;
     }
 
     public setNode(node: IShapeBase): void {
         const handle = this._getHandle();
-        handle?.setNode(node);
+
+        if (!handle) {
+            return;
+        }
+
+        handle.setNode(node);
+        handle.setEnabled(true);
     }
 
     public clearNode(): void {
         const handle = this._getHandle();
-        handle?.clearNode();
+
+        if (!handle) {
+            return;
+        }
+
+        handle.clearNode();
+        handle.setEnabled(false);
     }
 
     private _updatePivotFromInput(): void {
@@ -112,7 +140,11 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
 
         const { world } = this._context;
         const pivotHandle = this._getHandle();
-        const node = pivotHandle?.getNode();
+
+        if(!pivotHandle) {
+            return;
+        }
+        const node = pivotHandle.getNode();
 
         if (!node) {
             return;
@@ -126,7 +158,7 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
         }
 
         const screenPoint = this._getStagePointerFromInput();
-        const worldPoint = world.getCamera().screenToWorld(screenPoint);
+        const worldPoint = world.camera.screenToWorld(screenPoint);
         const worldMatrix = node.getWorldMatrix();
 
         try {
@@ -141,19 +173,8 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
             const pivotY = localPoint.y / height;
 
             node.setPivot(pivotX, pivotY);
-
-            const newPivotWorld = pivotHandle?.getPivotWorldPoint();
-            if (!newPivotWorld) {
-                return;
-            }
-
-            const dx = worldPoint.x - newPivotWorld.x;
-            const dy = worldPoint.y - newPivotWorld.y;
-
-            node.setPosition(
-                node.getX() + dx,
-                node.getY() + dy,
-            );
+            node.setPosition(worldPoint.x, worldPoint.y);
+            pivotHandle.setPosition(node.getPivot());
 
             this._context.emitChange();
         } catch {
@@ -173,6 +194,7 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
 
     private _resetPivotSession(): void {
         this._isPivoting = false;
+        Input.resetCursor();
     }
 
     private _getHandle(): IHandleTransformPivot | null {
@@ -180,40 +202,55 @@ export class ModuleOverlayTransformPivot implements IOverlayTransformSubModule {
             return null;
         }
 
-        return this._context.overlay
-            .getHandlerManager()
-            .get(HandleTransformPivot.TYPE) as IHandleTransformPivot | null;
+        const handle = this._context.overlay.transformHandleManager.getById("transform-pivot");
+
+        if (!this._isPivotHandle(handle)) {
+            return null;
+        }
+
+        return handle;
     }
 
     private _hitTestPivot(screenPoint: Point): boolean {
-        const { world } = this._context!;
+        if (!this._context) {
+            return false;
+        }
+
+        const { world } = this._context;
         const pivotHandle = this._getHandle();
 
         if (!pivotHandle || !pivotHandle.isEnabled() || !pivotHandle.hasNode()) {
             return false;
         }
 
-        const worldPoint = pivotHandle.getPivotWorldPoint();
-        if (!worldPoint) {
+        const worldPoint = world.camera.screenToWorld(screenPoint);
+
+        return pivotHandle.hitTest(worldPoint);
+    }
+
+    private _isPivotHandle(value: unknown): value is IHandleTransformPivot {
+        if (!value || typeof value !== "object") {
             return false;
         }
 
-        const camera = world.getCamera();
-        const sp = camera.worldToScreen(worldPoint);
+        const handle = value as Partial<IHandleTransformPivot>;
 
-        const hitRadius = 10;
-        const dx = screenPoint.x - sp.x;
-        const dy = screenPoint.y - sp.y;
-
-        return Math.hypot(dx, dy) <= hitRadius;
+        return (
+            typeof handle.hitTest === "function" &&
+            typeof handle.getNode === "function" &&
+            typeof handle.hasNode === "function" &&
+            typeof handle.setNode === "function" &&
+            typeof handle.clearNode === "function" &&
+            typeof handle.setEnabled === "function"
+        );
     }
 
     private _getStagePointerFromInput(): Point {
-        const rect = this._context!.stage.container().getBoundingClientRect();
+        const stage = this._context!.stage;
 
-        return {
-            x: Input.pointerPosition.x - rect.left,
-            y: Input.pointerPosition.y - rect.top,
-        };
+        return Input.pointerToSurfacePoint(stage.container(), {
+            width: stage.width(),
+            height: stage.height(),
+        });
     }
 }

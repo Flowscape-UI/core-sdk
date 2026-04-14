@@ -10,6 +10,7 @@ import { ModuleOverlayTransformPivot } from "./pivot";
 import { ModuleOverlayTransformResize } from "./resize";
 import { ModuleOverlayTransformRotate } from "./rotation";
 import type { IOverlayTransformSubModule } from "./types";
+import type { IHandleFocus } from "../../../../../../scene/layers/overlay/handles/shape";
 
 export class ModuleOverlayTransform implements IInputModule<OverlayInputContext> {
     public readonly id = "overlay-transform";
@@ -69,6 +70,43 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
         this._moduleManager.clear();
     }
 
+    public isBlockingHover(screenPoint: Point): boolean {
+        if (!this._context) {
+            return false;
+        }
+
+        const { overlay } = this._context;
+
+        if (!overlay.isEnabled()) {
+            return false;
+        }
+
+        const modules = this._moduleManager.getAll();
+
+        for (let i = modules.length - 1; i >= 0; i -= 1) {
+            const module = modules[i];
+
+            if (!module) {
+                continue;
+            }
+
+            // Position (move) handle is pass-through for node hover.
+            if (module.id === "overlay-transform-move") {
+                continue;
+            }
+
+            if (!module.hasNode()) {
+                continue;
+            }
+
+            if (module.hitTest(screenPoint)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public update(): void {
     if (!this._context) {
         return;
@@ -88,6 +126,17 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
 
         if (!activeModule.isActive()) {
             this._context.endInteraction(this.id);
+
+            const clickSelectNode = this._consumeMoveClickSelectNode(activeModule);
+
+            if (clickSelectNode) {
+                const modulesChanged = this._setNodeForAllModules(clickSelectNode);
+                const transformChanged = this._setNodeForTransformHandle(clickSelectNode);
+
+                if (modulesChanged || transformChanged) {
+                    this._context.emitChange();
+                }
+            }
         }
 
         return;
@@ -131,16 +180,7 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
     const hoveredNode = this._context.overlay.getHoveredNode();
     const currentNodeId = this._getActiveNodeId();
 
-    if (hoveredNode && currentNodeId !== hoveredNode.id) {
-        const changed = this._setNodeForAllModules(hoveredNode);
-
-        if (changed) {
-            this._context.emitChange();
-        }
-
-        return;
-    }
-
+    // Handle interaction has higher priority than node switching on click.
     if (currentNodeId !== null) {
         for (let i = modules.length - 1; i >= 0; i--) {
             const module = modules[i];
@@ -164,10 +204,22 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
         }
     }
 
-    if (!hoveredNode) {
-        const changed = this._clearAllModules();
+    if (hoveredNode && currentNodeId !== hoveredNode.id) {
+        const modulesChanged = this._setNodeForAllModules(hoveredNode);
+        const transformChanged = this._setNodeForTransformHandle(hoveredNode);
 
-        if (changed) {
+        if (modulesChanged || transformChanged) {
+            this._context.emitChange();
+        }
+
+        return;
+    }
+
+    if (!hoveredNode) {
+        const modulesChanged = this._clearAllModules();
+        const transformChanged = this._clearTransformHandleNode();
+
+        if (modulesChanged || transformChanged) {
             this._context.emitChange();
         }
     }
@@ -185,6 +237,22 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
         return null;
     }
 
+    private _consumeMoveClickSelectNode(module: IOverlayTransformSubModule): IShapeBase | null {
+        if (module.id !== "overlay-transform-move") {
+            return null;
+        }
+
+        const candidate = module as {
+            consumeClickSelectNode?: () => IShapeBase | null;
+        };
+
+        if (typeof candidate.consumeClickSelectNode !== "function") {
+            return null;
+        }
+
+        return candidate.consumeClickSelectNode();
+    }
+
     private _setNodeForAllModules(node: IShapeBase): boolean {
         let changed = false;
 
@@ -198,6 +266,23 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
         }
 
         return changed;
+    }
+
+    private _setNodeForTransformHandle(node: IShapeBase): boolean {
+        const handle = this._getTransformHandle();
+
+        if (!handle) {
+            return false;
+        }
+
+        const currentNodeId = handle.getNode()?.id ?? null;
+        if (currentNodeId === node.id) {
+            return false;
+        }
+
+        handle.setNode(node);
+        handle.setEnabled(true);
+        return true;
     }
 
     private _clearAllModules(): boolean {
@@ -215,12 +300,50 @@ export class ModuleOverlayTransform implements IInputModule<OverlayInputContext>
         return changed;
     }
 
-    private _getStagePointerFromInput(): Point {
-        const rect = this._context!.stage.container().getBoundingClientRect();
+    private _clearTransformHandleNode(): boolean {
+        const handle = this._getTransformHandle();
 
-        return {
-            x: Input.pointerPosition.x - rect.left,
-            y: Input.pointerPosition.y - rect.top,
-        };
+        if (!handle || !handle.hasNode()) {
+            return false;
+        }
+
+        handle.clearNode();
+        handle.setEnabled(false);
+        return true;
+    }
+
+    private _getTransformHandle(): IHandleFocus | null {
+        if (!this._context) {
+            return null;
+        }
+
+        const handle = this._context.overlay.handleManager.getById("focus");
+
+        if (!handle || typeof handle !== "object") {
+            return null;
+        }
+
+        const candidate = handle as Partial<IHandleFocus>;
+
+        if (
+            typeof candidate.getNode !== "function" ||
+            typeof candidate.setNode !== "function" ||
+            typeof candidate.hasNode !== "function" ||
+            typeof candidate.clearNode !== "function" ||
+            typeof candidate.setEnabled !== "function"
+        ) {
+            return null;
+        }
+
+        return candidate as IHandleFocus;
+    }
+
+    private _getStagePointerFromInput(): Point {
+        const stage = this._context!.stage;
+
+        return Input.pointerToSurfacePoint(stage.container(), {
+            width: stage.width(),
+            height: stage.height(),
+        });
     }
 }

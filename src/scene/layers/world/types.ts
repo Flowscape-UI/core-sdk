@@ -29,6 +29,32 @@ export type WorldOptions = {
  */
 export interface ILayerWorld extends ILayerBase {
     /**
+     * Returns the camera instance associated with this world.
+     *
+     * The camera is responsible for coordinate transformations
+     * between world space and screen space, as well as pan,
+     * zoom and rotation operations.
+     *
+     * Note: The camera affects how the world is viewed,
+     * but does not modify actual world coordinates of nodes.
+     *
+     * @returns Camera instance.
+     *
+     *
+     * Возвращает камеру, связанную с данным мировым слоем.
+     *
+     * Камера отвечает за преобразование координат между мировым
+     * и экранным пространством, а также за перемещение,
+     * масштабирование и вращение.
+     *
+     * Важно: камера влияет только на отображение мира,
+     * но не изменяет реальные мировые координаты нод.
+     *
+     * @returns Экземпляр камеры.
+     */
+    readonly camera: ICamera;
+
+    /**
      * Finds a node by its unique identifier.
      * Returns the matching node.
      *
@@ -84,6 +110,39 @@ export interface ILayerWorld extends ILayerBase {
      * Удаляет все ноды из мирового слоя.
      */
     deleteNodes(): void;
+
+    /**
+     * Moves the given nodes to the top of the draw order.
+     * The relative order between moved nodes is preserved according to current stack order.
+     *
+     * Перемещает указанные ноды в самый верх порядка отрисовки.
+     * Относительный порядок между перемещаемыми нодами сохраняется по текущему стеку.
+     * @example
+     * layer.moveNodesToTop([idA, idB]);
+     */
+    moveNodesToTop(ids: ID[]): boolean;
+
+    /**
+     * Moves the given nodes to the bottom of the draw order.
+     * The relative order between moved nodes is preserved according to current stack order.
+     *
+     * Перемещает указанные ноды в самый низ порядка отрисовки.
+     * Относительный порядок между перемещаемыми нодами сохраняется по текущему стеку.
+     * @example
+     * layer.moveNodesToBottom([idA, idB]);
+     */
+    moveNodesToBottom(ids: ID[]): boolean;
+
+    /**
+     * Moves the given nodes to the specified stack index.
+     * Index is clamped to valid bounds after removing moved nodes from the stack.
+     *
+     * Перемещает указанные ноды на заданный индекс стека.
+     * Индекс клампится в допустимые границы после исключения перемещаемых нод из стека.
+     * @example
+     * layer.moveNodesTo([idA, idB], 3);
+     */
+    moveNodesTo(ids: ID[], index: number): boolean;
 
     /****************************************************************/
     /*                           VIEWPORT                           */
@@ -173,33 +232,82 @@ export interface ILayerWorld extends ILayerBase {
      */
     findTopNodeAt(worldPoint: Point): IShapeBase | null;
 
-    /****************************************************************/
-    /*                             Camera                           */
-    /****************************************************************/
-    
     /**
-     * Returns the camera instance associated with this world.
+     * Returns `true` if a node with the given id exists in the layer.
      *
-     * The camera is responsible for coordinate transformations
-     * between world space and screen space, as well as pan,
-     * zoom and rotation operations.
-     *
-     * Note: The camera affects how the world is viewed,
-     * but does not modify actual world coordinates of nodes.
-     *
-     * @returns Camera instance.
-     *
-     *
-     * Возвращает камеру, связанную с данным мировым слоем.
-     *
-     * Камера отвечает за преобразование координат между мировым
-     * и экранным пространством, а также за перемещение,
-     * масштабирование и вращение.
-     *
-     * Важно: камера влияет только на отображение мира,
-     * но не изменяет реальные мировые координаты нод.
-     *
-     * @returns Экземпляр камеры.
+     * Возвращает `true` если нода с указанным id существует в слое.
+     * @example
+     * if (layer.hasNode(id)) layer.deleteNode(id);
      */
-    getCamera(): ICamera;
+    hasNode(id: ID): boolean;
+
+
+    /***************************************************************************/
+    /*                            World Coordinates                            */
+    /***************************************************************************/
+
+    /**
+     * Returns all nodes whose hit area contains the given world point, ordered from top to bottom.
+     *
+     * Возвращает все ноды чья зона попадания содержит указанную мировую точку, от верхней к нижней.
+     * @example
+     * const nodes = layer.findAllNodesAt({ x: 100, y: 200 });
+     */
+    findAllNodesAt(worldPoint: Point): IShapeBase[];
+
+    /**
+     * Returns all nodes whose OBB intersects with the given world rect.
+     *
+     * Возвращает все ноды чей OBB пересекается с указанным мировым прямоугольником.
+     * @example
+     * const nodes = layer.findNodesInRect({ x: 0, y: 0, width: 500, height: 500 });
+     */
+    findNodesInRect(worldRect: Rect): IShapeBase[];
+
+    /**
+     * Returns all nodes whose OBB is fully contained within the given world rect.
+     *
+     * Возвращает все ноды чей OBB полностью находится внутри указанного мирового прямоугольника.
+     * @example
+     * const nodes = layer.findNodesFullyInRect({ x: 0, y: 0, width: 500, height: 500 });
+     */
+    findNodesFullyInRect(worldRect: Rect): IShapeBase[];
+
+
+    /***************************************************************************/
+    /*                           Screen Coordinates                            */
+    /***************************************************************************/
+
+    /**
+     * Returns all nodes whose hit area contains the given screen point, ordered from top to bottom.
+     * Converts the screen point to world coordinates internally using the layer camera.
+     *
+     * Возвращает все ноды чья зона попадания содержит указанную экранную точку, от верхней к нижней.
+     * Внутренне конвертирует экранную точку в мировые координаты через камеру слоя.
+     * @example
+     * const nodes = layer.findAllNodesAtScreen({ x: e.clientX, y: e.clientY });
+     */
+    findAllNodesAtScreen(screenPoint: Point): IShapeBase[];
+
+    /**
+     * Returns all nodes whose OBB intersects with the given screen rect.
+     * Converts the screen rect to world coordinates internally using the layer camera.
+     *
+     * Возвращает все ноды чей OBB пересекается с указанным экранным прямоугольником.
+     * Внутренне конвертирует экранный прямоугольник в мировые координаты через камеру слоя.
+     * @example
+     * const nodes = layer.findNodesInScreenRect({ x: 0, y: 0, width: 300, height: 200 });
+     */
+    findNodesInScreenRect(screenRect: Rect): IShapeBase[];
+
+    /**
+     * Returns all nodes whose OBB is fully contained within the given screen rect.
+     * Converts the screen rect to world coordinates internally using the layer camera.
+     *
+     * Возвращает все ноды чей OBB полностью находится внутри указанного экранного прямоугольника.
+     * Внутренне конвертирует экранный прямоугольник в мировые координаты через камеру слоя.
+     * @example
+     * const nodes = layer.findNodesFullyInScreenRect({ x: 0, y: 0, width: 300, height: 200 });
+     */
+    findNodesFullyInScreenRect(screenRect: Rect): IShapeBase[];
 }
