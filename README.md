@@ -9,7 +9,7 @@
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 [![X (Twitter)](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
 
-[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](flowscape-ui.github.io/docs/)
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/docs/)
 [![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
 [![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge)](./CHANGELOG.md)
 
@@ -150,7 +150,7 @@ scene.invalidate();
 
 ## 📚 Links
 
-- Documentation: flowscape-ui.github.io/docs/
+- Documentation: [flowscape-ui.github.io/docs/](https://flowscape-ui.github.io/docs/)
 - Interactive demo: https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground
 - GitHub Issues: https://github.com/Flowscape-UI/core-sdk/issues
 - Changelog: `./CHANGELOG.md`
