@@ -227,5 +227,5 @@ export interface ITransform {
      *
      * Итоговая матрица используется при отрисовке объекта.
      */
-    getLocalMatrix(width: number, height: number): Matrix;
+    getLocalMatrix(width: number, height: number, boundsX?: number, boundsY?: number): Matrix;
 }

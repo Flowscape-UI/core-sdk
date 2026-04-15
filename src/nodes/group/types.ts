@@ -1,3 +1,11 @@
-import type { INode } from "../base";
+import type { IShapeBase } from "../shape";
 
-export interface INodeGroup extends INode {}
+export enum GroupChildrenResizeMode {
+    Size = "size",
+    Scale = "scale",
+}
+
+export interface INodeGroup extends IShapeBase {
+    resizeChildrenBySize(width: number, height: number): void;
+    resizeChildrenByScale(width: number, height: number): void;
+}
