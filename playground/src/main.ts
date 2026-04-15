@@ -26,6 +26,7 @@ import {
   TextAlign,
   TextWrapMode,
   TextVerticalAlign,
+  NodeGroup,
 } from '../../src/nodes';
 
 import { CanvasRendererHost } from '../../src/renderer/hosts';
@@ -118,9 +119,11 @@ layerBackground.setImageOffsetX("50%");
 layerBackground.setImageOffsetY("50%");
 layerBackground.setImagePosition("50%", "50%");
 
+const groupNode = new NodeGroup(1000);
+
 const rectNode = new NodeRect(1);
 rectNode.setPosition(120, 110);
-rectNode.setSize(180, 120);
+rectNode.setSize(580, 520);
 rectNode.setCornerRadius({
   tl: 28,
   tr: 28,
@@ -128,12 +131,12 @@ rectNode.setCornerRadius({
   br: 0
 });
 rectNode.setFill("#D1D5DB");
-rectNode.setStrokeFill("#0F172A");
+rectNode.setStrokeFill("red");
 rectNode.setStrokeWidth({ t: 3, r: 3, b: 3, l: 3 });
-rectNode.setRotation(-8);
+// rectNode.setRotation(-8);
 
 const rectNode2 = new NodeRect(20);
-rectNode2.setPosition(0, 0);
+rectNode2.setPosition(-100, 0);
 rectNode2.setSize(180, 120);
 rectNode2.setCornerRadius({
   tl: 28,
@@ -142,9 +145,9 @@ rectNode2.setCornerRadius({
   br: 0
 });
 rectNode2.setFill("#D1D5DB");
-rectNode2.setStrokeFill("#0F172A");
+rectNode2.setStrokeFill("red");
 rectNode2.setStrokeWidth({ t: 3, r: 3, b: 3, l: 3 });
-rectNode2.setRotation(-8);
+// rectNode2.setRotation(-8);
 
 const ellipseNode = new NodeEllipse(2);
 ellipseNode.setPosition(370, 120);
@@ -219,11 +222,16 @@ textNode.setText(
   "interactive scene systems."
 );
 
+groupNode.addChild(rectNode);
+groupNode.addChild(rectNode2);
+layerWorld.addNode(groupNode);
+
+
 layerWorld.addNode(textNode);
 layerWorld.addNode(lineNode);
 layerWorld.addNode(polygonNode);
-layerWorld.addNode(rectNode2);
-layerWorld.addNode(rectNode);
+// layerWorld.addNode(rectNode2);
+// layerWorld.addNode(rectNode);
 layerWorld.addNode(ellipseNode);
 layerWorld.addNode(starNode);
 layerWorld.addNode(pathNode);

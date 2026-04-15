@@ -1,6 +1,6 @@
 import Konva from "konva";
 import type { IRendererLayerWorld } from "./types";
-import { RendererCanvasEllipse, RendererCanvasImage, RendererCanvasLine, RendererCanvasManager, RendererCanvasPath, RendererCanvasPolygon, RendererCanvasRect, RendererCanvasRegistry, RendererCanvasStar, RendererCanvasText, RendererCanvasVideo } from "../../../nodes";
+import { RendererCanvasEllipse, RendererCanvasGroup, RendererCanvasImage, RendererCanvasLine, RendererCanvasManager, RendererCanvasPath, RendererCanvasPolygon, RendererCanvasRect, RendererCanvasRegistry, RendererCanvasStar, RendererCanvasText, RendererCanvasVideo } from "../../../nodes";
 import { NodeType } from "../../../../../nodes";
 import type { CameraState } from "../../../../../core/camera";
 import { GridRenderer, KonvaGridView } from "../../../../../grid";
@@ -125,6 +125,7 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
 
 
     private _registerDefaultRenderers(): void {
+        this._registry.register(NodeType.Group, new RendererCanvasGroup());
         this._registry.register(NodeType.Rect, new RendererCanvasRect());
         this._registry.register(NodeType.Ellipse, new RendererCanvasEllipse());
         this._registry.register(NodeType.Polygon, new RendererCanvasPolygon());

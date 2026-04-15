@@ -1,4 +1,5 @@
 export * from "./base";
+export * from "./group";
 export * from "./rect";
 export * from "./ellipse";
 export * from "./polygon";

@@ -193,9 +193,14 @@ export class Transform implements ITransform {
   /*****************************************************************/
   /*                         Local Matrix                          */
   /*****************************************************************/
-  public getLocalMatrix(width: number, height: number): Matrix {
-    const px = MathF32.mul(width, this._pivot.x);
-    const py = MathF32.mul(height, this._pivot.y);
+  public getLocalMatrix(
+    width: number,
+    height: number,
+    boundsX: number = 0,
+    boundsY: number = 0
+  ): Matrix {
+    const px = MathF32.add(boundsX, MathF32.mul(width, this._pivot.x));
+    const py = MathF32.add(boundsY, MathF32.mul(height, this._pivot.y));
     return this._composeMatrix(
       this._position,
       this._scale,

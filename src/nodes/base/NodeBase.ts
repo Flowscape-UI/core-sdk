@@ -195,8 +195,8 @@ export class NodeBase implements INode {
 
     public getSize(): Size {
         return {
-            width: this._width,
-            height: this._height,
+            width: this.getWidth(),
+            height: this.getHeight(),
         }
     }
 
@@ -569,7 +569,13 @@ export class NodeBase implements INode {
     }
 
     public getLocalMatrix(): Matrix {
-        return this._transform.getLocalMatrix(this._width, this._height);
+        const local = this.getLocalOBB();
+        return this._transform.getLocalMatrix(
+            local.width,
+            local.height,
+            local.x,
+            local.y,
+        );
     }
 
     public getWorldMatrix(): Matrix {
@@ -779,12 +785,13 @@ export class NodeBase implements INode {
 
             // 2) Translating the world point into the node's local space
             const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+            const localBounds = this.getLocalOBB();
 
-            // 3) Now the check is elementary: the point must be inside [0, 0, width, height]
-            return localPoint.x >= 0 &&
-                localPoint.x <= this._width &&
-                localPoint.y >= 0 &&
-                localPoint.y <= this._height;
+            // 3) Check against local OBB bounds.
+            return localPoint.x >= localBounds.x &&
+                localPoint.x <= localBounds.x + localBounds.width &&
+                localPoint.y >= localBounds.y &&
+                localPoint.y <= localBounds.y + localBounds.height;
         } catch (e) {
             // If the matrix is not invertible (for example, scale = 0), you cannot enter the node// Если матрица не инвертируема (например, scale = 0), попасть в ноду нельзя
             return false;
@@ -901,8 +908,8 @@ export class NodeBase implements INode {
             x: position.x,
             y: position.y,
 
-            width: this._width,
-            height: this._height,
+            width: this.getWidth(),
+            height: this.getHeight(),
 
             rotation: this.getRotation(),
 
