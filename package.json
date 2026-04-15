@@ -1,6 +1,6 @@
 {
   "name": "@flowscape-ui/core-sdk",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Engine for building infinite canvas editors, design tools, and visual builders. Framework-agnostic, TypeScript, Konva.",
   "keywords": [
     "flowscape",
