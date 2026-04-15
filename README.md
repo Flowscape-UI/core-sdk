@@ -2,15 +2,15 @@
 
 # 🎨 @flowscape-ui/core-sdk
 
-**A scene-based 2D engine for building interactive editor products on infinite canvas**
+**A developer-first 2D engine for building Figma-like editors and infinite canvas products**
 
-[![Version](https://img.shields.io/badge/version-2.0.0-0ea5e9.svg)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
+[![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 [![X (Twitter)](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
 
 [![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/docs/)
-[![Interactive Demo](https://img.shields.io/badge/🎮_Interactive_Demo-FF4785?style=for-the-badge&logo=storybook&logoColor=white)](https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground)
+[![Legacy Demo](https://img.shields.io/badge/🎮_Legacy_Demo-64748b?style=for-the-badge)](...)
 [![Changelog](https://img.shields.io/badge/📝_Changelog-FF4785?style=for-the-badge)](./CHANGELOG.md)
 
 <img 
@@ -22,21 +22,6 @@
 </div>
 
 ---
-
-## What is Flowscape?
-
-Flowscape is a 2D engine for building products like whiteboards, visual builders, diagram tools, and design editors.  
-It is not a UI framework and not a template SDK.  
-It gives you a structured scene, nodes, camera, and rendering pipeline so you can build your own editor architecture.
-
-## Why use it?
-
-- Scene architecture with 4 layers: `Background`, `World`, `Overlay`, `UI`
-- Node-based model with transforms, hierarchy, bounds (`OBB`, `AABB`), hit testing
-- Built-in pan/zoom input controllers for editor-like interactions
-- TypeScript-first API
-- Renderer architecture that can evolve without rewriting product logic
-- Works in browser apps and can be used inside desktop/mobile stacks via web technologies
 
 ## 📦 Installation
 
@@ -142,6 +127,69 @@ layerWorld.addNode(rect);
 scene.invalidate();
 ```
 
+```bash
+Scene
+├── Background Layer
+├── World Layer
+│   └── Nodes
+├── Overlay Layer
+│   └── Handles / Selection
+└── UI Layer
+```
+
+## What is Flowscape?
+
+Flowscape is a 2D engine for building products like whiteboards, visual builders, diagram tools, and design editors.  
+It is not a UI framework and not a template SDK.  
+It gives you a structured scene, nodes, camera, and rendering pipeline so you can build your own editor architecture.
+
+## Why use it?
+
+- Scene architecture with 4 layers: `Background`, `World`, `Overlay`, `UI`
+- Node-based model with transforms, hierarchy, bounds (`OBB`, `AABB`), hit testing
+- Built-in pan/zoom input controllers for editor-like interactions
+- TypeScript-first API
+- Renderer architecture that can evolve without rewriting product logic
+- Works in browser apps and can be used inside desktop/mobile stacks via web technologies
+
+## Built For
+
+Flowscape is designed for developers building:
+
+- Figma-like design tools
+- Visual builders / page builders
+- Whiteboards / diagram editors
+- Node-based editors
+- CAD-like 2D interfaces
+- Internal editor tools with infinite canvas
+
+## Philosophy
+
+Flowscape is not a component library or low-code builder.
+
+It is a low-level scene engine for developers who want full control over:
+- rendering
+- editor behavior
+- interaction systems
+- custom tooling architecture
+
+Think of it more like:
+- Unity / Unreal for 2D editor products
+than
+- a drag-and-drop website builder SDK.
+
+## Why Flowscape Exists
+
+Most canvas libraries provide primitives, not architecture.
+
+Flowscape exists to provide the missing engine layer between:
+- raw canvas/WebGL libraries
+- and full editor applications
+
+So developers can build complex editor products
+without reinventing scene graphs, transforms,
+selection systems, overlays, and editor infrastructure.
+
 ## 🔒 Public API Policy
 
 - Import only from `@flowscape-ui/core-sdk`
@@ -151,7 +199,7 @@ scene.invalidate();
 ## 📚 Links
 
 - Documentation: [flowscape-ui.github.io/docs/](https://flowscape-ui.github.io/docs/)
-- Interactive demo: https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground
+- (Legacy) Interactive demo: https://flowscape-ui.github.io/core-sdk/?path=/story/interactive-playground--interactive-playground
 - GitHub Issues: https://github.com/Flowscape-UI/core-sdk/issues
 - Changelog: `./CHANGELOG.md`
 
