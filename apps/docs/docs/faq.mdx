@@ -1,0 +1,179 @@
+---
+sidebar_position: 1.8
+title: Flowscape FAQ - Frequently Asked Questions
+sidebar_label: FAQ
+description: "Answers to common questions about Flowscape: architecture, setup, TypeScript, performance, platform usage, and support."
+---
+
+import Head from '@docusaurus/Head';
+
+<Head>
+  <script type="application/ld+json">
+    {JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is Flowscape?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Flowscape is an open-source 2D engine for editor-style products. It provides scene, layer, camera, renderer, and input primitives you can compose into whiteboards, visual builders, and diagram tools.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is Flowscape free to use?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. Flowscape uses the MIT license and is free for commercial and personal use.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is Flowscape a framework?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No. Flowscape is an engine, not an opinionated application framework. You keep control over app architecture while using engine-level runtime primitives.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Does Flowscape support TypeScript?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. Flowscape is TypeScript-first and ships with typed APIs.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can I use Flowscape in React, Vue, Svelte, or Angular?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. Flowscape is framework-agnostic. You can integrate it in React, Vue, Svelte, Angular, or vanilla TypeScript by mounting the scene inside a container element.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can Flowscape handle large scenes?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Flowscape is designed for editor workloads and large scenes. Real-world capacity depends on node complexity, interaction logic, and rendering strategy.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Where should I report bugs?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Report bugs on the project Issues page: https://github.com/Flowscape-UI/core-sdk/issues.',
+          },
+        },
+      ],
+    })}
+  </script>
+</Head>
+
+## Frequently Asked Questions
+
+### What is Flowscape?
+
+Flowscape is an open-source 2D engine for editor-style products.  
+It provides scene, layer, camera, renderer, and input primitives you can compose into whiteboards, visual builders, diagram tools, and custom canvas workflows.
+
+Flowscape is designed for teams that need control over architecture, not a locked, opinionated app framework.
+
+[Read Overview ->](./overview)
+
+### Is Flowscape free to use?
+
+Yes. Flowscape is MIT-licensed and free for both commercial and personal use.
+
+- GitHub: [Flowscape core-sdk](https://github.com/Flowscape-UI/core-sdk)
+- License model: MIT
+
+### Is Flowscape a framework or an SDK?
+
+Flowscape is an engine.  
+It is not an opinionated frontend framework and not a narrow domain SDK.
+
+You get low-level and mid-level runtime building blocks:
+
+- Scene and layers (`Background`, `World`, `Overlay`, `UI`)
+- Camera and world/screen transforms
+- Input controllers
+- Renderer abstraction
+
+[Read About Flowscape ->](./about-flowscape)
+
+### How do I install Flowscape?
+
+```bash
+npm install @flowscape-ui/core-sdk
+# or
+pnpm add @flowscape-ui/core-sdk
+# or
+yarn add @flowscape-ui/core-sdk
+# or
+bun add @flowscape-ui/core-sdk
+```
+
+[Read Intro ->](./intro)
+
+### Can I use Flowscape with React, Vue, Svelte, or Angular?
+
+Yes. Flowscape is framework-agnostic, so you can mount it in any UI stack.
+
+Typical integration pattern:
+
+1. Create a container element in your component/page.
+2. Initialize `Scene` and render layers on mount.
+3. Attach input controllers.
+4. Handle resize and cleanup on unmount.
+
+[Read Overview ->](./overview)
+
+### Does Flowscape support TypeScript?
+
+Yes. Flowscape is TypeScript-first and ships with typed APIs.
+
+This helps with:
+
+- safer refactors
+- better editor autocomplete
+- clearer integration contracts in large codebases
+
+### Can Flowscape handle large scenes?
+
+Flowscape is built for editor workloads and large interactive scenes.  
+Actual limits depend on node count, node complexity, update frequency, and rendering strategy.
+
+Practical advice:
+
+- keep interaction logic incremental
+- separate responsibilities by layer
+- avoid unnecessary redraws
+- profile real product scenarios early
+
+### Does Flowscape work only in web apps?
+
+No. You can use it in:
+
+- browser applications
+- desktop apps via Electron/Tauri
+- mobile products through WebView-based stacks
+
+### Where do I report bugs or request features?
+
+- Issues: [github.com/Flowscape-UI/core-sdk/issues](https://github.com/Flowscape-UI/core-sdk/issues)
+- Discussion and community: [Discord](https://discord.gg/GBVWxGuyTn)
+
+[Read Support ->](./support)
+
+### How can I support the project?
+
+If Flowscape helps your work, you can support development here:
+
+- [Buy Me a Coffee](https://www.buymeacoffee.com/flowscape)
+
+[Read Donate ->](./donate)

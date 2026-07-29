@@ -1,0 +1,145 @@
+---
+sidebar_position: 1
+title: Controllers Overview
+sidebar_label: Overview
+description: "Controller architecture in Flowscape Input System: layer controllers and custom controller patterns."
+---
+
+import InputControllersTopicsGrid from '@site/src/components/InputControllersTopicsGrid';
+
+## Controllers Overview
+
+Controllers are the behavior layer built on top of static `Input`.
+
+The goal is consistency:
+
+- one lifecycle shape for all controllers
+- module-based composition for complex behavior
+- predictable attach/detach/update/destroy flow
+
+This makes advanced controllers easier to grow without rewriting base logic.
+
+## Core Contracts
+
+| API | Kind | Purpose |
+| --- | --- | --- |
+| `IInputModule<T>` | interface | Contract for controller modules (`id`, `attach`, `update`, `destroy`). |
+| `ModuleManager<T>` | class | Stores and resolves modules by `id`. |
+| `IInputControllerBase<T, TModule>` | interface | Base contract for input controllers with module manager. |
+| `InputControllerBase<T, TModule>` | abstract class | Lifecycle + module orchestration implementation. |
+| `WorldInputOptions` | type | World controller options for pan/zoom/navigation behavior. |
+| `OverlayInputOptions` | type | Overlay controller options (currently empty placeholder). |
+
+## `IInputModule<T>` and `IInputControllerBase<T, TModule>`
+
+| Contract | Members |
+| --- | --- |
+| `IInputModule<T>` | `id`, `attach(target)`, `detach()`, `update()`, `destroy()`, optional `enabled` |
+| `IInputControllerBase<T, TModule>` | `id`, `attach(target)`, `detach()`, `update()`, `destroy()`, `moduleManager` |
+
+## `InputControllerBase` Lifecycle API
+
+| Method / Getter | Description |
+| --- | --- |
+| `attach(target)` | Stores target, marks attached, attaches all modules, calls `_onAttach`. |
+| `detach()` | Calls `_onDetach`, detaches all modules, clears target and attached flag. |
+| `update()` | Guarded by attached/destroyed state, runs `_onBeforeUpdate`, updates all modules, runs `_onAfterUpdate`. |
+| `destroy()` | Detaches, destroys all modules, clears manager, marks destroyed, calls `_onDestroy`. |
+| `getTarget()` | Returns current target or `null`. |
+| `isAttached` | Current attach state. |
+| `isDestroyed` | Current destroy state. |
+
+## Module Composition API
+
+`InputControllerBase` uses `ModuleManager` internally and exposes module composition helpers.
+
+| Method | Description |
+| --- | --- |
+| `addModule(module)` | Replaces existing module with same id, attaches new module immediately if controller is attached. |
+| `removeModule(id)` | Detaches and destroys module, removes it from manager, returns success flag. |
+
+## Hooks for Controller Specialization
+
+Override only what you need:
+
+| Hook | When it runs |
+| --- | --- |
+| `_onAttach(target)` | After base attach flow. |
+| `_onDetach()` | Before base detach cleanup. |
+| `_onBeforeUpdate()` | Before module update loop. |
+| `_onAfterUpdate()` | After module update loop. |
+| `_onDestroy()` | After destroy flow. |
+| `_onModuleAdded(module)` | After module is added. |
+| `_onModuleRemoved(module)` | After module is removed. |
+
+## `ModuleManager<T>` API
+
+| Method | Description |
+| --- | --- |
+| `add(item)` | Inserts/replaces item by `id`. |
+| `remove(id)` | Removes by id, returns `boolean`. |
+| `getById(id)` | Returns item or `null`. |
+| `getAll()` | Returns readonly array snapshot of all modules. |
+| `clear()` | Clears all stored modules. |
+
+## Registration pattern
+
+```ts
+import {
+  LayerWorldInputController,
+  LayerOverlayInputController,
+} from '@flowscape-ui/core-sdk';
+
+const worldController = new LayerWorldInputController();
+scene.inputManager.add(layerWorld, worldController, {
+  stage: host.getRenderNode(),
+  world: layerWorld,
+  options: {
+    enabled: true,
+    panMode: 'right',
+    zoomEnabled: true,
+    zoomFactor: 1.08,
+    preventWheelDefault: true,
+    keyboardPanSpeed: 900,
+    keyboardPanShiftMultiplier: 1.5,
+  },
+  emitChange: () => scene.invalidate(),
+});
+
+const overlayController = new LayerOverlayInputController();
+scene.inputManager.add(layerOverlay, overlayController, {
+  stage: host.getRenderNode(),
+  world: layerWorld,
+  overlay: layerOverlay,
+  emitChange: () => scene.invalidate(),
+  getInteractionOwner: () => overlayInteractionOwner,
+  tryBeginInteraction: (ownerId: string) => {
+    if (overlayInteractionOwner !== null) {
+      return overlayInteractionOwner === ownerId;
+    }
+    overlayInteractionOwner = ownerId;
+    return true;
+  },
+  endInteraction: (ownerId: string) => {
+    if (overlayInteractionOwner === ownerId) {
+      overlayInteractionOwner = null;
+    }
+  },
+});
+```
+
+## Why this architecture is useful
+
+- same controller lifecycle in all input layers
+- module replacement by id keeps upgrades safe and explicit
+- easy to build layered controllers from small modules
+- easier testing because modules are isolated and target-driven
+
+## Topics
+
+<InputControllersTopicsGrid />
+
+## Next
+
+- [Layer World IC](./layer-world-ic)
+

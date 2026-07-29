@@ -1,0 +1,169 @@
+---
+sidebar_position: 1.98
+title: Text Node (INodeText)
+sidebar_label: Text
+description: "Reference for Text Node in Flowscape: typography, alignment, wrapping, and decoration controls."
+---
+
+import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+
+export const textSceneSpec = {
+  background: {
+    fill: '#121212',
+    showLogo: true,
+    logoOpacity: 0.2,
+    logoSize: { width: 220, height: 220 },
+  },
+  camera: {
+    padding: 88,
+    minScale: 0.2,
+    maxScale: 5,
+  },
+  nodes: [
+    {
+      kind: 'text',
+      name: 'Heading',
+      x: 0,
+      y: -220,
+      width: 900,
+      height: 90,
+      text: 'Flowscape Text Node',
+      fill: '#f8fafc',
+      fontFamily: 'Georgia',
+      fontSize: 64,
+      fontWeight: 800,
+      textAlign: 'center',
+      verticalAlign: 'center',
+      wrapMode: 'none',
+    },
+    {
+      kind: 'text',
+      name: 'Body',
+      x: 0,
+      y: -70,
+      width: 860,
+      height: 190,
+      text: 'Use Text Node for titles, captions, labels and readable UI copy directly inside the scene. You can control font family, style, spacing, wrapping and decorations without leaving the editor context.',
+      fill: '#e2e8f0',
+      fontFamily: 'Georgia',
+      fontSize: 28,
+      fontWeight: 500,
+      textAlign: 'left',
+      verticalAlign: 'top',
+      lineHeight: 1.38,
+      letterSpacing: 0.8,
+      wrapMode: 'word',
+    },
+    {
+      kind: 'text',
+      name: 'Decorated',
+      x: 0,
+      y: 150,
+      width: 900,
+      height: 90,
+      text: 'Decorations: underline, overline, striketrough',
+      fill: '#facc15',
+      fontFamily: 'Georgia',
+      fontSize: 36,
+      fontWeight: 700,
+      textAlign: 'center',
+      verticalAlign: 'center',
+      fontDecoration: 'underline',
+      underlineStyle: 'wavy',
+      underlineSkipInk: true,
+      underlineColor: '#f59e0b',
+      underlineThickness: 2,
+      underlineOffset: 5,
+      wrapMode: 'none',
+    },
+  ],
+};
+
+## Text Node (INodeText)
+
+`INodeText` extends `IShapeBase` and adds full text styling/layout API for in-scene typography.
+
+Use it for headings, labels, body copy, and annotation layers in editor products.
+
+## Live Preview
+
+<FlowscapeScenePreview height={460} spec={textSceneSpec} />
+
+## Create Text Node in Code
+
+```ts
+import {
+  NodeText,
+  TextAlign,
+  TextVerticalAlign,
+  TextWrapMode,
+  FontStyle,
+  FontDecoration,
+  FontDecorationUnderlineStyle,
+  StrokeAlign,
+} from '@flowscape-ui/core-sdk';
+
+const textNode = new NodeText(1);
+textNode.setName('HeroTitle');
+textNode.setPosition(0, -120);
+textNode.setSize(860, 140);
+textNode.setText('Build editors with Flowscape');
+textNode.setFill('#f8fafc');
+textNode.setStrokeFill('#334155');
+textNode.setStrokeWidth({ t: 2, r: 2, b: 2, l: 2 });
+textNode.setStrokeAlign(StrokeAlign.Inside);
+
+textNode.setFontFamily('Georgia');
+textNode.setFontSize(56);
+textNode.setFontWeight(800);
+textNode.setFontStyle(FontStyle.Normal);
+
+textNode.setTextAlign(TextAlign.Center);
+textNode.setVerticalAlign(TextVerticalAlign.Center);
+textNode.setLineHeight(1.2);
+textNode.setLetterSpacing(0.6);
+textNode.setWrapMode(TextWrapMode.Word);
+
+textNode.setFontDecoration(FontDecoration.Underline);
+textNode.setUnderlineStyle(FontDecorationUnderlineStyle.Solid);
+textNode.setUnderlineSkipInk(true);
+textNode.setUnderlineColor('#38bdf8');
+textNode.setUnderlineThickness(2);
+textNode.setUnderlineOffset(4);
+
+layerWorld.addNode(textNode);
+scene.invalidate();
+```
+
+## Typography API
+
+| Area | Methods |
+| --- | --- |
+| Content | `getText()`, `setText(value)` |
+| Font | `getFontFamily()`, `setFontFamily(value)`, `getFontSize()`, `setFontSize(value)`, `getFontWeight()`, `setFontWeight(value)`, `getFontStyle()`, `setFontStyle(value)` |
+| Layout | `getTextAlign()`, `setTextAlign(value)`, `getVerticalAlign()`, `setVerticalAlign(value)`, `getLineHeight()`, `setLineHeight(value)`, `getLetterSpacing()`, `setLetterSpacing(value)`, `getWrapMode()`, `setWrapMode(value)` |
+| Decoration | `getFontDecoration()`, `setFontDecoration(value)`, `getUnderlineStyle()`, `setUnderlineStyle(value)`, `isUnderlineSkipInk()`, `setUnderlineSkipInk(value)`, `getUnderlineColor()`, `setUnderlineColor(value)`, `getUnderlineThickness()`, `setUnderlineThickness(value)`, `getUnderlineOffset()`, `setUnderlineOffset(value)` |
+
+## Enums
+
+- `TextAlign`: `Left`, `Center`, `Right`, `Justify`
+- `TextVerticalAlign`: `Top`, `Center`, `Bottom`
+- `TextWrapMode`: `None`, `Word`, `Character`
+- `FontStyle`: `Normal`, `Italic`, `Oblique`
+- `FontDecoration`: `None`, `Underline`, `Striketrough`, `Overline`
+- `FontDecorationUnderlineStyle`: `Solid`, `Dotted`, `Wavy`
+
+## Inheritance
+
+```text
+INode
+  -> IShapeBase
+      -> INodeText
+```
+
+`INodeText` inherits full shape/base behavior: transform, hierarchy, bounds, hit testing, and serialization.
+
+## Next
+
+- [Frame Node reference](./frame-node)
+

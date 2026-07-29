@@ -1,0 +1,112 @@
+name: Bug report
+description: Report a reproducible problem in Flowscape
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug in Flowscape.
+
+        Please provide enough information for the issue to be reproduced.
+
+  - type: input
+    id: version
+    attributes:
+      label: Flowscape version
+      description: Which version of @flowscape-ui/core-sdk are you using?
+      placeholder: "2.0.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Rendering
+        - Nodes
+        - Transforms
+        - Input
+        - Selection
+        - Gradients / Paint
+        - Stroke / Border
+        - Effects
+        - Scene
+        - Serialization
+        - Import / Export
+        - Playground
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What is going wrong?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a Scene...
+        2. Add a NodeRect...
+        3. Set...
+        4. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: Minimal reproduction
+      description: Add a minimal code example when possible.
+      render: ts
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: "Firefox 153"
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, recordings, logs, or other useful information.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues before opening this report.
+          required: true
+        - label: I can reproduce this issue with the latest available version.
+          required: false

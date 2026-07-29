@@ -1,110 +1,28 @@
 {
-  "name": "@flowscape-ui/core-sdk",
-  "version": "2.0.2",
-  "description": "Engine for building infinite canvas editors, design tools, and visual builders. Framework-agnostic, TypeScript, Konva.",
-  "keywords": [
-    "flowscape",
-    "flowscape-ui",
-    "canvas",
-    "canvas-2d",
-    "infinite-canvas",
-    "canvas-engine",
-    "2d-engine",
-    "editor-engine",
-    "figma-like",
-    "whiteboard",
-    "visual-builder",
-    "drag-and-drop",
-    "node-editor",
-    "konva",
-    "typescript",
-    "sdk",
-    "framework-agnostic"
+  "name": "flowscape-ui",
+  "private": true,
+  "packageManager": "bun@1.2.10",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
   ],
-  "license": "MIT",
-  "author": {
-    "name": "Flowscape UI Team",
-    "email": "nikcrav@gmail.com"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Flowscape-UI/core-sdk.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Flowscape-UI/core-sdk/issues"
-  },
-  "homepage": "https://github.com/Flowscape-UI/core-sdk#readme",
-  "type": "module",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "engines": {
-    "node": ">=18.0.0"
-  },
   "scripts": {
-    "dev": "vite --config playground/vite.config.ts",
-    "build": "tsup",
-    "prepublishOnly": "npm run build && npm run lint:ts",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "lint": "echo 'Linting disabled'",
-    "lint:fix": "eslint . --fix",
-    "lint:ts": "tsc -p tsconfig.json --noEmit",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "release:tag": "npm version patch && git push --follow-tags",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+
+    "dev:playground": "turbo run dev --filter=@flowscape-ui/playground",
+    "dev:docs": "turbo run dev --filter=@flowscape-ui/docs",
+
+    "build:playground": "turbo run build --filter=@flowscape-ui/playground",
+    "build:docs": "turbo run build --filter=@flowscape-ui/docs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.10.0",
-    "@storybook/addon-docs": "^9.0.0-alpha.10",
-    "@storybook/addon-essentials": "^9.0.0-alpha.10",
-    "@storybook/addon-interactions": "^9.0.0-alpha.10",
-    "@storybook/addon-links": "^9.0.0-alpha.10",
-    "@storybook/blocks": "^9.0.0-alpha.10",
-    "@storybook/html-vite": "^9.1.16",
-    "@storybook/theming": "^8.6.14",
-    "@types/node": "^22.5.4",
-    "@typescript-eslint/eslint-plugin": "^8.7.0",
-    "@typescript-eslint/parser": "^8.7.0",
-    "@vitest/coverage-v8": "^2.1.8",
-    "@vitest/ui": "^2.1.8",
-    "@types/culori": "^4.0.1",
-    "canvas": "^3.2.0",
-    "eslint": "^9.10.0",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.29.1",
-    "eslint-plugin-storybook": "^0.11.6",
-    "happy-dom": "^15.11.7",
-    "jiti": "^2.5.1",
-    "jsdom": "^25.0.1",
-    "prettier": "^3.6.2",
-    "storybook": "^9.1.16",
-    "tsup": "^8.2.4",
-    "typescript": "^5.6.2",
-    "vite": "^5.4.6",
-    "vitest": "^2.1.8",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
-  },
-  "dependencies": {
-    "culori": "^4.0.2",
-    "konva": "^10.0.12"
+    "prettier": "^3.7.4",
+    "turbo": "^2.10.5"
   }
 }

@@ -1,51 +1,61 @@
-name: Publish to npm
+name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Semver increment to apply (patch|minor|major) before publish, or leave empty to use current version'
-        required: false
-        default: ''
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
-  publish:
+  release:
+    name: Publish release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.10
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
-          registry-url: 'https://registry.npmjs.org'
+          node-version: 22
+          registry-url: https://registry.npmjs.org
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen-lockfile
 
-      - name: Optional version bump
-        if: ${{ inputs.version != '' }}
-        run: |
-          npm version ${{ inputs.version }} -m "chore(release): %s"
-          git push --follow-tags
+      - name: Check formatting
+        run: bun run format:check
 
-      - name: Lint (ESLint)
-        run: npm run lint
+      - name: Lint
+        run: bun run lint
 
-      - name: Typecheck (TS)
-        run: npm run lint:ts
+      - name: Typecheck
+        run: bun run typecheck
 
-      - name: Format check (Prettier)
-        run: npm run format:check
+      - name: Test
+        run: bunx turbo run test
 
       - name: Build
-        run: npm run build
+        run: bun run build
 
-      - name: Publish
+      - name: Publish @flowscape-ui/core-sdk
+        working-directory: packages/engine
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes
