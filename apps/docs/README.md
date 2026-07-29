@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/create-next-app).
+# Flowscape Documentation Website
 
-## Getting Started
+This repository contains the official documentation website for **Flowscape**.
 
-First, run the development server:
+It is built with [Docusaurus](https://docusaurus.io/) and documents the engine from basic onboarding to advanced internals.
+
+## What this docs site covers
+
+- Intro and product overview
+- Scene architecture (Background, World, Overlay, UI)
+- Shape Nodes and node-specific API pages
+- Advanced sections:
+  - Core (interfaces, types, events, enableable, transform, math, camera)
+  - Input System (Input + Controllers + custom controller guide)
+  - Advanced Nodes deep dives (OBB, AABB, Pivot)
+- Support, Changelog, FAQ, Donate, About Flowscape
+
+## Tech stack
+
+- Docusaurus 3
+- React 19
+- TypeScript
+- `@flowscape-ui/core-sdk` (local tarball dependency)
+
+## Local development
+
+Install dependencies:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start dev server:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run start
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+Build static site:
 
-## Learn More
+```bash
+npm run build
+```
 
-To learn more about Next.js, take a look at the following resources:
+Serve production build locally:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run serve
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Type-check docs site code/components:
 
-## Deploy on Vercel
+```bash
+npm run typecheck
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes about SDK dependency
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The docs currently use a local SDK package:
+
+`@flowscape-ui/core-sdk: file:../../core-sdk/flowscape-ui-core-sdk-2.0.0.tgz`
+
+If you publish a new SDK version, update this dependency in `package.json` and reinstall.
+
+## Content structure
+
+- `docs/` — documentation pages (`.md` and `.mdx`)
+- `src/components/` — custom React components used in docs (grids, badges, live scene preview)
+- `src/pages/` — landing page
+- `src/css/custom.css` — global visual styling
+- `static/` — static assets (images, video)
+
+## Authoring guidelines (short)
+
+- Keep naming consistent: **Flowscape**
+- Keep docs practical and editor-oriented
+- Prefer short sections and clear API tables
+- Use live previews where visual behavior matters (nodes, bounds, pivot, input behavior)

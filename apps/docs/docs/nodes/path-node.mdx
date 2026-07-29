@@ -1,0 +1,162 @@
+---
+sidebar_position: 1.96
+title: Path Node (INodePath)
+sidebar_label: Path
+description: "Reference for Path Node in Flowscape: vector commands, SVG parsing, and live preview with custom shapes."
+---
+
+import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+
+export const pathSceneSpec = {
+  background: {
+    fill: '#121212',
+    showLogo: true,
+    logoOpacity: 0.22,
+    logoSize: { width: 220, height: 220 },
+  },
+  camera: {
+    padding: 90,
+    minScale: 0.2,
+    maxScale: 5,
+  },
+  nodes: [
+    {
+      kind: 'path',
+      name: 'HeartPath',
+      x: -280,
+      y: -40,
+      width: 220,
+      height: 220,
+      fill: '#ef4444',
+      strokeFill: '#fecaca',
+      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+      strokeAlign: 'inside',
+      svgPath: 'M50 15 C35 -5 0 5 0 37 C0 62 23 82 50 105 C77 82 100 62 100 37 C100 5 65 -5 50 15 Z',
+    },
+    {
+      kind: 'path',
+      name: 'LightningPath',
+      x: 220,
+      y: 20,
+      width: 180,
+      height: 280,
+      fill: '#f59e0b',
+      strokeFill: '#fef3c7',
+      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+      strokeAlign: 'inside',
+      svgPath: 'M28 0 L2 54 H27 L16 108 L58 43 H34 L45 0 Z',
+    },
+  ],
+};
+
+## Path Node (INodePath)
+
+`INodePath` extends `IShapeBase` and gives you freeform vector geometry via path commands.
+
+Use it when `Rect/Ellipse/Line` are not enough and you need custom silhouettes, icons, or branded shapes.
+
+```ts
+export interface INodePath extends IShapeBase {
+  getCommands(): PathCommand[];
+  setCommands(value: PathCommand[]): void;
+
+  moveTo(to: Vector2): void;
+  lineTo(to: Vector2): void;
+  quadTo(control: Vector2, to: Vector2): void;
+  cubicTo(control1: Vector2, control2: Vector2, to: Vector2): void;
+  closePath(): void;
+  clearPath(): void;
+  isClosed(): boolean;
+  toString(): string;
+}
+```
+
+## Live Preview
+
+The scene below renders two `Path` shapes:
+
+- heart (cubic curves)
+- lightning bolt (line segments)
+
+<FlowscapeScenePreview height={440} spec={pathSceneSpec} />
+
+## Create a Heart with Commands
+
+```ts
+import {
+  NodePath,
+  PathCommandType,
+  StrokeAlign,
+} from '@flowscape-ui/core-sdk';
+
+const heart = new NodePath(1);
+heart.setName('HeartPath');
+heart.setPosition(-280, -40);
+heart.setSize(220, 220);
+heart.setFill('#ef4444');
+heart.setStrokeFill('#fecaca');
+heart.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
+heart.setStrokeAlign(StrokeAlign.Inside);
+
+heart.setCommands([
+  { type: PathCommandType.MoveTo, to: { x: 50, y: 15 } },
+  { type: PathCommandType.CubicTo, control1: { x: 35, y: -5 }, control2: { x: 0, y: 5 }, to: { x: 0, y: 37 } },
+  { type: PathCommandType.CubicTo, control1: { x: 0, y: 62 }, control2: { x: 23, y: 82 }, to: { x: 50, y: 105 } },
+  { type: PathCommandType.CubicTo, control1: { x: 77, y: 82 }, control2: { x: 100, y: 62 }, to: { x: 100, y: 37 } },
+  { type: PathCommandType.CubicTo, control1: { x: 100, y: 5 }, control2: { x: 65, y: -5 }, to: { x: 50, y: 15 } },
+  { type: PathCommandType.Close },
+]);
+
+layerWorld.addNode(heart);
+scene.invalidate();
+```
+
+## Create a Path from SVG String
+
+```ts
+import {
+  NodePath,
+  StrokeAlign,
+} from '@flowscape-ui/core-sdk';
+
+const bolt = NodePath.fromString(
+  2,
+  'M28 0 L2 54 H27 L16 108 L58 43 H34 L45 0 Z',
+);
+
+bolt.setName('LightningPath');
+bolt.setPosition(220, 20);
+bolt.setSize(180, 280);
+bolt.setFill('#f59e0b');
+bolt.setStrokeFill('#fef3c7');
+bolt.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
+bolt.setStrokeAlign(StrokeAlign.Inside);
+
+layerWorld.addNode(bolt);
+scene.invalidate();
+```
+
+## Command Types
+
+| Command | Purpose |
+| --- | --- |
+| `MoveTo` | Move cursor without drawing. |
+| `LineTo` | Add straight segment. |
+| `QuadTo` | Add quadratic bezier segment. |
+| `CubicTo` | Add cubic bezier segment. |
+| `Close` | Close current subpath. |
+
+## Inheritance
+
+```text
+INode
+  -> IShapeBase
+      -> INodePath
+```
+
+`INodePath` inherits all standard shape/base behavior: fill, stroke, transform, hierarchy, bounds, hit testing, serialization.
+
+## Next
+
+- [Polygon Node reference](./polygon-node)
+

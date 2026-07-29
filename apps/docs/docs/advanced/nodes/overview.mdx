@@ -1,0 +1,79 @@
+---
+sidebar_position: 1
+title: Nodes Overview
+sidebar_label: Overview
+description: "Advanced node model in Flowscape: why nodes, hierarchy-driven transforms, and bounds concepts."
+---
+
+import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import AdvancedNodesTopicsGrid from '@site/src/components/AdvancedNodesTopicsGrid';
+
+export const nodesBasicSpec = {
+  background: {
+    showLogo: false,
+  },
+  nodes: [
+    {
+      kind: 'rect',
+      id: 0,
+      width: 100,
+      height: 100,
+    },
+  ],
+};
+
+## Nodes Overview
+
+In Flowscape, nodes are the core scene entities.
+
+A node is not just a draw command. It is a stable object with:
+
+- identity (`id`, `type`)
+- transform state
+- hierarchy links (parent/children)
+- bounds and hit-test methods
+- serialization behavior
+
+## Why nodes (and not raw draw calls)
+
+Node model is better for editor products because it gives:
+
+- stable references for selection/history/tools
+- reusable hierarchy math (parent-child transforms)
+- predictable querying (`hitTest`, bounds methods)
+- persistence (`toJSON`) without rebuilding whole state manually
+
+## Methods that are often confusing
+
+| Method | What it means in practice |
+| --- | --- |
+| `setDirty()` | Rebuild transform cache for node + descendants, and hierarchy bounds upward. Use after transform/size changes. |
+| `setHierarchyBoundsDirty()` | Rebuild only hierarchy bounds cache. Use when geometry/visibility changed but transform did not. |
+| `getWorldMatrix()` | Final matrix after parent chain composition. |
+| `getWorldCorners()` | 4 transformed corners (clockwise from top-left), base for OBB/AABB computations. |
+| `getWorldOBB()` | Rotated world bounds preserving object orientation. |
+| `getWorldAABB()` | Axis-aligned world bounds enclosing node. |
+| `getPivot()` | Returns local normalized transform anchor (0..1 range per axis). |
+| `getHierarchyWorldOBB()` | Rotated bounds for node + all descendants. |
+| `getHierarchyWorldAABB()` | Axis-aligned bounds for node + all descendants. |
+| `hitTest(worldPoint)` | World-space pick test against node geometry. |
+| `traverse(callback)` | Recursive hierarchy walk from this node downward. |
+| `toJSON()` | Serialize node state into JSON-compatible object. |
+
+## Live Preview
+
+<FlowscapeScenePreview height={460} spec={nodesBasicSpec} debugNodes={{
+  showAABB: true,
+  showOBB: true,
+  showOrbit: true,
+  showPivot: true,
+  showViewBounds: true,
+}} />
+
+## Deep Dives
+
+<AdvancedNodesTopicsGrid />
+
+## Next
+
+- [What Is OBB](./what-is-obb)

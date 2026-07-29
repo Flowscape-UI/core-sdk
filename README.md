@@ -1,159 +1,454 @@
-# Turborepo starter
+<div align="center">
 
-This Turborepo starter is maintained by the Turborepo core team.
+# Flowscape
 
-## Using this example
+**A developer-first 2D engine for building infinite canvas editors, design tools, and visual builders.**
 
-Run the following command:
+`@flowscape-ui/core-sdk`
 
-```sh
-npx create-turbo@latest
+[![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
+[![X](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
+
+[![Documentation](https://img.shields.io/badge/Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/docs/)
+[![npm](https://img.shields.io/badge/npm-@flowscape--ui/core--sdk-CB3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
+[![Changelog](https://img.shields.io/badge/Changelog-181717?style=for-the-badge&logo=github)](./CHANGELOG.md)
+
+</div>
+
+---
+
+## What is Flowscape?
+
+Flowscape is a framework-agnostic 2D engine for building complex editor-like products.
+
+It provides the engine layer between low-level rendering libraries and full applications, giving developers a structured foundation for scenes, nodes, transforms, rendering, interaction systems, overlays, and infinite canvas workflows.
+
+Flowscape is designed for products such as:
+
+- Figma-like design tools
+- Infinite canvas applications
+- Whiteboards and diagram editors
+- Visual and page builders
+- Node-based editors
+- CAD-like 2D interfaces
+- Internal graphical editor tools
+
+It is not a UI framework and it does not dictate how your application should look.
+
+You own the product.
+
+Flowscape provides the engine underneath it.
+
+---
+
+## Features
+
+- **Scene-based architecture** with dedicated `Background`, `World`, `Overlay`, and `UI` layers
+- **Node system** with transforms, hierarchy, bounds, hit testing, and grouping
+- **Infinite canvas foundations** including camera movement, pan, and zoom
+- **Renderer abstraction** designed to evolve independently from application logic
+- **Input controllers** for editor-style interactions
+- **Overlay architecture** for selection, handles, and transformation tools
+- **TypeScript-first API**
+- **Framework-agnostic**
+- **ES module support** for modern applications
+- **Standalone browser build** for direct usage through `<script>`
+
+---
+
+## Installation
+
+Using Bun:
+
+```bash
+bun add @flowscape-ui/core-sdk
 ```
 
-## What's inside?
+Using pnpm:
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+pnpm add @flowscape-ui/core-sdk
 ```
 
-Without global `turbo`, use your package manager:
+Using npm:
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+```bash
+npm install @flowscape-ui/core-sdk
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Using Yarn:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+yarn add @flowscape-ui/core-sdk
 ```
 
-Without global `turbo`:
+---
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+## Usage
+
+### ES Modules
+
+Flowscape can be imported as a regular package in TypeScript and JavaScript applications.
+
+```ts
+import {
+  Scene,
+  LayerBackground,
+  LayerWorld,
+  LayerOverlay,
+  RendererLayerBackgroundCanvas,
+  RendererLayerWorldCanvas,
+  RendererLayerOverlayCanvas,
+  CanvasRendererHost,
+  NodeRect,
+} from '@flowscape-ui/core-sdk';
 ```
 
-### Develop
+### Browser Script
 
-To develop all apps and packages, run the following command:
+Flowscape can also be used directly in the browser without a bundler.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+```html
+<script src="https://unpkg.com/@flowscape-ui/core-sdk/dist/flowscape.global.js"></script>
 
-```sh
-cd my-turborepo
-turbo dev
+<script>
+  const scene = new Flowscape.Scene(1280, 720);
+</script>
 ```
 
-Without global `turbo`, use your package manager:
+The standalone build exposes the public API through the global `Flowscape` object.
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
+```js
+const rect = new Flowscape.NodeRect(1);
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Quick Start
 
-```sh
-turbo dev --filter=web
+Create a container:
+
+```html
+<div id="app"></div>
 ```
 
-Without global `turbo`:
+Make sure it has a visible size:
 
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
+```css
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
 ```
 
-### Remote Caching
+Then create a scene:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+```ts
+import {
+  Scene,
+  LayerBackground,
+  LayerWorld,
+  LayerOverlay,
+  RendererLayerBackgroundCanvas,
+  RendererLayerWorldCanvas,
+  RendererLayerOverlayCanvas,
+  CanvasRendererHost,
+  NodeRect,
+} from '@flowscape-ui/core-sdk';
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+const container = document.getElementById('app');
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+if (!container) {
+  throw new Error('Container #app not found');
+}
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+const scene = new Scene(
+  container.clientWidth,
+  container.clientHeight,
+);
 
-```sh
-cd my-turborepo
-turbo login
+// Create layers
+const background = new LayerBackground();
+const world = new LayerWorld();
+const overlay = new LayerOverlay(world);
+
+scene.addLayer(background);
+scene.addLayer(world);
+scene.addLayer(overlay);
+
+// Bind renderers
+scene.bindLayerRenderer(
+  background,
+  new RendererLayerBackgroundCanvas(),
+);
+
+scene.bindLayerRenderer(
+  world,
+  new RendererLayerWorldCanvas(),
+);
+
+scene.bindLayerRenderer(
+  overlay,
+  new RendererLayerOverlayCanvas(),
+);
+
+// Create a render host
+const host = new CanvasRendererHost(container, -1);
+
+scene.addHost(host);
+
+// Configure the background
+background.setFill('#101010');
+
+// Add a node
+const rect = new NodeRect(1);
+
+rect.setPosition(300, 220);
+rect.setSize(220, 140);
+rect.setFill('#3b82f6');
+
+world.addNode(rect);
+
+// Render
+scene.invalidate();
 ```
 
-Without global `turbo`, use your package manager:
+For input controllers, selection, transformations, camera controls, and more advanced editor workflows, see the documentation.
 
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
+---
+
+## Architecture
+
+Flowscape separates scene state, rendering, and interaction logic.
+
+```text
+Scene
+├── Background Layer
+├── World Layer
+│   └── Nodes
+├── Overlay Layer
+│   └── Handles / Selection / Transformations
+└── UI Layer
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+The main architectural areas are:
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
+```text
+Scene
+│
+├── Layers
+│   ├── Background
+│   ├── World
+│   ├── Overlay
+│   └── UI
+│
+├── Nodes
+│   ├── Rect
+│   ├── Ellipse
+│   ├── Polygon
+│   ├── Star
+│   ├── Line
+│   ├── Path
+│   ├── Text
+│   └── Group
+│
+├── Renderers
+│
+├── Renderer Hosts
+│
+└── Input Controllers
 ```
 
-Without global `turbo`:
+This separation allows rendering implementations to evolve without requiring editor-level product logic to be rewritten.
 
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
+---
+
+## Philosophy
+
+Most canvas libraries provide rendering primitives.
+
+Flowscape aims to provide the architectural layer above those primitives.
+
+Instead of rebuilding the same infrastructure for every graphical product, developers can start with reusable foundations for:
+
+- scene organization
+- node hierarchy
+- coordinate systems
+- camera behavior
+- rendering
+- hit testing
+- selection
+- transformation
+- interaction systems
+- editor overlays
+
+Flowscape is closer in philosophy to an engine for building graphical applications than to a component library or ready-made editor.
+
+---
+
+## Repository Structure
+
+Flowscape is developed as a Turborepo monorepo.
+
+```text
+flowscape/
+├── apps/
+│   ├── docs/
+│   └── playground/
+│
+├── packages/
+│   └── engine/
+│
+├── package.json
+├── turbo.json
+└── bun.lock
 ```
 
-## Useful Links
+### `apps/docs`
 
-Learn more about the power of Turborepo:
+The Flowscape documentation application.
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+### `apps/playground`
+
+Interactive development environment used to test Flowscape through its public package API.
+
+### `packages/engine`
+
+The core Flowscape engine, published as:
+
+```text
+@flowscape-ui/core-sdk
+```
+
+---
+
+## Development
+
+Flowscape uses:
+
+- Bun
+- Turborepo
+- TypeScript
+- tsdown
+
+Clone the repository and install dependencies:
+
+```bash
+bun install
+```
+
+Run the Playground:
+
+```bash
+bun run dev:playground
+```
+
+Run the documentation:
+
+```bash
+bun run dev:docs
+```
+
+Build the monorepo:
+
+```bash
+bun run build
+```
+
+Run type checking:
+
+```bash
+bun run typecheck
+```
+
+Run tests:
+
+```bash
+bun run test
+```
+
+More information about contributing can be found in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+---
+
+## Public API Policy
+
+Applications should import Flowscape exclusively through the public package API:
+
+```ts
+import {
+  Scene,
+  NodeRect,
+} from '@flowscape-ui/core-sdk';
+```
+
+Do not import internal modules directly:
+
+```ts
+// ❌ Do not do this
+import { Scene } from '@flowscape-ui/core-sdk/src/scene';
+```
+
+Internal project structure may change between releases.
+
+Only exports available through `@flowscape-ui/core-sdk` should be considered part of the public API.
+
+---
+
+## Project Status
+
+Flowscape is under active development.
+
+The architecture and internal implementation continue to evolve as the engine expands toward more advanced rendering, interaction, and editor systems.
+
+Public API stability is treated as a priority, but major releases may introduce intentional breaking changes when necessary for the long-term architecture of the engine.
+
+See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
+
+---
+
+## Documentation
+
+- [Documentation](https://flowscape-ui.github.io/docs/)
+- [npm Package](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
+- [GitHub Issues](https://github.com/Flowscape-UI/core-sdk/issues)
+- [Changelog](./CHANGELOG.md)
+
+---
+
+## Contributing
+
+Contributions, bug reports, and feature proposals are welcome.
+
+Before contributing, please read [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+For bugs and feature requests, use the project's GitHub Issues.
+
+---
+
+## Authors
+
+See [`AUTHORS.md`](./AUTHORS.md).
+
+---
+
+## Support Flowscape
+
+Flowscape is developed as an open-source project.
+
+If Flowscape is useful to you or your team, you can support its continued development through GitHub Sponsors.
+
+Your support helps fund development, documentation, tooling, testing, and long-term maintenance.
+
+[❤️ Sponsor Flowscape](https://buymeacoffee.com/flowscape)
+
+## License
+
+Flowscape is released under the [MIT License](./LICENSE).
+
+© Flowscape UI Team

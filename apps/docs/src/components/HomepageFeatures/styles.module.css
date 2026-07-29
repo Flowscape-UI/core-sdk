@@ -1,0 +1,366 @@
+.features {
+  position: relative;
+  padding: 6.5rem 0 5rem;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--fs-bg) 99%, var(--ifm-color-primary) 1%) 0%,
+    color-mix(in srgb, var(--fs-bg-secondary) 98%, transparent) 100%
+  );
+}
+
+.features::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.65) 18%, rgba(0, 0, 0, 0.65) 82%, transparent 100%);
+  pointer-events: none;
+  opacity: 0.28;
+}
+
+.features::after {
+  content: "";
+  position: absolute;
+  right: -12%;
+  bottom: -22%;
+  width: 460px;
+  height: 460px;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--ifm-color-primary) 28%, transparent) 0%,
+      color-mix(in srgb, #22d3ee 22%, transparent) 46%,
+      transparent 74%
+    );
+  filter: blur(18px);
+  pointer-events: none;
+  opacity: 0;
+}
+
+[data-theme='light'] .features::before,
+:root .features::before {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  width: min(1200px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.header {
+  max-width: 760px;
+  margin: 0 auto 2.8rem;
+  text-align: center;
+}
+
+.sectionBadge {
+  --ui-badge-font-size: 20px;
+  min-height: 34px;
+  padding: 0.45rem 0.85rem;
+  margin-bottom: 1rem;
+  line-height: 1;
+  letter-spacing: 0.025em;
+}
+
+.title {
+  margin: 0;
+  color: color-mix(in srgb, var(--fs-text) 96%, white);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.titleAccent {
+  display: inline-block;
+  color: var(--ifm-color-primary);
+}
+
+.subtitle {
+  margin: 1rem auto 0;
+  max-width: 680px;
+  color: color-mix(in srgb, var(--fs-text-secondary) 92%, #cbd5e1);
+  font-size: 1.07rem !important;
+  font-weight: 700;
+  line-height: 1.78;
+  text-wrap: pretty;
+}
+
+
+[data-theme='light'] .subtitle {
+  color: #000000;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.card {
+  position: relative;
+  min-height: 100%;
+  border-radius: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #ffffff;
+  border: 4px solid #000000;
+  color: #000000;
+  box-shadow: var(--fs-shadow);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.28s ease;
+  animation: none;
+}
+
+[data-theme='dark'] .card {
+  background: #000000;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: none;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(59, 130, 246, 0.16);
+}
+
+.card:hover .cardGlow {
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.card:hover .cardRail {
+  opacity: 1;
+}
+
+.cardInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+  padding: 1.4rem 1.25rem 1.2rem;
+}
+
+.cardRail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ifm-color-primary);
+  opacity: 0.75;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.cardGlow {
+  position: absolute;
+  inset: auto auto -22% -10%;
+  width: 0;
+  height: 0;
+  background: none;
+  filter: none;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.4rem 0.7rem;
+  border: 4px solid #000000;
+  border-radius: 0;
+  background: #000000;
+  color: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+[data-theme='dark'] .eyebrow {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #000000;
+}
+
+.cardIndex {
+  flex: 0 0 auto;
+  min-width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: none;
+  background: var(--ifm-color-primary);
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.cardTitle {
+  margin: 0;
+  color: inherit;
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+}
+
+.cardDescription {
+  margin: 0;
+  color: inherit;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.72;
+}
+
+.pointList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pointItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  color: inherit;
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.55;
+  transition: none;
+}
+
+.pointItem:hover {
+  transform: none;
+}
+
+.pointDot {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-top: 0.38rem;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+  box-shadow: none;
+}
+
+@media (max-width: 996px) {
+  .features {
+    padding: 5.5rem 0 4.5rem;
+  }
+
+  .header {
+    margin-bottom: 2.5rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .features::after {
+    opacity: 0;
+  }
+
+  .cardInner {
+    padding: 1.35rem 1.2rem 1.2rem;
+  }
+
+  .title {
+    font-size: clamp(1.8rem, 7vw, 2.5rem);
+  }
+
+  .subtitle {
+    font-size: 0.98rem;
+    line-height: 1.7;
+  }
+}
+
+@media (max-width: 640px) {
+  .features {
+    padding: 4.5rem 0 3.8rem;
+  }
+
+  .container {
+    width: min(1200px, calc(100% - 24px));
+  }
+
+  .sectionBadge {
+    --ui-badge-font-size: 20px;
+    min-height: 32px;
+    padding: 0.42rem 0.72rem;
+  }
+
+  .cardTitle {
+    font-size: 1.16rem;
+  }
+
+  .cardMeta {
+    gap: 0.5rem;
+  }
+
+  .cardDescription {
+    font-size: 0.95rem;
+  }
+
+  .pointItem {
+    font-size: 0.91rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
+
+  .card,
+  .cardGlow {
+    transition: none;
+  }
+}
