@@ -1,0 +1,79 @@
+---
+sidebar_position: 3
+title: What Is AABB
+sidebar_label: What Is AABB
+description: "Axis-Aligned Bounding Box in Flowscape: fast world-space bounds and common editor/runtime use cases."
+---
+
+import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+
+export const aabbSpec = {
+  background: {
+    showLogo: false,
+  },
+  nodes: [
+    {
+      kind: 'rect',
+      id: 0,
+      width: 100,
+      height: 100,
+    },
+  ],
+};
+
+## What Is AABB
+
+`AABB` means **Axis-Aligned Bounding Box**.
+
+It is always aligned to world axes (X/Y), even if node is rotated.  
+So AABB encloses the node but does not preserve orientation.
+
+In practice, AABB answers:
+"What is the fastest axis-aligned box that fully contains this node right now?"
+
+## API in Flowscape
+
+| Method | Meaning |
+| --- | --- |
+| `getWorldAABB()` | World axis-aligned bounds for this node. |
+| `getHierarchyWorldAABB()` | World axis-aligned bounds for node + descendants. |
+
+For shape visuals with stroke-aware bounds, some nodes also expose view-bounds variants (for example `getWorldViewAABB()` in shape APIs).
+
+## When AABB is useful
+
+- fast broad-phase hit checks
+- viewport culling
+- spatial indexing
+- quick selection region tests
+
+## Live AABB Example
+
+<FlowscapeScenePreview
+  height={430}
+  spec={aabbSpec}
+  debugNodes={{
+    showAABB: true,
+    showPivot: true,
+    showOrbit: true,
+  }}
+/>
+
+## Pivot and Orbit in this example
+
+`showPivot` and `showOrbit` help explain why AABB can change size when rotation changes.
+
+- rotation still happens around pivot
+- AABB ignores object orientation and stays axis-aligned
+- because of that, AABB can become larger than OBB for rotated nodes
+
+So pivot still matters for transform behavior, but AABB remains a broad-phase box for fast checks.
+
+## OBB vs AABB (quick rule)
+
+- Use **OBB** when visual orientation matters.
+- Use **AABB** when speed and simple broad-phase checks matter.
+
+## Next
+
+- [What Is Pivot](./what-is-pivot)

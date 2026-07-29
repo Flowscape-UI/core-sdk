@@ -1,0 +1,34 @@
+---
+sidebar_position: 1
+title: Input System Overview
+sidebar_label: Overview
+description: "Input architecture in Flowscape: static Input state, controllers, and layer-specific interaction flow."
+---
+
+import InputSystemTopicsGrid from '@site/src/components/InputSystemTopicsGrid';
+
+## Input System Overview
+
+Flowscape input is built as a two-level model:
+
+- `Input` is a static runtime state source
+- controllers read that state and apply behavior to scene layers
+
+This design keeps low-level device state centralized and keeps interaction logic modular.
+
+## Why this exists
+
+Use this architecture when you need:
+
+- predictable keyboard/mouse/wheel state access
+- separate world and overlay interaction responsibilities
+- custom input tools without rewriting scene internals
+
+## Topics
+
+<InputSystemTopicsGrid />
+
+## Next
+
+- [Input](./input)
+

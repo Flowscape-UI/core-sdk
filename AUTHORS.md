@@ -1,4 +1,4 @@
-# Flowscape Contributors
+# Flowscape Authors
 
 This file lists the authors of the Flowscape project.
 

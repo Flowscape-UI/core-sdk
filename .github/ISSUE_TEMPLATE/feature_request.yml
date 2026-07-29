@@ -1,0 +1,83 @@
+name: Feature request
+description: Suggest a new capability or improvement for Flowscape
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Flowscape.
+
+        Flowscape focuses on reusable engine-level functionality for editors,
+        design tools, infinite canvases, and visual applications.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the API or behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: Where would this functionality be useful?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Rendering
+        - Nodes
+        - Transforms
+        - Input
+        - Selection
+        - Vector editing
+        - Gradients / Paint
+        - Stroke / Border
+        - Effects
+        - History / Undo / Redo
+        - Import / Export
+        - Serialization
+        - Performance
+        - Public API
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Are there other ways to solve the problem?
+
+  - type: textarea
+    id: api
+    attributes:
+      label: Possible API
+      description: Optional example of how the feature could look.
+      render: ts
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues for similar requests.
+          required: true
+        - label: This feature is suitable for the engine rather than only one application UI.
+          required: false
