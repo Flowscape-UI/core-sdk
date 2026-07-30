@@ -2,7 +2,7 @@
 sidebar_position: 1.5
 ---
 
-import FlowscapeWorldExample from '@site/src/components/FlowscapeWorldExample';
+import FlowscapeWorldExample from "@site/src/components/FlowscapeWorldExample";
 
 # Overview
 
@@ -18,12 +18,12 @@ You can use Flowscape in browser apps (React, Vue, Svelte, or vanilla TypeScript
 
 Flowscape is built around a `Scene` with 4 layers, each with a clear responsibility:
 
-| Layer | Responsibility | Typical content |
-| --- | --- | --- |
-| `Background` | Visual foundation behind world content | Solid fill, watermark, brand texture |
-| `World` | Main editable coordinate space | Nodes, shapes, text, app objects |
-| `Overlay` | Editor interaction visuals over world | Selection frames, handles, guides |
-| `UI` | HTML/UI modules outside world transform | Toolbars, rulers UI, contextual controls |
+| Layer        | Responsibility                          | Typical content                          |
+| ------------ | --------------------------------------- | ---------------------------------------- |
+| `Background` | Visual foundation behind world content  | Solid fill, watermark, brand texture     |
+| `World`      | Main editable coordinate space          | Nodes, shapes, text, app objects         |
+| `Overlay`    | Editor interaction visuals over world   | Selection frames, handles, guides        |
+| `UI`         | HTML/UI modules outside world transform | Toolbars, rulers UI, contextual controls |
 
 ### Layer diagram
 
@@ -48,59 +48,59 @@ Because rendering is abstracted per layer, you can evolve from canvas-based rend
 
 ```ts
 import {
-  Scene,
-  LayerWorld,
-  NodeRect,
-  RendererLayerWorldCanvas,
-  CanvasRendererHost,
-  LayerWorldInputController,
-} from '@flowscape-ui/core-sdk';
+	Scene,
+	LayerWorld,
+	NodeRect,
+	RendererLayerWorldCanvas,
+	CanvasRendererHost,
+	LayerWorldInputController,
+} from "@flowscape-ui/core-sdk";
 
 export function mountWorldOnly(container: HTMLDivElement) {
-  const scene = new Scene(container.clientWidth, container.clientHeight);
-  const layerWorld = new LayerWorld();
-  scene.addLayer(layerWorld);
+	const scene = new Scene(container.clientWidth, container.clientHeight);
+	const layerWorld = new LayerWorld();
+	scene.addLayer(layerWorld);
 
-  const worldRenderer = new RendererLayerWorldCanvas();
-  scene.bindLayerRenderer(layerWorld, worldRenderer);
+	const worldRenderer = new RendererLayerWorldCanvas();
+	scene.bindLayerRenderer(layerWorld, worldRenderer);
 
-  const host = new CanvasRendererHost(container, -1);
-  scene.addHost(host);
+	const host = new CanvasRendererHost(container, -1);
+	scene.addHost(host);
 
-  const worldInputController = new LayerWorldInputController();
-  scene.inputManager.add(layerWorld, worldInputController, {
-    stage: host.getRenderNode(),
-    world: layerWorld,
-    options: {
-      enabled: true,
-      panMode: 'right',
-      zoomEnabled: true,
-      zoomFactor: 1.08,
-      preventWheelDefault: true,
-      keyboardPanSpeed: 900,
-      keyboardPanShiftMultiplier: 1.5,
-    },
-    emitChange: () => scene.invalidate(),
-  });
+	const worldInputController = new LayerWorldInputController();
+	scene.inputManager.add(layerWorld, worldInputController, {
+		stage: host.getRenderNode(),
+		world: layerWorld,
+		options: {
+			enabled: true,
+			panMode: "right",
+			zoomEnabled: true,
+			zoomFactor: 1.08,
+			preventWheelDefault: true,
+			keyboardPanSpeed: 900,
+			keyboardPanShiftMultiplier: 1.5,
+		},
+		emitChange: () => scene.invalidate(),
+	});
 
-  const node = new NodeRect(1);
-  node.setSize(220, 140);
-  node.setPosition(0, 0);
-  layerWorld.addNode(node);
+	const node = new NodeRect(1);
+	node.setSize(220, 140);
+	node.setPosition(0, 0);
+	layerWorld.addNode(node);
 
-  scene.invalidate();
+	scene.invalidate();
 
-  const resizeObserver = new ResizeObserver(() => {
-    scene.setSize(container.clientWidth, container.clientHeight);
-    scene.invalidate();
-  });
-  resizeObserver.observe(container);
+	const resizeObserver = new ResizeObserver(() => {
+		scene.setSize(container.clientWidth, container.clientHeight);
+		scene.invalidate();
+	});
+	resizeObserver.observe(container);
 
-  return () => {
-    resizeObserver.disconnect();
-    scene.inputManager.remove(worldInputController.id);
-    scene.removeHost(-1);
-  };
+	return () => {
+		resizeObserver.disconnect();
+		scene.inputManager.remove(worldInputController.id);
+		scene.removeHost(-1);
+	};
 }
 ```
 
@@ -109,4 +109,3 @@ export function mountWorldOnly(container: HTMLDivElement) {
 The example below uses the same Scene API and renders a world-only setup directly inside the docs page:
 
 <FlowscapeWorldExample height={340} />
-

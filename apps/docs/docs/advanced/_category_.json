@@ -1,8 +1,8 @@
 {
-  "label": "Advanced",
-  "position": 2.1,
-  "link": {
-    "type": "doc",
-    "id": "advanced/intro"
-  }
+	"label": "Advanced",
+	"position": 2.1,
+	"link": {
+		"type": "doc",
+		"id": "advanced/intro"
+	}
 }

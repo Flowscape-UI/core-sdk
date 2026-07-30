@@ -2,52 +2,50 @@ import type { Color } from "culori";
 import { EffectInnerShadow, type EffectShadow } from "../../../renderer/effect";
 
 export enum EffectType {
-    None = "none",
-    InnerShadow = "inner-shadow",
-    DropShadow = "drop-shadow",
-    LayerBlur = "layer-blur",
-    BackgroundBlur = "background-blur",
-    Noise = "noise",
-    Texture = "texture",
-    Glass = "glass",
+	None = "none",
+	InnerShadow = "inner-shadow",
+	DropShadow = "drop-shadow",
+	LayerBlur = "layer-blur",
+	BackgroundBlur = "background-blur",
+	Noise = "noise",
+	Texture = "texture",
+	Glass = "glass",
 }
 
 export interface EffectBase {
-    readonly type: EffectType;
-    visible: boolean;
+	readonly type: EffectType;
+	visible: boolean;
 }
 
 export interface DropShadowEffect extends EffectBase {
-    readonly type: EffectType.DropShadow;
-    x: number;
-    y: number;
-    blur: number;
-    spread: number;
-    color: string | Color;
-    opacity: number;
+	readonly type: EffectType.DropShadow;
+	x: number;
+	y: number;
+	blur: number;
+	spread: number;
+	color: string | Color;
+	opacity: number;
 }
 
 export interface InnerShadowEffect extends EffectBase {
-    readonly type: EffectType.InnerShadow;
-    x: number;
-    y: number;
-    blur: number;
-    spread: number;
-    color: string | Color;
-    opacity: number;
+	readonly type: EffectType.InnerShadow;
+	x: number;
+	y: number;
+	blur: number;
+	spread: number;
+	color: string | Color;
+	opacity: number;
 }
 
 export interface LayerBlurEffect extends EffectBase {
-    readonly type: EffectType.LayerBlur;
-    blur: number;
+	readonly type: EffectType.LayerBlur;
+	blur: number;
 }
 
 export interface BackgroundBlurEffect extends EffectBase {
-    readonly type: EffectType.BackgroundBlur;
-    blur: number;
-    opacity: number;
+	readonly type: EffectType.BackgroundBlur;
+	blur: number;
+	opacity: number;
 }
 
-export type ShapeEffectType =
-    | EffectShadow
-    | EffectInnerShadow;
+export type ShapeEffectType = EffectShadow | EffectInnerShadow;

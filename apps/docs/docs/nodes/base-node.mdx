@@ -20,14 +20,14 @@ It combines:
 
 ## Identity and Core State
 
-| Member | Description |
-| --- | --- |
-| `id: ID` | Unique node identifier (read-only). |
-| `type: NodeType` | Functional node type (read-only). |
-| `getOpacity()` / `setOpacity(value)` | Read/write global node opacity. |
-| `setDirty()` | Invalidates transform caches for this node and descendants, and hierarchy bounds upward. |
-| `setHierarchyBoundsDirty()` | Invalidates hierarchy bounds caches without touching transform caches. |
-| `traverse(callback)` | Recursive hierarchy traversal. Return `false` to stop deep traversal of a branch. |
+| Member                               | Description                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `id: ID`                             | Unique node identifier (read-only).                                                      |
+| `type: NodeType`                     | Functional node type (read-only).                                                        |
+| `getOpacity()` / `setOpacity(value)` | Read/write global node opacity.                                                          |
+| `setDirty()`                         | Invalidates transform caches for this node and descendants, and hierarchy bounds upward. |
+| `setHierarchyBoundsDirty()`          | Invalidates hierarchy bounds caches without touching transform caches.                   |
+| `traverse(callback)`                 | Recursive hierarchy traversal. Return `false` to stop deep traversal of a branch.        |
 
 :::tip Dirty vs Bounds Dirty
 Use `setDirty()` when transform or size changes.  
@@ -36,29 +36,29 @@ Use `setHierarchyBoundsDirty()` when geometry/visibility changes but transform s
 
 ## Basic Functionality
 
-| Area | Methods |
-| --- | --- |
-| Name | `getName()`, `setName(value)` |
-| Size | `getWidth()`, `setWidth(value)`, `getHeight()`, `setHeight(value)`, `getSize(width, height)`, `setSize(width, height)` |
-| Scaled Size | `getScaledWidth()`, `getScaledHeight()`, `getScaledSize()` |
-| Visibility | `isVisible()`, `setVisible(value)`, `isVisibleInHierarchy()` |
-| Lock State | `isLocked()`, `setLocked(value)`, `isLockedInHierarchy()` |
+| Area        | Methods                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Name        | `getName()`, `setName(value)`                                                                                          |
+| Size        | `getWidth()`, `setWidth(value)`, `getHeight()`, `setHeight(value)`, `getSize(width, height)`, `setSize(width, height)` |
+| Scaled Size | `getScaledWidth()`, `getScaledHeight()`, `getScaledSize()`                                                             |
+| Visibility  | `isVisible()`, `setVisible(value)`, `isVisibleInHierarchy()`                                                           |
+| Lock State  | `isLocked()`, `setLocked(value)`, `isLockedInHierarchy()`                                                              |
 
 ## World Transform and Geometry
 
-| Method | Description |
-| --- | --- |
-| `getWorldMatrix()` | Final matrix in world space (`parentWorld * local`). Cached until invalidated. |
-| `getWorldRotation()` | Accumulated rotation from the full parent chain. |
-| `getWorldCorners()` | Four world-space corners ordered clockwise from top-left. |
+| Method               | Description                                                                    |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `getWorldMatrix()`   | Final matrix in world space (`parentWorld * local`). Cached until invalidated. |
+| `getWorldRotation()` | Accumulated rotation from the full parent chain.                               |
+| `getWorldCorners()`  | Four world-space corners ordered clockwise from top-left.                      |
 
 These methods are used by rendering, selection, resize handles, snapping, and advanced editor tooling.
 
 ## Hierarchy Control
 
-| Area | Methods |
-| --- | --- |
-| Parent | `getParent()`, `setParent(parent)`, `removeParent()` |
+| Area     | Methods                                                  |
+| -------- | -------------------------------------------------------- |
+| Parent   | `getParent()`, `setParent(parent)`, `removeParent()`     |
 | Children | `getChildren()`, `addChild(child)`, `removeChild(child)` |
 
 `addChild` prevents invalid hierarchy operations such as self-addition and cyclic relationships.
@@ -67,19 +67,19 @@ These methods are used by rendering, selection, resize handles, snapping, and ad
 
 ### Node Bounds
 
-| Method | Space | Type |
-| --- | --- | --- |
-| `getLocalOBB()` | Local | `Rect` |
-| `getWorldOBB()` | World | `OrientedRect` |
-| `getWorldAABB()` | World | `Rect` |
+| Method           | Space | Type           |
+| ---------------- | ----- | -------------- |
+| `getLocalOBB()`  | Local | `Rect`         |
+| `getWorldOBB()`  | World | `OrientedRect` |
+| `getWorldAABB()` | World | `Rect`         |
 
 ### Hierarchy Bounds
 
-| Method | Scope | Type |
-| --- | --- | --- |
-| `getHierarchyLocalOBB()` | This node + descendants in local space | `Rect` |
-| `getHierarchyWorldOBB()` | This node + descendants in world space | `OrientedRect` |
-| `getHierarchyWorldAABB()` | This node + descendants in world space | `Rect` |
+| Method                    | Scope                                  | Type           |
+| ------------------------- | -------------------------------------- | -------------- |
+| `getHierarchyLocalOBB()`  | This node + descendants in local space | `Rect`         |
+| `getHierarchyWorldOBB()`  | This node + descendants in world space | `OrientedRect` |
+| `getHierarchyWorldAABB()` | This node + descendants in world space | `Rect`         |
 
 ## Hit Testing
 
@@ -106,50 +106,50 @@ Key behavior:
 ### Read common debug info
 
 ```ts
-import type { INode } from '@flowscape-ui/core-sdk';
+import type { INode } from "@flowscape-ui/core-sdk";
 
 export function logNode(node: INode): void {
-  const world = node.getWorldMatrix();
-  const aabb = node.getWorldAABB();
+	const world = node.getWorldMatrix();
+	const aabb = node.getWorldAABB();
 
-  console.log({
-    id: node.id,
-    type: node.type,
-    name: node.getName(),
-    visible: node.isVisibleInHierarchy(),
-    locked: node.isLockedInHierarchy(),
-    world,
-    aabb,
-  });
+	console.log({
+		id: node.id,
+		type: node.type,
+		name: node.getName(),
+		visible: node.isVisibleInHierarchy(),
+		locked: node.isLockedInHierarchy(),
+		world,
+		aabb,
+	});
 }
 ```
 
 ### Update size and preserve clean cache flow
 
 ```ts
-import type { INode } from '@flowscape-ui/core-sdk';
+import type { INode } from "@flowscape-ui/core-sdk";
 
 export function resizeNode(node: INode, width: number, height: number): void {
-  node.setSize(width, height);
-  // setSize already triggers invalidation in node implementations.
+	node.setSize(width, height);
+	// setSize already triggers invalidation in node implementations.
 }
 ```
 
 ### Traverse a subtree
 
 ```ts
-import type { INode } from '@flowscape-ui/core-sdk';
+import type { INode } from "@flowscape-ui/core-sdk";
 
 export function countVisible(root: INode): number {
-  let count = 0;
+	let count = 0;
 
-  root.traverse((node) => {
-    if (node.isVisibleInHierarchy()) {
-      count += 1;
-    }
-  });
+	root.traverse((node) => {
+		if (node.isVisibleInHierarchy()) {
+			count += 1;
+		}
+	});
 
-  return count;
+	return count;
 }
 ```
 

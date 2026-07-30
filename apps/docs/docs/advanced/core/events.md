@@ -21,8 +21,8 @@ Example:
 
 ```ts
 type SceneEvents = {
-  change: { source: 'camera' | 'world' };
-  error: { message: string };
+	change: { source: "camera" | "world" };
+	error: { message: string };
 };
 ```
 
@@ -30,21 +30,18 @@ type SceneEvents = {
 
 ```ts
 export class EventEmitter<Events extends EventMap> {
-  private _listeners: {
-    [K in keyof Events]?: Set<(payload: Events[K]) => void>;
-  } = {};
+	private _listeners: {
+		[K in keyof Events]?: Set<(payload: Events[K]) => void>;
+	} = {};
 
-  on<K extends keyof Events>(
-    event: K,
-    listener: (payload: Events[K]) => void
-  ): () => void
+	on<K extends keyof Events>(
+		event: K,
+		listener: (payload: Events[K]) => void,
+	): () => void;
 
-  emit<K extends keyof Events>(
-    event: K,
-    payload: Events[K]
-  )
+	emit<K extends keyof Events>(event: K, payload: Events[K]);
 
-  clear()
+	clear();
 }
 ```
 
@@ -77,18 +74,18 @@ export class EventEmitter<Events extends EventMap> {
 
 ```ts
 type SceneEvents = {
-  change: { source: 'camera' | 'world' };
-  error: { message: string };
+	change: { source: "camera" | "world" };
+	error: { message: string };
 };
 
 const events = new EventEmitter<SceneEvents>();
 
-const offChange = events.on('change', (payload) => {
-  console.log(payload.source);
+const offChange = events.on("change", (payload) => {
+	console.log(payload.source);
 });
 
-events.emit('change', { source: 'camera' });
-events.emit('error', { message: 'Renderer not ready' });
+events.emit("change", { source: "camera" });
+events.emit("error", { message: "Renderer not ready" });
 
 offChange();
 events.clear();

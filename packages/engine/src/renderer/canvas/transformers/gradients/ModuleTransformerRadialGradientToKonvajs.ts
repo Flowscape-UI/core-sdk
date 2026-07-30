@@ -7,11 +7,7 @@ import {
 import type { KonvaGradientPaint } from "./types";
 
 type CanvasGradientPaint = {
-	draw(
-		ctx: CanvasRenderingContext2D,
-		width: number,
-		height: number,
-	): void;
+	draw(ctx: CanvasRenderingContext2D, width: number, height: number): void;
 };
 
 export class ModuleTransformerRadialGradientToKonvajs extends GradientTransformerModule<
@@ -34,75 +30,58 @@ export class ModuleTransformerRadialGradientToKonvajs extends GradientTransforme
 		);
 
 		return {
-	draw: (
-		ctx: Konva.Context,
-		width: number,
-		height: number,
-		renderScale = 1,
-	): void => {
-		if (width <= 0 || height <= 0) {
-			return;
-		}
+			draw: (
+				ctx: Konva.Context,
+				width: number,
+				height: number,
+				renderScale = 1,
+			): void => {
+				if (width <= 0 || height <= 0) {
+					return;
+				}
 
-		const scale = Math.max(1, renderScale);
+				const scale = Math.max(1, renderScale);
 
-		const canvas = document.createElement("canvas");
+				const canvas = document.createElement("canvas");
 
-		canvas.width = Math.max(
-			1,
-			Math.ceil(width * scale),
-		);
+				canvas.width = Math.max(1, Math.ceil(width * scale));
 
-		canvas.height = Math.max(
-			1,
-			Math.ceil(height * scale),
-		);
+				canvas.height = Math.max(1, Math.ceil(height * scale));
 
-		const canvasContext = canvas.getContext("2d");
+				const canvasContext = canvas.getContext("2d");
 
-		if (!canvasContext) {
-			throw new Error(
-				"Unable to create Canvas 2D context for the radial gradient.",
-			);
-		}
+				if (!canvasContext) {
+					throw new Error(
+						"Unable to create Canvas 2D context for the radial gradient.",
+					);
+				}
 
-		/*
-		 * Увеличиваем физическое разрешение canvas,
-		 * но оставляем gradiente логические width и height.
-		 */
-		canvasContext.setTransform(
-			scale,
-			0,
-			0,
-			scale,
-			0,
-			0,
-		);
+				/*
+				 * Увеличиваем физическое разрешение canvas,
+				 * но оставляем gradiente логические width и height.
+				 */
+				canvasContext.setTransform(scale, 0, 0, scale, 0, 0);
 
-		canvasPaint.draw(
-			canvasContext,
-			width,
-			height,
-		);
+				canvasPaint.draw(canvasContext, width, height);
 
-		ctx.save();
+				ctx.save();
 
-		ctx.imageSmoothingEnabled = true;
+				ctx.imageSmoothingEnabled = true;
 
-		ctx.drawImage(
-			canvas,
-			0,
-			0,
-			canvas.width,
-			canvas.height,
-			0,
-			0,
-			width,
-			height,
-		);
+				ctx.drawImage(
+					canvas,
+					0,
+					0,
+					canvas.width,
+					canvas.height,
+					0,
+					0,
+					width,
+					height,
+				);
 
-		ctx.restore();
-	},
-};
+				ctx.restore();
+			},
+		};
 	}
 }

@@ -11,21 +11,21 @@
  * | 0  0  1  |
  */
 export interface Matrix {
-    /** Horizontal scaling / cosine of rotation. / Горизонтальный масштаб / косинус угла поворота. */
-    a: number;
+	/** Horizontal scaling / cosine of rotation. / Горизонтальный масштаб / косинус угла поворота. */
+	a: number;
 
-    /** Vertical skew / sine of rotation. / Вертикальный сдвиг / синус угла поворота. */
-    b: number;
+	/** Vertical skew / sine of rotation. / Вертикальный сдвиг / синус угла поворота. */
+	b: number;
 
-    /** Horizontal skew / negative sine of rotation. / Горизонтальный сдвиг / отрицательный синус угла поворота. */
-    c: number;
+	/** Horizontal skew / negative sine of rotation. / Горизонтальный сдвиг / отрицательный синус угла поворота. */
+	c: number;
 
-    /** Vertical scaling / cosine of rotation. / Вертикальный масштаб / косинус угла поворота. */
-    d: number;
+	/** Vertical scaling / cosine of rotation. / Вертикальный масштаб / косинус угла поворота. */
+	d: number;
 
-    /** Horizontal translation (X offset). / Смещение по горизонтали (по оси X). */
-    tx: number;
+	/** Horizontal translation (X offset). / Смещение по горизонтали (по оси X). */
+	tx: number;
 
-    /** Vertical translation (Y offset). / Смещение по вертикали (по оси Y). */
-    ty: number;
+	/** Vertical translation (Y offset). / Смещение по вертикали (по оси Y). */
+	ty: number;
 }

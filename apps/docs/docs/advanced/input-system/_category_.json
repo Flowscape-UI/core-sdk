@@ -1,9 +1,8 @@
 {
-  "label": "Input System",
-  "position": 2,
-  "link": {
-    "type": "doc",
-    "id": "advanced/input-system/overview"
-  }
+	"label": "Input System",
+	"position": 2,
+	"link": {
+		"type": "doc",
+		"id": "advanced/input-system/overview"
+	}
 }
-

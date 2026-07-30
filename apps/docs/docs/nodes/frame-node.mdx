@@ -5,69 +5,69 @@ sidebar_label: Frame
 description: "Reference for Frame Node in Flowscape: frame bounds, clipping behavior, and composition workflow."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const frameSceneSpec = {
-  background: {
-    fill: '#121212',
-    showLogo: true,
-    logoOpacity: 0.2,
-    logoSize: { width: 220, height: 220 },
-  },
-  camera: {
-    padding: 88,
-    minScale: 0.2,
-    maxScale: 5,
-  },
-  nodes: [
-    {
-      kind: 'frame',
-      name: 'MainFrame',
-      x: 0,
-      y: 20,
-      width: 820,
-      height: 420,
-      fill: '#0f172a',
-      strokeFill: '#38bdf8',
-      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-      strokeAlign: 'inside',
-      cornerRadius: 22,
-      clipsContent: true,
-    },
-    {
-      kind: 'text',
-      name: 'FrameLabel',
-      x: 0,
-      y: -150,
-      width: 760,
-      height: 80,
-      text: 'Frame: bounded composition container',
-      fill: '#f8fafc',
-      fontFamily: 'Georgia',
-      fontSize: 46,
-      fontWeight: 800,
-      textAlign: 'center',
-      verticalAlign: 'center',
-      wrapMode: 'none',
-    },
-    {
-      kind: 'text',
-      name: 'FrameHint',
-      x: 0,
-      y: 10,
-      width: 680,
-      height: 220,
-      text: 'Use Frame nodes to structure scenes into bounded areas. Enable clipsContent to crop child nodes by frame bounds, similar to editor frames.',
-      fill: '#cbd5e1',
-      fontFamily: 'Georgia',
-      fontSize: 30,
-      fontWeight: 500,
-      textAlign: 'center',
-      verticalAlign: 'center',
-      lineHeight: 1.32,
-      wrapMode: 'word',
-    },
-  ],
+	background: {
+		fill: "#121212",
+		showLogo: true,
+		logoOpacity: 0.2,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 88,
+		minScale: 0.2,
+		maxScale: 5,
+	},
+	nodes: [
+		{
+			kind: "frame",
+			name: "MainFrame",
+			x: 0,
+			y: 20,
+			width: 820,
+			height: 420,
+			fill: "#0f172a",
+			strokeFill: "#38bdf8",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+			cornerRadius: 22,
+			clipsContent: true,
+		},
+		{
+			kind: "text",
+			name: "FrameLabel",
+			x: 0,
+			y: -150,
+			width: 760,
+			height: 80,
+			text: "Frame: bounded composition container",
+			fill: "#f8fafc",
+			fontFamily: "Georgia",
+			fontSize: 46,
+			fontWeight: 800,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			name: "FrameHint",
+			x: 0,
+			y: 10,
+			width: 680,
+			height: 220,
+			text: "Use Frame nodes to structure scenes into bounded areas. Enable clipsContent to crop child nodes by frame bounds, similar to editor frames.",
+			fill: "#cbd5e1",
+			fontFamily: "Georgia",
+			fontSize: 30,
+			fontWeight: 500,
+			textAlign: "center",
+			verticalAlign: "center",
+			lineHeight: 1.32,
+			wrapMode: "word",
+		},
+	],
 };
 
 ## Frame Node (INodeFrame)
@@ -76,8 +76,8 @@ export const frameSceneSpec = {
 
 ```ts
 export interface INodeFrame extends INodeRect {
-  getClipsContent(): boolean;
-  setClipsContent(value: boolean): void;
+	getClipsContent(): boolean;
+	setClipsContent(value: boolean): void;
 }
 ```
 
@@ -93,18 +93,14 @@ It behaves like a rectangle container with an extra frame-specific responsibilit
 ## Create Frame Node in Code
 
 ```ts
-import {
-  NodeFrame,
-  NodeRect,
-  StrokeAlign,
-} from '@flowscape-ui/core-sdk';
+import { NodeFrame, NodeRect, StrokeAlign } from "@flowscape-ui/core-sdk";
 
 const frame = new NodeFrame(1);
-frame.setName('MainFrame');
+frame.setName("MainFrame");
 frame.setPosition(0, 20);
 frame.setSize(820, 420);
-frame.setFill('#0f172a');
-frame.setStrokeFill('#38bdf8');
+frame.setFill("#0f172a");
+frame.setStrokeFill("#38bdf8");
 frame.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
 frame.setStrokeAlign(StrokeAlign.Inside);
 frame.setCornerRadius({ tl: 22, tr: 22, br: 22, bl: 22 });
@@ -112,11 +108,11 @@ frame.setClipsContent(true);
 layerWorld.addNode(frame);
 
 const child = new NodeRect(2);
-child.setName('ChildCard');
+child.setName("ChildCard");
 child.setSize(320, 180);
 child.setPosition(370, 170);
-child.setFill('#f59e0b');
-child.setStrokeFill('#fef3c7');
+child.setFill("#f59e0b");
+child.setStrokeFill("#fef3c7");
 child.setStrokeWidth({ t: 6, r: 6, b: 6, l: 6 });
 child.setStrokeAlign(StrokeAlign.Inside);
 
@@ -129,9 +125,9 @@ scene.invalidate();
 
 ## Frame-Specific API
 
-| Method | Description |
-| --- | --- |
-| `getClipsContent()` | Returns current clipping mode for children. |
+| Method                   | Description                                          |
+| ------------------------ | ---------------------------------------------------- |
+| `getClipsContent()`      | Returns current clipping mode for children.          |
 | `setClipsContent(value)` | Enables/disables child clipping inside frame bounds. |
 
 ## Inheritance
@@ -148,4 +144,3 @@ INode
 ## Next
 
 - [Image Node reference](./image-node)
-

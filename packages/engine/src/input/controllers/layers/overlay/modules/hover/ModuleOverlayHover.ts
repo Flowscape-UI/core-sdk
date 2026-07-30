@@ -3,102 +3,102 @@ import { Input } from "../../../../../Input";
 import type { IInputModule } from "../../../../base";
 import type { OverlayInputContext } from "../../LayerOverlayInputController";
 
-
 export class ModuleOverlayHover implements IInputModule<OverlayInputContext> {
-    public readonly id = "overlay-hover";
-    private _context: OverlayInputContext | null = null;
-    private readonly _isHoverBlockedByHandle: ((screenPoint: Point) => boolean) | null;
+	public readonly id = "overlay-hover";
+	private _context: OverlayInputContext | null = null;
+	private readonly _isHoverBlockedByHandle:
+		((screenPoint: Point) => boolean) | null;
 
-    constructor(isHoverBlockedByHandle?: (screenPoint: Point) => boolean) {
-        this._isHoverBlockedByHandle = isHoverBlockedByHandle ?? null;
-    }
+	constructor(isHoverBlockedByHandle?: (screenPoint: Point) => boolean) {
+		this._isHoverBlockedByHandle = isHoverBlockedByHandle ?? null;
+	}
 
-    public attach(context: OverlayInputContext): void {
-        this._context = context;
-    }
+	public attach(context: OverlayInputContext): void {
+		this._context = context;
+	}
 
-    public detach(): void {
-        if (!this._context) {
-            return;
-        }
+	public detach(): void {
+		if (!this._context) {
+			return;
+		}
 
-        const hadHover = this._context.overlay.getHoveredNode() !== null;
-        this._context.overlay.clearHoveredNode();
+		const hadHover = this._context.overlay.getHoveredNode() !== null;
+		this._context.overlay.clearHoveredNode();
 
-        if (hadHover) {
-            this._context.emitChange();
-        }
+		if (hadHover) {
+			this._context.emitChange();
+		}
 
-        this._context = null;
-    }
+		this._context = null;
+	}
 
-    public destroy(): void {
-        this.detach();
-    }
+	public destroy(): void {
+		this.detach();
+	}
 
-    public update(): void {
-        if (!this._context) {
-            return;
-        }
+	public update(): void {
+		if (!this._context) {
+			return;
+		}
 
-        this._updateHover();
-    }
+		this._updateHover();
+	}
 
-    private _updateHover(): void {
-        const { overlay, world } = this._context!;
+	private _updateHover(): void {
+		const { overlay, world } = this._context!;
 
-        if (!overlay.isEnabled()) {
-            const hadHover = overlay.getHoveredNode() !== null;
-            if (!hadHover) {
-                return;
-            }
+		if (!overlay.isEnabled()) {
+			const hadHover = overlay.getHoveredNode() !== null;
+			if (!hadHover) {
+				return;
+			}
 
-            overlay.clearHoveredNode();
-            this._context!.emitChange();
-            return;
-        }
+			overlay.clearHoveredNode();
+			this._context!.emitChange();
+			return;
+		}
 
-        if (!Input.pointerInside) {
-            const hadHover = overlay.getHoveredNode() !== null;
-            if (!hadHover) {
-                return;
-            }
+		if (!Input.pointerInside) {
+			const hadHover = overlay.getHoveredNode() !== null;
+			if (!hadHover) {
+				return;
+			}
 
-            overlay.clearHoveredNode();
-            this._context!.emitChange();
-            return;
-        }
+			overlay.clearHoveredNode();
+			this._context!.emitChange();
+			return;
+		}
 
-        const screenPoint = this._getStagePointerFromInput();
+		const screenPoint = this._getStagePointerFromInput();
 
-        if (this._isHoverBlockedByHandle?.(screenPoint)) {
-            return;
-        }
+		if (this._isHoverBlockedByHandle?.(screenPoint)) {
+			return;
+		}
 
-        const worldPoint = world.camera.screenToWorld(screenPoint);
+		const worldPoint = world.camera.screenToWorld(screenPoint);
 
-        const hoveredNode = world.findTopNodeAt(worldPoint);
-        const currentHoveredNode = overlay.getHoveredNode();
+		const hoveredNode = world.findTopNodeAt(worldPoint);
+		const currentHoveredNode = overlay.getHoveredNode();
 
-        if (currentHoveredNode?.id === hoveredNode?.id) {
-            return;
-        }
+		if (currentHoveredNode?.id === hoveredNode?.id) {
+			return;
+		}
 
-        if (hoveredNode) {
-            overlay.setHoveredNode(hoveredNode);
-        } else {
-            overlay.clearHoveredNode();
-        }
+		if (hoveredNode) {
+			overlay.setHoveredNode(hoveredNode);
+		} else {
+			overlay.clearHoveredNode();
+		}
 
-        this._context!.emitChange();
-    }
+		this._context!.emitChange();
+	}
 
-    private _getStagePointerFromInput(): { x: number; y: number } {
-        const stage = this._context!.stage;
+	private _getStagePointerFromInput(): { x: number; y: number } {
+		const stage = this._context!.stage;
 
-        return Input.pointerToSurfacePoint(stage.container(), {
-            width: stage.width(),
-            height: stage.height(),
-        });
-    }
+		return Input.pointerToSurfacePoint(stage.container(), {
+			width: stage.width(),
+			height: stage.height(),
+		});
+	}
 }

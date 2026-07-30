@@ -5,20 +5,20 @@ sidebar_label: What Is OBB
 description: "Oriented Bounding Box in Flowscape: rotated bounds in world space and when to use them."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const obbSpec = {
-  background: {
-    showLogo: false,
-  },
-  nodes: [
-    {
-      kind: 'rect',
-      id: 0,
-      width: 100,
-      height: 100,
-    },
-  ],
+	background: {
+		showLogo: false,
+	},
+	nodes: [
+		{
+			kind: "rect",
+			id: 0,
+			width: 100,
+			height: 100,
+		},
+	],
 };
 
 ## What Is OBB
@@ -33,12 +33,12 @@ In practice, OBB answers this question:
 
 ## API in Flowscape
 
-| Method | Meaning |
-| --- | --- |
-| `getLocalOBB()` | Local oriented box in node space. |
-| `getWorldOBB()` | World oriented box for this node. |
-| `getHierarchyWorldOBB()` | World oriented box for node + descendants. |
-| `getWorldCorners()` | Four transformed corners used for OBB-oriented logic. |
+| Method                   | Meaning                                               |
+| ------------------------ | ----------------------------------------------------- |
+| `getLocalOBB()`          | Local oriented box in node space.                     |
+| `getWorldOBB()`          | World oriented box for this node.                     |
+| `getHierarchyWorldOBB()` | World oriented box for node + descendants.            |
+| `getWorldCorners()`      | Four transformed corners used for OBB-oriented logic. |
 
 ## When OBB is useful
 
@@ -50,18 +50,17 @@ In practice, OBB answers this question:
 ## Live OBB Example
 
 <FlowscapeScenePreview
-  height={430}
-  spec={obbSpec}
-  debugNodes={{
-    showOBB: true,
-    showPivot: true,
-  }}
+	height={430}
+	spec={obbSpec}
+	debugNodes={{
+		showOBB: true,
+		showPivot: true,
+	}}
 />
 
 ## Practical note
 
 OBB is more precise for rotated objects, but usually heavier for broad-phase spatial checks than AABB.
-
 
 ## Next
 

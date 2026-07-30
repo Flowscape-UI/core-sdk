@@ -93,15 +93,20 @@ Rotates around a specific screen anchor point.
 ## Minimal Example
 
 ```ts
-import type { ICamera } from '@flowscape-ui/core-sdk';
+import type { ICamera } from "@flowscape-ui/core-sdk";
 
-function handleWheelZoom(camera: ICamera, clientX: number, clientY: number, deltaY: number) {
-  const factor = deltaY > 0 ? 1 / 1.08 : 1.08;
-  camera.zoomAtScreen({ x: clientX, y: clientY }, factor);
+function handleWheelZoom(
+	camera: ICamera,
+	clientX: number,
+	clientY: number,
+	deltaY: number,
+) {
+	const factor = deltaY > 0 ? 1 / 1.08 : 1.08;
+	camera.zoomAtScreen({ x: clientX, y: clientY }, factor);
 }
 
 function handlePan(camera: ICamera, dx: number, dy: number) {
-  camera.panByScreen(dx, dy);
+	camera.panByScreen(dx, dy);
 }
 ```
 

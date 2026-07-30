@@ -68,10 +68,7 @@ The published package is:
 Consumers and repository applications must use the public package API:
 
 ```ts
-import {
-	Scene,
-	NodeRect,
-} from "@flowscape-ui/core-sdk";
+import { Scene, NodeRect } from "@flowscape-ui/core-sdk";
 ```
 
 Do not use consumer-facing deep imports such as:

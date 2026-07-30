@@ -16,29 +16,29 @@ description: "Built-in overlay input controller in Flowscape: interaction handle
 ## Typical setup
 
 ```ts
-import { LayerOverlayInputController } from '@flowscape-ui/core-sdk';
+import { LayerOverlayInputController } from "@flowscape-ui/core-sdk";
 
 let overlayInteractionOwner: string | null = null;
 const overlayController = new LayerOverlayInputController();
 
 scene.inputManager.add(layerOverlay, overlayController, {
-  stage: host.getRenderNode(),
-  world: layerWorld,
-  overlay: layerOverlay,
-  emitChange: () => scene.invalidate(),
-  getInteractionOwner: () => overlayInteractionOwner,
-  tryBeginInteraction: (ownerId: string) => {
-    if (overlayInteractionOwner !== null) {
-      return overlayInteractionOwner === ownerId;
-    }
-    overlayInteractionOwner = ownerId;
-    return true;
-  },
-  endInteraction: (ownerId: string) => {
-    if (overlayInteractionOwner === ownerId) {
-      overlayInteractionOwner = null;
-    }
-  },
+	stage: host.getRenderNode(),
+	world: layerWorld,
+	overlay: layerOverlay,
+	emitChange: () => scene.invalidate(),
+	getInteractionOwner: () => overlayInteractionOwner,
+	tryBeginInteraction: (ownerId: string) => {
+		if (overlayInteractionOwner !== null) {
+			return overlayInteractionOwner === ownerId;
+		}
+		overlayInteractionOwner = ownerId;
+		return true;
+	},
+	endInteraction: (ownerId: string) => {
+		if (overlayInteractionOwner === ownerId) {
+			overlayInteractionOwner = null;
+		}
+	},
 });
 ```
 
@@ -67,4 +67,3 @@ This keeps the API symmetrical with world controller options and allows non-brea
 ## Next
 
 - [Custom Controller](./custom-controller)
-

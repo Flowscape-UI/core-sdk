@@ -17,8 +17,8 @@ It defines how an object is moved, scaled, rotated, and pivoted before hierarchy
 
 ```ts
 export interface Vector2 {
-  x: number;
-  y: number;
+	x: number;
+	y: number;
 }
 ```
 
@@ -28,12 +28,12 @@ Basic 2D vector for position, scale, pivot, and points.
 
 ```ts
 export interface Matrix {
-  a: number;
-  b: number;
-  c: number;
-  d: number;
-  tx: number;
-  ty: number;
+	a: number;
+	b: number;
+	c: number;
+	d: number;
+	tx: number;
+	ty: number;
 }
 ```
 
@@ -141,7 +141,7 @@ World matrix/hierarchy composition is handled by node-layer logic above this cla
 ## Minimal Example
 
 ```ts
-import { Transform } from '@flowscape-ui/core-sdk';
+import { Transform } from "@flowscape-ui/core-sdk";
 
 const t = new Transform();
 t.setPosition(160, 90);

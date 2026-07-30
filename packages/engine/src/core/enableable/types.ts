@@ -16,31 +16,31 @@
  * контроллеров и других runtime-объектов.
  */
 export interface IEnableable {
-    /**
-     * Returns whether the object is enabled.
-     *
-     * Возвращает, включён ли объект.
-     */
-    isEnabled(): boolean;
+	/**
+	 * Returns whether the object is enabled.
+	 *
+	 * Возвращает, включён ли объект.
+	 */
+	isEnabled(): boolean;
 
-    /**
-     * Enables the object.
-     *
-     * Включает объект.
-     */
-    enable(): void;
+	/**
+	 * Enables the object.
+	 *
+	 * Включает объект.
+	 */
+	enable(): void;
 
-    /**
-     * Disables the object.
-     *
-     * Отключает объект.
-     */
-    disable(): void;
+	/**
+	 * Disables the object.
+	 *
+	 * Отключает объект.
+	 */
+	disable(): void;
 
-    /**
-     * Enables or disables the object.
-     *
-     * Включает или отключает объект.
-     */
-    setEnabled(value: boolean): void;
+	/**
+	 * Enables or disables the object.
+	 *
+	 * Включает или отключает объект.
+	 */
+	setEnabled(value: boolean): void;
 }

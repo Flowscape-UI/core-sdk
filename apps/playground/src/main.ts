@@ -1,45 +1,39 @@
-import logoUrl from './assets/images/logo.png';
+import logoUrl from "./assets/images/logo.png";
 
 import {
-  Scene,
-  LayerBackground,
-  LayerWorld,
-  LayerOverlay,
-  LayerUI,
+	Scene,
+	LayerBackground,
+	LayerWorld,
+	LayerOverlay,
+	LayerUI,
+	RendererLayerBackgroundCanvas,
+	RendererLayerWorldCanvas,
+	RendererLayerOverlayCanvas,
+	CanvasRendererHost,
+	NodeEllipse,
+	NodeLine,
+	NodePath,
+	NodePolygon,
+	NodeRect,
+	NodeStar,
+	NodeText,
+	// NodeGroup,
+	LineCap,
+	TextAlign,
+	TextWrapMode,
+	TextVerticalAlign,
+	LayerWorldInputController,
+	LayerOverlayInputController,
+	FillMode,
+} from "@flowscape-ui/core-sdk";
 
-  RendererLayerBackgroundCanvas,
-  RendererLayerWorldCanvas,
-  RendererLayerOverlayCanvas,
-  CanvasRendererHost,
-
-  NodeEllipse,
-  NodeLine,
-  NodePath,
-  NodePolygon,
-  NodeRect,
-  NodeStar,
-  NodeText,
-  NodeGroup,
-
-  LineCap,
-  TextAlign,
-  TextWrapMode,
-  TextVerticalAlign,
-
-  LayerWorldInputController,
-  LayerOverlayInputController,
-
-  FillMode,
-} from '@flowscape-ui/core-sdk';
-
-
-const container = document.querySelector<HTMLDivElement>('#app');
+const container = document.querySelector<HTMLDivElement>("#app");
 
 if (!container) {
-  throw new Error('Container #app not found');
+	throw new Error("Container #app not found");
 }
 
-const { clientHeight: height, clientWidth: width} = container;
+const { clientHeight: height, clientWidth: width } = container;
 const scene = new Scene(width, height);
 
 const layerBackground = new LayerBackground();
@@ -60,54 +54,46 @@ scene.bindLayerRenderer(layerOverlay, new RendererLayerOverlayCanvas());
 const canvasRendererHost = new CanvasRendererHost(container, -1);
 scene.addHost(canvasRendererHost);
 
-scene.inputManager.add(
-  layerWorld,
-  new LayerWorldInputController(),
-  {
-    stage: canvasRendererHost.getRenderNode(),
-    world: layerWorld,
-    options: {
-      enabled: true,
-      panMode: "right",
-      zoomEnabled: true,
-      zoomFactor: 1.08,
-      preventWheelDefault: false,
-      keyboardPanSpeed: 900,
-      keyboardPanShiftMultiplier: 1.5,
-    },
-    emitChange: () => {
-      scene.invalidate();
-    }
-  }
-);
+scene.inputManager.add(layerWorld, new LayerWorldInputController(), {
+	stage: canvasRendererHost.getRenderNode(),
+	world: layerWorld,
+	options: {
+		enabled: true,
+		panMode: "right",
+		zoomEnabled: true,
+		zoomFactor: 1.08,
+		preventWheelDefault: false,
+		keyboardPanSpeed: 900,
+		keyboardPanShiftMultiplier: 1.5,
+	},
+	emitChange: () => {
+		scene.invalidate();
+	},
+});
 
 let overlayInteractionOwner: string | null = null;
-scene.inputManager.add(
-  layerOverlay,
-  new LayerOverlayInputController(),
-  {
-    stage: canvasRendererHost.getRenderNode(),
-    world: layerWorld,
-    overlay: layerOverlay,
-    emitChange: () => {
-      scene.invalidate();
-    },
-    getInteractionOwner: () => overlayInteractionOwner,
-    tryBeginInteraction: (ownerId: string) => {
-      if (overlayInteractionOwner !== null) {
-        return overlayInteractionOwner === ownerId;
-      }
+scene.inputManager.add(layerOverlay, new LayerOverlayInputController(), {
+	stage: canvasRendererHost.getRenderNode(),
+	world: layerWorld,
+	overlay: layerOverlay,
+	emitChange: () => {
+		scene.invalidate();
+	},
+	getInteractionOwner: () => overlayInteractionOwner,
+	tryBeginInteraction: (ownerId: string) => {
+		if (overlayInteractionOwner !== null) {
+			return overlayInteractionOwner === ownerId;
+		}
 
-      overlayInteractionOwner = ownerId;
-      return true;
-    },
-    endInteraction: (ownerId: string) => {
-      if (overlayInteractionOwner === ownerId) {
-        overlayInteractionOwner = null;
-      }
-    },
-  }
-);
+		overlayInteractionOwner = ownerId;
+		return true;
+	},
+	endInteraction: (ownerId: string) => {
+		if (overlayInteractionOwner === ownerId) {
+			overlayInteractionOwner = null;
+		}
+	},
+});
 
 layerBackground.setFill("#1E1E1E");
 layerBackground.setImage(logoUrl);
@@ -117,12 +103,12 @@ layerBackground.setImageOffsetX("50%");
 layerBackground.setImageOffsetY("50%");
 layerBackground.setImagePosition("50%", "50%");
 
-const groupNode = new NodeGroup(1000);
+// const groupNode = new NodeGroup(1000);
 
 const rectNode = new NodeRect(1);
 rectNode.setFillMode(FillMode.MeshGradient);
 rectNode.setFill(
-	"mesh-gradient(grid 4 4 method bicubic in oklab, vertex v00 0% 0% #67e8f9, vertex v10 31.7% 0% #f472b6, vertex v20 75.02% 0.72% #9333ea, vertex v30 100% 0.56% hsl(195, 80%, 55%), vertex v01 0% 27.05% #7c3aed, vertex v11 40.2% 39.97% #2563eb, vertex v21 68.24% 35.81% #9333ea, vertex v31 98.83% 25.52% hsl(57, 69%, 69%), vertex v02 1.98% 70.17% #2563eb, vertex v12 38.88% 72.37% #67e8f9, vertex v22 60.62% 63.5% #2563eb, vertex v32 98.39% 72.18% #7c3aed, vertex v03 0% 100% #9333ea, vertex v13 40.73% 99.92% #06b6d4, vertex v23 74% 98.88% #f472b6, vertex v33 99.19% 99.73% #ec4899, patch p00 v00 v10 v11 v01, patch p10 v10 v20 v21 v11, patch p20 v20 v30 v31 v21, patch p01 v01 v11 v12 v02, patch p11 v11 v21 v22 v12, patch p21 v21 v31 v32 v22, patch p02 v02 v12 v13 v03, patch p12 v12 v22 v23 v13, patch p22 v22 v32 v33 v23)"
+	"mesh-gradient(grid 4 4 method bicubic in oklab, vertex v00 0% 0% #67e8f9, vertex v10 31.7% 0% #f472b6, vertex v20 75.02% 0.72% #9333ea, vertex v30 100% 0.56% hsl(195, 80%, 55%), vertex v01 0% 27.05% #7c3aed, vertex v11 40.2% 39.97% #2563eb, vertex v21 68.24% 35.81% #9333ea, vertex v31 98.83% 25.52% hsl(57, 69%, 69%), vertex v02 1.98% 70.17% #2563eb, vertex v12 38.88% 72.37% #67e8f9, vertex v22 60.62% 63.5% #2563eb, vertex v32 98.39% 72.18% #7c3aed, vertex v03 0% 100% #9333ea, vertex v13 40.73% 99.92% #06b6d4, vertex v23 74% 98.88% #f472b6, vertex v33 99.19% 99.73% #ec4899, patch p00 v00 v10 v11 v01, patch p10 v10 v20 v21 v11, patch p20 v20 v30 v31 v21, patch p01 v01 v11 v12 v02, patch p11 v11 v21 v22 v12, patch p21 v21 v31 v32 v22, patch p02 v02 v12 v13 v03, patch p12 v12 v22 v23 v13, patch p22 v22 v32 v33 v23)",
 );
 
 rectNode.setStrokeMode(FillMode.ConicGradient);
@@ -132,88 +118,88 @@ rectNode.setStrokeFill(
 
 rectNode.setFillMode(FillMode.MeshGradient);
 
-const MESH_ANIMATION_FPS = 30;
-const MESH_FRAME_INTERVAL = 1000 / MESH_ANIMATION_FPS;
+// const MESH_ANIMATION_FPS = 30;
+// const MESH_FRAME_INTERVAL = 1000 / MESH_ANIMATION_FPS;
 
-let meshAnimationFrameId = 0;
-let previousMeshFrameTime = 0;
+// let meshAnimationFrameId = 0;
+// let previousMeshFrameTime = 0;
 
-function roundPercent(value: number): number {
-	return Math.round(value * 100) / 100;
-}
+// function roundPercent(value: number): number {
+// 	return Math.round(value * 100) / 100;
+// }
 
-function createAnimatedRectMesh(time: number): string {
-	const t = time * 0.001;
+// function createAnimatedRectMesh(time: number): string {
+// 	const t = time * 0.001;
 
-	const topX = roundPercent(
-		50 + Math.sin(t * 0.8) * 8,
-	);
+// 	const topX = roundPercent(
+// 		50 + Math.sin(t * 0.8) * 8,
+// 	);
 
-	const leftY = roundPercent(
-		50 + Math.cos(t * 0.7) * 8,
-	);
+// 	const leftY = roundPercent(
+// 		50 + Math.cos(t * 0.7) * 8,
+// 	);
 
-	const rightY = roundPercent(
-		50 + Math.sin(t * 0.9) * 8,
-	);
+// 	const rightY = roundPercent(
+// 		50 + Math.sin(t * 0.9) * 8,
+// 	);
 
-	const bottomX = roundPercent(
-		50 + Math.cos(t * 0.75) * 8,
-	);
+// 	const bottomX = roundPercent(
+// 		50 + Math.cos(t * 0.75) * 8,
+// 	);
 
-	const centerX = roundPercent(
-		50 + Math.sin(t * 1.1) * 14,
-	);
+// 	const centerX = roundPercent(
+// 		50 + Math.sin(t * 1.1) * 14,
+// 	);
 
-	const centerY = roundPercent(
-		50 + Math.cos(t * 1.3) * 14,
-	);
+// 	const centerY = roundPercent(
+// 		50 + Math.cos(t * 1.3) * 14,
+// 	);
 
-	const centerHue = Math.round(
-		(time * 0.035) % 360,
-	);
+// 	const centerHue = Math.round(
+// 		(time * 0.035) % 360,
+// 	);
 
-	return [
-		"mesh-gradient(",
-		"grid 3 3 method bicubic in oklab, ",
+// 	return [
+// 		"mesh-gradient(",
+// 		"grid 3 3 method bicubic in oklab, ",
 
-		"vertex v00 0% 0% #67e8f9, ",
-		`vertex v10 ${topX}% 0% #f472b6, `,
-		"vertex v20 100% 0% #9333ea, ",
+// 		"vertex v00 0% 0% #67e8f9, ",
+// 		`vertex v10 ${topX}% 0% #f472b6, `,
+// 		"vertex v20 100% 0% #9333ea, ",
 
-		`vertex v01 0% ${leftY}% #7c3aed, `,
-		`vertex v11 ${centerX}% ${centerY}% hsl(${centerHue}, 88%, 62%), `,
-		`vertex v21 100% ${rightY}% #06b6d4, `,
+// 		`vertex v01 0% ${leftY}% #7c3aed, `,
+// 		`vertex v11 ${centerX}% ${centerY}% hsl(${centerHue}, 88%, 62%), `,
+// 		`vertex v21 100% ${rightY}% #06b6d4, `,
 
-		"vertex v02 0% 100% #2563eb, ",
-		`vertex v12 ${bottomX}% 100% #ec4899, `,
-		"vertex v22 100% 100% #facc15, ",
+// 		"vertex v02 0% 100% #2563eb, ",
+// 		`vertex v12 ${bottomX}% 100% #ec4899, `,
+// 		"vertex v22 100% 100% #facc15, ",
 
-		"patch p00 v00 v10 v11 v01, ",
-		"patch p10 v10 v20 v21 v11, ",
-		"patch p01 v01 v11 v12 v02, ",
-		"patch p11 v11 v21 v22 v12",
-		")",
-	].join("");
-}
+// 		"patch p00 v00 v10 v11 v01, ",
+// 		"patch p10 v10 v20 v21 v11, ",
+// 		"patch p01 v01 v11 v12 v02, ",
+// 		"patch p11 v11 v21 v22 v12",
+// 		")",
+// 	].join("");
+// }
 
-function animateRectMesh(time: number): void {
-	const elapsed = time - previousMeshFrameTime;
+// function animateRectMesh(time: number): void {
+// 	const elapsed = time - previousMeshFrameTime;
 
-	if (elapsed >= MESH_FRAME_INTERVAL) {
-		previousMeshFrameTime =
-			time - (elapsed % MESH_FRAME_INTERVAL);
+// 	if (elapsed >= MESH_FRAME_INTERVAL) {
+// 		previousMeshFrameTime =
+// 			time - (elapsed % MESH_FRAME_INTERVAL);
 
-		rectNode.setFill(
-			createAnimatedRectMesh(time),
-		);
+// 		rectNode.setFill(
+// 			createAnimatedRectMesh(time),
+// 		);
 
-		scene.invalidate();
-	}
+// 		scene.invalidate();
+// 	}
 
-	meshAnimationFrameId =
-		requestAnimationFrame(animateRectMesh);
-}
+// 	meshAnimationFrameId =
+// 		requestAnimationFrame(animateRectMesh);
+// }
 
 // meshAnimationFrameId =
 // 	requestAnimationFrame(animateRectMesh);
@@ -235,13 +221,13 @@ const rectNode2 = new NodeRect(20);
 rectNode2.setPosition(-100, 0);
 rectNode2.setSize(180, 120);
 rectNode2.setCornerRadius({
-  tl: 28,
-  tr: 28,
-  bl: 0,
-  br: 0
+	tl: 28,
+	tr: 28,
+	bl: 0,
+	br: 0,
 });
 
-rectNode
+rectNode;
 rectNode2.setFill("#D1D5DB");
 rectNode2.setStrokeFill("blue");
 rectNode2.setStrokeWidth({ t: 3, r: 3, b: 3, l: 3 });
@@ -281,15 +267,8 @@ pathNode.setFill("#67E8F9");
 pathNode.setStrokeFill("#155E75");
 pathNode.setStrokeWidth({ t: 3, r: 3, b: 3, l: 3 });
 pathNode.moveTo({ x: 22, y: 125 });
-pathNode.cubicTo(
-  { x: 55, y: 10 },
-  { x: 165, y: 12 },
-  { x: 210, y: 80 },
-);
-pathNode.quadTo(
-  { x: 240, y: 118 },
-  { x: 190, y: 150 },
-);
+pathNode.cubicTo({ x: 55, y: 10 }, { x: 165, y: 12 }, { x: 210, y: 80 });
+pathNode.quadTo({ x: 240, y: 118 }, { x: 190, y: 150 });
 pathNode.lineTo({ x: 55, y: 160 });
 pathNode.closePath();
 
@@ -315,15 +294,14 @@ textNode.setTextAlign(TextAlign.Left);
 textNode.setVerticalAlign(TextVerticalAlign.Top);
 textNode.setWrapMode(TextWrapMode.Word);
 textNode.setText(
-  "Flowscape Editor\n" +
-  "Precision tools for building\n" +
-  "interactive scene systems."
+	"Flowscape Editor\n" +
+		"Precision tools for building\n" +
+		"interactive scene systems.",
 );
 
 // groupNode.addChild(rectNode);
 // groupNode.addChild(rectNode2);
 // layerWorld.addNode(groupNode);
-
 
 // layerWorld.addNode(textNode);
 // layerWorld.addNode(lineNode);
@@ -340,11 +318,11 @@ scene.invalidate();
 
 // --- AUTO RESIZE ---
 const resizeObserver = new ResizeObserver(() => {
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+	const width = container.clientWidth;
+	const height = container.clientHeight;
 
-  scene.setSize(width, height);
-  scene.invalidate();
+	scene.setSize(width, height);
+	scene.invalidate();
 });
 
 resizeObserver.observe(container);

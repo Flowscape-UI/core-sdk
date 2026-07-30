@@ -16,10 +16,10 @@ It controls whether an object should participate in active processing
 
 ```ts
 export interface IEnableable {
-  isEnabled(): boolean;
-  enable(): void;
-  disable(): void;
-  setEnabled(value: boolean): void;
+	isEnabled(): boolean;
+	enable(): void;
+	disable(): void;
+	setEnabled(value: boolean): void;
 }
 ```
 
@@ -29,41 +29,41 @@ This gives every runtime object a predictable on/off API.
 
 ```ts
 type Events = {
-  change: boolean;
+	change: boolean;
 };
 
 export abstract class Enableable implements IEnableable {
-  protected _enabled = true;
-  private readonly _events = new EventEmitter<Events>();
+	protected _enabled = true;
+	private readonly _events = new EventEmitter<Events>();
 
-  public onChange(callback: (state: boolean) => void): () => void {
-    return this._events.on('change', callback);
-  }
+	public onChange(callback: (state: boolean) => void): () => void {
+		return this._events.on("change", callback);
+	}
 
-  public isEnabled(): boolean {
-    return this._enabled;
-  }
+	public isEnabled(): boolean {
+		return this._enabled;
+	}
 
-  public enable(): void {
-    this.setEnabled(true);
-  }
+	public enable(): void {
+		this.setEnabled(true);
+	}
 
-  public disable(): void {
-    this.setEnabled(false);
-  }
+	public disable(): void {
+		this.setEnabled(false);
+	}
 
-  public setEnabled(value: boolean): void {
-    if (this._enabled === value) {
-      return;
-    }
+	public setEnabled(value: boolean): void {
+		if (this._enabled === value) {
+			return;
+		}
 
-    this._enabled = value;
-    this._onEnabledChanged(value);
-  }
+		this._enabled = value;
+		this._onEnabledChanged(value);
+	}
 
-  protected _onEnabledChanged(value: boolean): void {
-    this._events.emit('change', value);
-  }
+	protected _onEnabledChanged(value: boolean): void {
+		this._events.emit("change", value);
+	}
 }
 ```
 
@@ -94,24 +94,24 @@ export abstract class Enableable implements IEnableable {
 
 ```ts
 class GridModule extends Enableable {
-  protected override _onEnabledChanged(value: boolean): void {
-    super._onEnabledChanged(value);
-    console.log('Grid enabled:', value);
-  }
+	protected override _onEnabledChanged(value: boolean): void {
+		super._onEnabledChanged(value);
+		console.log("Grid enabled:", value);
+	}
 
-  public update(): void {
-    if (!this.isEnabled()) return;
-    // update logic
-  }
+	public update(): void {
+		if (!this.isEnabled()) return;
+		// update logic
+	}
 }
 
 const grid = new GridModule();
 const off = grid.onChange((state) => {
-  console.log('Changed:', state);
+	console.log("Changed:", state);
 });
 
 grid.disable(); // emits false
-grid.enable();  // emits true
+grid.enable(); // emits true
 
 off();
 ```

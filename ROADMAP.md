@@ -19,11 +19,11 @@ The 2.x line focuses on completing the core editing model and making existing sy
 - Complete gradient support across all applicable nodes.
 - Support gradients for both fills and strokes.
 - Support:
-  - linear gradients
-  - radial gradients
-  - conic gradients
-  - diamond gradients
-  - mesh gradients
+    - linear gradients
+    - radial gradients
+    - conic gradients
+    - diamond gradients
+    - mesh gradients
 - Keep gradient state declarative and renderer-independent.
 - Improve caching and rendering performance for expensive gradient types.
 - Add editor-friendly gradient handles for direct manipulation on canvas.
@@ -34,9 +34,9 @@ The 2.x line focuses on completing the core editing model and making existing sy
 - Make border/stroke behavior consistent across all applicable nodes.
 - Support independent stroke widths per side where geometry allows it.
 - Support:
-  - inside
-  - center
-  - outside
+    - inside
+    - center
+    - outside
 - Ensure strokes work correctly with gradients, corner radii, transforms, effects, export, and hit testing.
 - Unify shared stroke rendering logic instead of duplicating it across renderers.
 
@@ -155,10 +155,10 @@ Before 3.0, Flowscape should provide the reusable engine-level functionality req
 - Clipping and masks.
 - Nested clipping.
 - Boolean shape operations where practical:
-  - union
-  - subtract
-  - intersect
-  - exclude
+    - union
+    - subtract
+    - intersect
+    - exclude
 
 ### Snapping
 

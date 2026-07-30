@@ -7,21 +7,21 @@
  * controller.detach();
  */
 export interface IAttachable<T> {
-    /**
-     * Attaches the object to the given target.
-     *
-     * Прикрепляет объект к указанной цели.
-     * @example
-     * controller.attach(canvas);
-     */
-    attach(target: T): void;
+	/**
+	 * Attaches the object to the given target.
+	 *
+	 * Прикрепляет объект к указанной цели.
+	 * @example
+	 * controller.attach(canvas);
+	 */
+	attach(target: T): void;
 
-    /**
-     * Detaches the object from the current target.
-     *
-     * Открепляет объект от текущей цели.
-     * @example
-     * controller.detach();
-     */
-    detach(): void;
+	/**
+	 * Detaches the object from the current target.
+	 *
+	 * Открепляет объект от текущей цели.
+	 * @example
+	 * controller.detach();
+	 */
+	detach(): void;
 }

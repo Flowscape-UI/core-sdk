@@ -8,9 +8,9 @@ Why is this change necessary?
 
 ## Changes
 
-- 
-- 
-- 
+-
+-
+-
 
 ## Testing
 

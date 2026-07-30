@@ -1,4 +1,4 @@
 export interface IEffectBase {
-    isVisible(): boolean;
-    setVisible(value: boolean): void;
+	isVisible(): boolean;
+	setVisible(value: boolean): void;
 }

@@ -5,7 +5,7 @@
 // export class HtmlRendererHost extends BaseRendererHost {
 //     constructor(container: HTMLDivElement, id: number = -1) {
 //         super(id, "html");
-        
+
 //     }
 
 //     public attach(scene: IScene): void {
@@ -14,7 +14,6 @@
 //             // this._stage.add(renderer.getRenderNode());
 //         // });
 //     }
-
 
 //     // Overrdings
 //     protected override _onUpdate(scene: IScene): void {

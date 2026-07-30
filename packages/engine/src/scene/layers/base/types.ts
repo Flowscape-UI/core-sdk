@@ -2,10 +2,10 @@ import type { IEnableable } from "../../../core/enableable";
 import type { IEntity } from "../../../core/interfaces";
 
 export enum LayerType {
-    Background = 0,
-    World = 1,
-    Overlay = 2,
-    UI = 3,
+	Background = 0,
+	World = 1,
+	Overlay = 2,
+	UI = 3,
 }
 
 /**
@@ -26,52 +26,52 @@ export enum LayerType {
  * и управляется сценой.
  */
 export interface ILayerBase extends IEntity<LayerType>, IEnableable {
-    /**
-     * Returns the current width of the layer.
-     *
-     * Возвращает текущую ширину слоя.
-     */
-    getWidth(): number;
+	/**
+	 * Returns the current width of the layer.
+	 *
+	 * Возвращает текущую ширину слоя.
+	 */
+	getWidth(): number;
 
-    /**
-     * Returns the current height of the layer.
-     *
-     * Возвращает текущую высоту слоя.
-     */
-    getHeight(): number;
+	/**
+	 * Returns the current height of the layer.
+	 *
+	 * Возвращает текущую высоту слоя.
+	 */
+	getHeight(): number;
 
-    /**
-     * Returns the current size of the layer.
-     *
-     * Возвращает текущий размер слоя.
-     */
-    getSize(): { width: number, height: number };
+	/**
+	 * Returns the current size of the layer.
+	 *
+	 * Возвращает текущий размер слоя.
+	 */
+	getSize(): { width: number; height: number };
 
-    /**
-     * Sets the width of the layer.
-     *
-     * Устанавливает ширину слоя.
-     */
-    setWidth(value: number): void;
+	/**
+	 * Sets the width of the layer.
+	 *
+	 * Устанавливает ширину слоя.
+	 */
+	setWidth(value: number): void;
 
-    /**
-     * Sets the height of the layer.
-     *
-     * Устанавливает высоту слоя.
-     */
-    setHeight(value: number): void;
+	/**
+	 * Sets the height of the layer.
+	 *
+	 * Устанавливает высоту слоя.
+	 */
+	setHeight(value: number): void;
 
-    /**
-     * Sets the size of the layer.
-     *
-     * Устанавливает размер слоя.
-     */
-    setSize(width: number, height: number): void;
+	/**
+	 * Sets the size of the layer.
+	 *
+	 * Устанавливает размер слоя.
+	 */
+	setSize(width: number, height: number): void;
 
-    /**
-     * Destroys the layer and releases all resources.
-     *
-     * Уничтожает слой и освобождает все ресурсы.
-     */
-    destroy(): void;
+	/**
+	 * Destroys the layer and releases all resources.
+	 *
+	 * Уничтожает слой и освобождает все ресурсы.
+	 */
+	destroy(): void;
 }

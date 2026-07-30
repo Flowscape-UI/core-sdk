@@ -1,28 +1,25 @@
 {
-  "name": "flowscape-ui",
-  "private": true,
-  "packageManager": "bun@1.2.10",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-
-    "dev:playground": "turbo run dev --filter=@flowscape-ui/playground",
-    "dev:docs": "turbo run dev --filter=@flowscape-ui/docs",
-
-    "build:playground": "turbo run build --filter=@flowscape-ui/playground",
-    "build:docs": "turbo run build --filter=@flowscape-ui/docs"
-  },
-  "devDependencies": {
-    "prettier": "^3.7.4",
-    "turbo": "^2.10.5"
-  }
+	"name": "flowscape-ui",
+	"private": true,
+	"packageManager": "bun@1.2.10",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"build": "turbo run build",
+		"dev": "turbo run dev",
+		"lint": "turbo run lint",
+		"typecheck": "turbo run typecheck",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"dev:playground": "turbo run dev --filter=@flowscape-ui/playground",
+		"dev:docs": "turbo run dev --filter=@flowscape-ui/docs",
+		"build:playground": "turbo run build --filter=@flowscape-ui/playground",
+		"build:docs": "turbo run build --filter=@flowscape-ui/docs"
+	},
+	"devDependencies": {
+		"prettier": "^3.7.4",
+		"turbo": "^2.10.5"
+	}
 }

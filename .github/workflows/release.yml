@@ -1,61 +1,61 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
+    push:
+        tags:
+            - "v*"
 
 permissions:
-  contents: write
+    contents: write
 
 jobs:
-  release:
-    name: Publish release
-    runs-on: ubuntu-latest
+    release:
+        name: Publish release
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.10
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.2.10
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  registry-url: https://registry.npmjs.org
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+            - name: Install dependencies
+              run: bun install --frozen-lockfile
 
-      - name: Check formatting
-        run: bun run format:check
+            - name: Check formatting
+              run: bun run format:check
 
-      - name: Lint
-        run: bun run lint
+            - name: Lint
+              run: bun run lint
 
-      - name: Typecheck
-        run: bun run typecheck
+            - name: Typecheck
+              run: bun run typecheck
 
-      - name: Test
-        run: bunx turbo run test
+            - name: Test
+              run: bunx turbo run test
 
-      - name: Build
-        run: bun run build
+            - name: Build
+              run: bun run build
 
-      - name: Publish @flowscape-ui/core-sdk
-        working-directory: packages/engine
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Publish @flowscape-ui/core-sdk
+              working-directory: packages/engine
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "${GITHUB_REF_NAME}" \
-            --generate-notes
+            - name: Create GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "${GITHUB_REF_NAME}" \
+                    --title "${GITHUB_REF_NAME}" \
+                    --generate-notes

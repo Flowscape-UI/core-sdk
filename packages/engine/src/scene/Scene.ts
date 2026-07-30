@@ -10,240 +10,238 @@ import { ManagerRenderHost } from "./ManagerRenderHost";
 import { InputManager } from "./InputManager";
 
 export class Scene implements IScene {
-    private readonly _layersRenderer: LayerManager;
-    public readonly hostManager: ManagerRenderHost;
-    public readonly inputManager: InputManager;
+	private readonly _layersRenderer: LayerManager;
+	public readonly hostManager: ManagerRenderHost;
+	public readonly inputManager: InputManager;
 
-    private readonly _layers = new Map<string, ILayerBase>();
-    private _isFrameScheduled: boolean = false;
+	private readonly _layers = new Map<string, ILayerBase>();
+	private _isFrameScheduled: boolean = false;
 
-    private _width: number;
-    private _height: number;
+	private _width: number;
+	private _height: number;
 
-    constructor(width: number, height: number) {
-        this._layersRenderer = new LayerManager();
-        this.hostManager = new ManagerRenderHost();
-        this.inputManager = new InputManager();
+	constructor(width: number, height: number) {
+		this._layersRenderer = new LayerManager();
+		this.hostManager = new ManagerRenderHost();
+		this.inputManager = new InputManager();
 
-        this._width = width;
-        this._height = height;
+		this._width = width;
+		this._height = height;
 
-        Input._initialize();
-        Input.onInput(() => {
-            this.invalidate();
-        });
-    }
+		Input._initialize();
+		Input.onInput(() => {
+			this.invalidate();
+		});
+	}
 
-    public getWidth(): number {
-        return this._width;
-    }
+	public getWidth(): number {
+		return this._width;
+	}
 
-    public getHeight(): number {
-        return this._height;
-    }
+	public getHeight(): number {
+		return this._height;
+	}
 
-    public setSize(width: number, height: number): void {
-        this._width = width;
-        this._height = height;
+	public setSize(width: number, height: number): void {
+		this._width = width;
+		this._height = height;
 
-        this._layers.forEach((layer) => {
-            layer.setSize(width, height);
-        });
+		this._layers.forEach((layer) => {
+			layer.setSize(width, height);
+		});
 
-        this._layersRenderer.getAll().forEach((binding) => {
-            const layer = this._layers.get(String(binding.layer.id));
-            if (!layer || !layer.isEnabled()) {
-                return;
-            }
-            binding.renderer.update();
-        });
+		this._layersRenderer.getAll().forEach((binding) => {
+			const layer = this._layers.get(String(binding.layer.id));
+			if (!layer || !layer.isEnabled()) {
+				return;
+			}
+			binding.renderer.update();
+		});
 
-        this.invalidate();
-    }
+		this.invalidate();
+	}
 
-    public update(): void {
-        this.inputManager.update();
+	public update(): void {
+		this.inputManager.update();
 
-        this._layersRenderer.getAll().forEach((binding) => {
-            const layer = this._layers.get(String(binding.layer.id));
-            if (!layer || !layer.isEnabled()) {
-                return;
-            }
-            binding.renderer.update();
-        });
+		this._layersRenderer.getAll().forEach((binding) => {
+			const layer = this._layers.get(String(binding.layer.id));
+			if (!layer || !layer.isEnabled()) {
+				return;
+			}
+			binding.renderer.update();
+		});
 
-        this.hostManager?.update();
-    }
+		this.hostManager?.update();
+	}
 
-    public render(): void {
-        this._layersRenderer.getAll().forEach((binding) => {
-            const layer = this._layers.get(String(binding.layer.id));
-            if (!layer || !layer.isEnabled()) {
-                return;
-            }
-            binding.renderer.render();
-        });
+	public render(): void {
+		this._layersRenderer.getAll().forEach((binding) => {
+			const layer = this._layers.get(String(binding.layer.id));
+			if (!layer || !layer.isEnabled()) {
+				return;
+			}
+			binding.renderer.render();
+		});
 
-        this.hostManager?.render();
-        Input._endFrame();
-    }
+		this.hostManager?.render();
+		Input._endFrame();
+	}
 
-    public invalidate(): void {
-        if (this._isFrameScheduled) {
-            return;
-        }
-        this._isFrameScheduled = true;
+	public invalidate(): void {
+		if (this._isFrameScheduled) {
+			return;
+		}
+		this._isFrameScheduled = true;
 
-        requestAnimationFrame(() => {
-            this._isFrameScheduled = false;
-            this.update();
-            this.render();
-        });
-    }
+		requestAnimationFrame(() => {
+			this._isFrameScheduled = false;
+			this.update();
+			this.render();
+		});
+	}
 
+	/************************************************************/
+	/*                     Layer Management                     */
+	/************************************************************/
 
+	public addLayer(layer: ILayerBase): boolean {
+		const id = String(layer.id);
+		if (this._layers.has(id)) {
+			return false;
+		}
 
-    /************************************************************/
-    /*                     Layer Management                     */
-    /************************************************************/
+		layer.setSize(this._width, this._height);
+		this._layers.set(id, layer);
+		return true;
+	}
 
-    public addLayer(layer: ILayerBase): boolean {
-        const id = String(layer.id);
-        if (this._layers.has(id)) {
-            return false;
-        }
+	public addHost(host: IRendererHost): void {
+		const id = Number(host.id);
+		if (this.hostManager.getById(id)) {
+			throw new Error(`Render host "${id}" already exists.`);
+		}
 
-        layer.setSize(this._width, this._height);
-        this._layers.set(id, layer);
-        return true;
-    }
+		this.hostManager.add(host);
 
-    public addHost(host: IRendererHost): void {
-        const id = Number(host.id);
-        if (this.hostManager.getById(id)) {
-            throw new Error(`Render host "${id}" already exists.`);
-        }
+		try {
+			Input._registerSurface(host.getSurface());
+			host.attach(this);
+		} catch (error) {
+			this.hostManager.remove(id);
+			throw error;
+		}
 
-        this.hostManager.add(host);
+		this.invalidate();
+	}
 
-        try {
-            Input._registerSurface(host.getSurface());
-            host.attach(this);
-        } catch (error) {
-            this.hostManager.remove(id);
-            throw error;
-        }
+	public removeHost(id: number): boolean {
+		const host = this.hostManager.getById(id);
+		if (!host) {
+			return false;
+		}
 
-        this.invalidate();
-    }
+		Input._unregisterSurface(host.getSurface());
+		host.detach();
+		host.destroy();
 
-    public removeHost(id: number): boolean {
-        const host = this.hostManager.getById(id);
-        if (!host) {
-            return false;
-        }
+		this.hostManager.remove(id);
+		this.invalidate();
+		return true;
+	}
 
-        Input._unregisterSurface(host.getSurface());
-        host.detach();
-        host.destroy();
+	public removeLayer(id: ID): boolean {
+		const idString = String(id);
+		const layer = this._layers.get(idString);
+		if (!layer) {
+			return false;
+		}
 
-        this.hostManager.remove(id);
-        this.invalidate();
-        return true;
-    }
+		this.inputManager.getAll().forEach((binding) => {
+			if (binding.layer.id !== layer.id) {
+				return;
+			}
 
-    public removeLayer(id: ID): boolean {
-        const idString = String(id);
-        const layer = this._layers.get(idString);
-        if (!layer) {
-            return false;
-        }
+			this.inputManager.remove(binding.controller.id);
+		});
 
-        this.inputManager.getAll().forEach((binding) => {
-            if (binding.layer.id !== layer.id) {
-                return;
-            }
+		this.unbindLayerRenderer(layer.id);
+		layer.destroy();
 
-            this.inputManager.remove(binding.controller.id);
-        });
+		this._layers.delete(idString);
+		this.invalidate();
+		return true;
+	}
 
-        this.unbindLayerRenderer(layer.id);
-        layer.destroy();
+	public hasLayer(id: ID): boolean {
+		return this._layers.has(String(id));
+	}
 
-        this._layers.delete(idString);
-        this.invalidate();
-        return true;
-    }
+	public getLayerById<TLayer extends ILayerBase = ILayerBase>(
+		id: ID,
+	): TLayer | null {
+		return (this._layers.get(String(id)) as TLayer | undefined) ?? null;
+	}
 
-    public hasLayer(id: ID): boolean {
-        return this._layers.has(String(id));
-    }
+	public getLayers(): readonly ILayerBase[] {
+		return Array.from(this._layers.values());
+	}
 
-    public getLayerById<TLayer extends ILayerBase = ILayerBase>(id: ID): TLayer | null {
-        return (this._layers.get(String(id)) as TLayer | undefined) ?? null;
-    }
+	/************************************************************/
+	/*                       Layer Binds                        */
+	/************************************************************/
+	public bindLayerRenderer<TLayer extends ILayerBase>(
+		layer: TLayer,
+		renderer: IRendererLayerBase<TLayer>,
+	): void {
+		const id = String(layer.id);
+		const registeredLayer = this._layers.get(id);
 
-    public getLayers(): readonly ILayerBase[] {
-        return Array.from(this._layers.values());
-    }
+		if (!registeredLayer) {
+			throw new Error(`Layer "${id}" is not registered in Scene.`);
+		}
+		if (registeredLayer !== layer) {
+			throw new Error(
+				`Layer "${id}" is registered with a different instance. ` +
+					`Use the same layer object that was passed to addLayer().`,
+			);
+		}
 
+		const existing = this._layersRenderer.getById(layer.id);
+		if (existing) {
+			existing.renderer.detach();
+			existing.renderer.destroy();
+			this._layersRenderer.remove(layer.id);
+		}
 
+		renderer.attach(layer);
+		this._layersRenderer.add(registeredLayer, renderer);
+		this._reattachHosts();
+		this.invalidate();
+	}
 
-    /************************************************************/
-    /*                       Layer Binds                        */
-    /************************************************************/
-    public bindLayerRenderer<TLayer extends ILayerBase>(
-        layer: TLayer,
-        renderer: IRendererLayerBase<TLayer>,
-    ): void {
-        const id = String(layer.id);
-        const registeredLayer = this._layers.get(id);
+	public unbindLayerRenderer(id: ID): boolean {
+		const binding = this._layersRenderer.getById(id);
+		if (!binding) {
+			return false;
+		}
 
-        if (!registeredLayer) {
-            throw new Error(`Layer "${id}" is not registered in Scene.`);
-        }
-        if (registeredLayer !== layer) {
-            throw new Error(
-                `Layer "${id}" is registered with a different instance. ` +
-                `Use the same layer object that was passed to addLayer().`
-            );
-        }
+		binding.renderer.detach();
+		binding.renderer.destroy();
+		this._layersRenderer.remove(id);
+		this._reattachHosts();
+		this.invalidate();
+		return true;
+	}
 
-        const existing = this._layersRenderer.getById(layer.id);
-        if (existing) {
-            existing.renderer.detach();
-            existing.renderer.destroy();
-            this._layersRenderer.remove(layer.id);
-        }
+	public getLayerRendererBindings(): readonly LayerBinding[] {
+		return this._layersRenderer.getAll();
+	}
 
-        renderer.attach(layer);
-        this._layersRenderer.add(registeredLayer, renderer);
-        this._reattachHosts();
-        this.invalidate();
-    }
-
-    public unbindLayerRenderer(id: ID): boolean {
-        const binding = this._layersRenderer.getById(id);
-        if (!binding) {
-            return false;
-        }
-
-        binding.renderer.detach();
-        binding.renderer.destroy();
-        this._layersRenderer.remove(id);
-        this._reattachHosts();
-        this.invalidate();
-        return true;
-    }
-
-    public getLayerRendererBindings(): readonly LayerBinding[] {
-        return this._layersRenderer.getAll();
-    }
-
-    private _reattachHosts(): void {
-        for (const host of this.hostManager.getAll()) {
-            host.detach();
-            host.attach(this);
-        }
-    }
+	private _reattachHosts(): void {
+		for (const host of this.hostManager.getAll()) {
+			host.detach();
+			host.attach(this);
+		}
+	}
 }

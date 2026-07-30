@@ -1,9 +1,8 @@
 {
-  "label": "Nodes",
-  "position": 3,
-  "link": {
-    "type": "doc",
-    "id": "advanced/nodes/overview"
-  }
+	"label": "Nodes",
+	"position": 3,
+	"link": {
+		"type": "doc",
+		"id": "advanced/nodes/overview"
+	}
 }
-

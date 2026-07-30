@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+.docusaurus/
+
+bun.lock
+
+*.min.js
+*.min.css
+
+apps/docs/.docusaurus/
+apps/docs/build/
