@@ -8,33 +8,24 @@ const config: Config = {
 		"Framework-agnostic 2D engine for editors, builders and infinite canvas apps",
 	favicon: "img/favicon.ico",
 
-	// Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
 	future: {
-		v4: true, // Improve compatibility with the upcoming Docusaurus v4
+		v4: true,
 	},
 
-	// Set the production url of your site here
 	url: "https://flowscape-ui.github.io",
-	// Set the /<baseUrl>/ pathname under which your site is served
-	// For GitHub pages deployment, it is often '/<projectName>/'
-	baseUrl: "/docs",
+	baseUrl: "/core-sdk/",
 
-	// GitHub pages deployment config.
-	// If you aren't using GitHub pages, you don't need these.
-	organizationName: "Flowscape-UI", // Usually your GitHub org/user name.
-	projectName: "docs", // Usually your repo name.
+	organizationName: "Flowscape-UI",
+	projectName: "core-sdk",
 
 	onBrokenLinks: "warn",
 
-	// Even if you don't use internationalization, you can use this field to set
-	// useful metadata like html lang. For example, if your site is Chinese, you
-	// may want to replace "en" with "zh-Hans".
 	i18n: {
 		defaultLocale: "en",
 		locales: [
 			"en",
-			// 'ru',
-			// 'ro'
+			// "ru",
+			// "ro",
 		],
 		localeConfigs: {
 			en: {
@@ -42,12 +33,12 @@ const config: Config = {
 				htmlLang: "en-US",
 			},
 			// ru: {
-			//   label: 'Русский',
-			//   htmlLang: 'ru-RU',
+			// 	label: "Русский",
+			// 	htmlLang: "ru-RU",
 			// },
 			// ro: {
-			//   label: 'Română',
-			//   htmlLang: 'ro-RO',
+			// 	label: "Română",
+			// 	htmlLang: "ro-RO",
 			// },
 		},
 	},
@@ -60,20 +51,25 @@ const config: Config = {
 					routeBasePath: "/",
 					sidebarPath: "./sidebars.ts",
 					editUrl:
-						"https://github.com/Flowscape-UI/core-sdk/tree/main",
+						"https://github.com/Flowscape-UI/core-sdk/tree/main/apps/docs/",
 				},
+
 				blog: {
 					showReadingTime: true,
+
 					feedOptions: {
 						type: ["rss", "atom"],
 						xslt: true,
 					},
+
 					editUrl:
-						"https://github.com/Flowscape-UI/core-sdk/tree/main",
+						"https://github.com/Flowscape-UI/core-sdk/tree/main/apps/docs/",
+
 					onInlineTags: "warn",
 					onInlineAuthors: "warn",
 					onUntruncatedBlogPosts: "warn",
 				},
+
 				theme: {
 					customCss: "./src/css/custom.css",
 				},
@@ -83,20 +79,19 @@ const config: Config = {
 
 	themeConfig: {
 		image: "img/social-card.png",
+
 		colorMode: {
 			respectPrefersColorScheme: true,
 		},
-		// algolia: {
-		//   appId: process.env.APP_ID!,
-		//   apiKey: process.env.SEARCH_API_KEY!,
-		//   indexName: process.env.INDEX_NAME!,
-		// },
+
 		navbar: {
 			title: "Flowscape",
+
 			logo: {
 				alt: "Flowscape Logo",
 				src: "img/logo.svg",
 			},
+
 			items: [
 				{
 					type: "docSidebar",
@@ -104,31 +99,35 @@ const config: Config = {
 					position: "right",
 					label: "Tutorial",
 				},
+
 				{
 					to: "/blog",
 					label: "Blog",
 					position: "left",
 				},
 
-				// 🌐 Language switcher
+				{
+					href: "/core-sdk/playground/",
+					label: "Playground",
+					position: "left",
+				},
+
 				{
 					type: "localeDropdown",
 					position: "right",
 				},
 
-				// 🔍 Search (Algolia потом подключим)
 				{
 					type: "search",
 					position: "right",
 				},
 
-				// GitHub
 				{
 					href: "https://github.com/Flowscape-UI/core-sdk",
 					label: "GitHub",
 					position: "right",
 				},
-				// Linktree
+
 				{
 					href: "https://linktr.ee/flowscape_ui",
 					label: "Linktree",
@@ -136,8 +135,10 @@ const config: Config = {
 				},
 			],
 		},
+
 		footer: {
 			style: "dark",
+
 			links: [
 				{
 					title: "Docs",
@@ -146,8 +147,13 @@ const config: Config = {
 							label: "Tutorial",
 							to: "/intro",
 						},
+						{
+							label: "Playground",
+							href: "/core-sdk/playground/",
+						},
 					],
 				},
+
 				{
 					title: "Community",
 					items: [
@@ -165,6 +171,7 @@ const config: Config = {
 						},
 					],
 				},
+
 				{
 					title: "More",
 					items: [
@@ -173,14 +180,16 @@ const config: Config = {
 							to: "/blog",
 						},
 						{
-							to: "https://github.com/Flowscape-UI/core-sdk",
+							href: "https://github.com/Flowscape-UI/core-sdk",
 							label: "GitHub",
 						},
 					],
 				},
 			],
+
 			copyright: `Copyright © ${new Date().getFullYear()} Flowscape UI`,
 		},
+
 		prism: {
 			theme: prismThemes.github,
 			darkTheme: prismThemes.dracula,
