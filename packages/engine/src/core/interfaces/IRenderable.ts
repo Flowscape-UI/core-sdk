@@ -6,12 +6,12 @@
  * renderer.render();
  */
 export interface IRenderable {
-    /**
-     * Renders the object to the screen.
-     *
-     * Рендерит объект на экран.
-     * @example
-     * renderer.render();
-     */
-    render(): void;
+	/**
+	 * Renders the object to the screen.
+	 *
+	 * Рендерит объект на экран.
+	 * @example
+	 * renderer.render();
+	 */
+	render(): void;
 }

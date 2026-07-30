@@ -4,10 +4,7 @@ import {
 	GradientTransformerModule,
 	transformTo,
 } from "gradiente";
-import type {
-	CanvasGradientPaint,
-	KonvaGradientPaint
-} from "./types";
+import type { CanvasGradientPaint, KonvaGradientPaint } from "./types";
 
 const TRANSFORM_TARGET = "konvajs";
 
@@ -31,11 +28,7 @@ export class ModuleTransformerLinearGradientToKonvajs extends GradientTransforme
 		);
 
 		return {
-			draw: (
-				ctx: Konva.Context,
-				width: number,
-				height: number,
-			): void => {
+			draw: (ctx: Konva.Context, width: number, height: number): void => {
 				if (width <= 0 || height <= 0) {
 					return;
 				}
@@ -53,11 +46,7 @@ export class ModuleTransformerLinearGradientToKonvajs extends GradientTransforme
 					);
 				}
 
-				canvasPaint.draw(
-					canvasContext,
-					canvas.width,
-					canvas.height,
-				);
+				canvasPaint.draw(canvasContext, canvas.width, canvas.height);
 
 				ctx.drawImage(
 					canvas,

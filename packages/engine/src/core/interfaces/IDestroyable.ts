@@ -6,12 +6,12 @@
  * controller.destroy();
  */
 export interface IDestroyable {
-    /**
-     * Destroys the object and releases all associated resources.
-     *
-     * Уничтожает объект и освобождает все связанные ресурсы.
-     * @example
-     * controller.destroy();
-     */
-    destroy(): void;
+	/**
+	 * Destroys the object and releases all associated resources.
+	 *
+	 * Уничтожает объект и освобождает все связанные ресурсы.
+	 * @example
+	 * controller.destroy();
+	 */
+	destroy(): void;
 }

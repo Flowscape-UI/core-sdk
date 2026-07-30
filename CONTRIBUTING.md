@@ -57,10 +57,7 @@ The interactive development environment for Flowscape.
 The Playground should consume the engine through its public package API:
 
 ```ts
-import {
-  Scene,
-  NodeRect,
-} from '@flowscape-ui/core-sdk';
+import { Scene, NodeRect } from "@flowscape-ui/core-sdk";
 ```
 
 It should not import directly from internal engine source files.
@@ -202,16 +199,13 @@ Flowscape has a clearly defined public API.
 Consumers should import from:
 
 ```ts
-import {
-  Scene,
-  NodeRect,
-} from '@flowscape-ui/core-sdk';
+import { Scene, NodeRect } from "@flowscape-ui/core-sdk";
 ```
 
 Do not rely on internal paths such as:
 
 ```ts
-import { Scene } from '@flowscape-ui/core-sdk/src/scene';
+import { Scene } from "@flowscape-ui/core-sdk/src/scene";
 ```
 
 Internal modules may change without notice.

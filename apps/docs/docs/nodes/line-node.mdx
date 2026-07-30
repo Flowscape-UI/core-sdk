@@ -5,77 +5,77 @@ sidebar_label: Line
 description: "Reference for Line Node in Flowscape: endpoints, thickness, caps, endings, and live connector preview."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const lineSceneSpec = {
-  background: {
-    showLogo: true,
-    logoOpacity: 0.5,
-    logoSize: { width: 220, height: 220 },
-  },
-  camera: {
-    padding: 96,
-    minScale: 0.2,
-    maxScale: 5,
-  },
-  nodes: [
-    {
-      kind: 'line',
-      name: 'RoundConnector',
-      x: -420,
-      y: -170,
-      start: { x: 0, y: 0 },
-      end: { x: 360, y: 0 },
-      strokeFill: '#38bdf8',
-      strokeThickness: 10,
-      lineCapStart: 'round',
-      lineCapEnd: 'round',
-      startEnding: 'none',
-      endEnding: 'none',
-    },
-    {
-      kind: 'line',
-      name: 'ArrowLink',
-      x: -420,
-      y: -40,
-      start: { x: 0, y: 0 },
-      end: { x: 360, y: 0 },
-      strokeFill: '#f59e0b',
-      strokeThickness: 10,
-      lineCapStart: 'butt',
-      lineCapEnd: 'square',
-      startEnding: 'none',
-      endEnding: 'line-arrow',
-    },
-    {
-      kind: 'line',
-      name: 'Bidirectional',
-      x: -420,
-      y: 90,
-      start: { x: 0, y: 0 },
-      end: { x: 360, y: 0 },
-      strokeFill: '#22c55e',
-      strokeThickness: 12,
-      lineCapStart: 'round',
-      lineCapEnd: 'round',
-      startEnding: 'circle-arrow',
-      endEnding: 'triangle-arrow',
-    },
-    {
-      kind: 'line',
-      name: 'DiagonalDirection',
-      x: -120,
-      y: 240,
-      start: { x: 0, y: 0 },
-      end: { x: 320, y: -150 },
-      strokeFill: '#f97316',
-      strokeThickness: 10,
-      lineCapStart: 'square',
-      lineCapEnd: 'round',
-      startEnding: 'diamond-arrow',
-      endEnding: 'reversed-triangle',
-    },
-  ],
+	background: {
+		showLogo: true,
+		logoOpacity: 0.5,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 96,
+		minScale: 0.2,
+		maxScale: 5,
+	},
+	nodes: [
+		{
+			kind: "line",
+			name: "RoundConnector",
+			x: -420,
+			y: -170,
+			start: { x: 0, y: 0 },
+			end: { x: 360, y: 0 },
+			strokeFill: "#38bdf8",
+			strokeThickness: 10,
+			lineCapStart: "round",
+			lineCapEnd: "round",
+			startEnding: "none",
+			endEnding: "none",
+		},
+		{
+			kind: "line",
+			name: "ArrowLink",
+			x: -420,
+			y: -40,
+			start: { x: 0, y: 0 },
+			end: { x: 360, y: 0 },
+			strokeFill: "#f59e0b",
+			strokeThickness: 10,
+			lineCapStart: "butt",
+			lineCapEnd: "square",
+			startEnding: "none",
+			endEnding: "line-arrow",
+		},
+		{
+			kind: "line",
+			name: "Bidirectional",
+			x: -420,
+			y: 90,
+			start: { x: 0, y: 0 },
+			end: { x: 360, y: 0 },
+			strokeFill: "#22c55e",
+			strokeThickness: 12,
+			lineCapStart: "round",
+			lineCapEnd: "round",
+			startEnding: "circle-arrow",
+			endEnding: "triangle-arrow",
+		},
+		{
+			kind: "line",
+			name: "DiagonalDirection",
+			x: -120,
+			y: 240,
+			start: { x: 0, y: 0 },
+			end: { x: 320, y: -150 },
+			strokeFill: "#f97316",
+			strokeThickness: 10,
+			lineCapStart: "square",
+			lineCapEnd: "round",
+			startEnding: "diamond-arrow",
+			endEnding: "reversed-triangle",
+		},
+	],
 };
 
 ## Line Node (INodeLine)
@@ -89,26 +89,26 @@ export const lineSceneSpec = {
 
 ```ts
 export interface INodeLine extends IShapeBase {
-  getStart(): Vector2;
-  setStart(value: Vector2): void;
+	getStart(): Vector2;
+	setStart(value: Vector2): void;
 
-  getEnd(): Vector2;
-  setEnd(value: Vector2): void;
+	getEnd(): Vector2;
+	setEnd(value: Vector2): void;
 
-  getStrokeThickness(): number;
-  setStrokeThickness(value: number): void;
+	getStrokeThickness(): number;
+	setStrokeThickness(value: number): void;
 
-  getLineCapStart(): LineCap;
-  setLineCapStart(value: LineCap): void;
+	getLineCapStart(): LineCap;
+	setLineCapStart(value: LineCap): void;
 
-  getLineCapEnd(): LineCap;
-  setLineCapEnd(value: LineCap): void;
+	getLineCapEnd(): LineCap;
+	setLineCapEnd(value: LineCap): void;
 
-  getStartEnding(): LineEnding;
-  setStartEnding(value: LineEnding): void;
+	getStartEnding(): LineEnding;
+	setStartEnding(value: LineEnding): void;
 
-  getEndEnding(): LineEnding;
-  setEndEnding(value: LineEnding): void;
+	getEndEnding(): LineEnding;
+	setEndEnding(value: LineEnding): void;
 }
 ```
 
@@ -126,18 +126,14 @@ The preview shows several practical line styles in one scene:
 ## Create Line Nodes in Code
 
 ```ts
-import {
-  NodeLine,
-  LineCap,
-  LineEnding,
-} from '@flowscape-ui/core-sdk';
+import { NodeLine, LineCap, LineEnding } from "@flowscape-ui/core-sdk";
 
 const line = new NodeLine(1);
-line.setName('ArrowLink');
+line.setName("ArrowLink");
 line.setPosition(-420, -40);
 line.setStart({ x: 0, y: 0 });
 line.setEnd({ x: 360, y: 0 });
-line.setStrokeFill('#f59e0b');
+line.setStrokeFill("#f59e0b");
 line.setStrokeThickness(10);
 line.setLineCapStart(LineCap.Butt);
 line.setLineCapEnd(LineCap.Square);
@@ -152,22 +148,22 @@ scene.invalidate();
 
 ### LineCap
 
-| Value | Meaning |
-| --- | --- |
-| `LineCap.Round` | Rounded stroke edge. |
+| Value            | Meaning                                    |
+| ---------------- | ------------------------------------------ |
+| `LineCap.Round`  | Rounded stroke edge.                       |
 | `LineCap.Square` | Squared cap extending beyond the endpoint. |
-| `LineCap.Butt` | Flat cap ending exactly at the endpoint. |
+| `LineCap.Butt`   | Flat cap ending exactly at the endpoint.   |
 
 ### LineEnding
 
-| Value | Meaning |
-| --- | --- |
-| `LineEnding.None` | No decorative ending. |
-| `LineEnding.LineArrow` | Open arrow line ending. |
-| `LineEnding.TriangleArrow` | Filled triangular arrow. |
+| Value                         | Meaning                               |
+| ----------------------------- | ------------------------------------- |
+| `LineEnding.None`             | No decorative ending.                 |
+| `LineEnding.LineArrow`        | Open arrow line ending.               |
+| `LineEnding.TriangleArrow`    | Filled triangular arrow.              |
 | `LineEnding.ReversedTriangle` | Triangle pointing opposite direction. |
-| `LineEnding.CircleArrow` | Circular ending marker. |
-| `LineEnding.DiamondArrow` | Diamond-shaped ending marker. |
+| `LineEnding.CircleArrow`      | Circular ending marker.               |
+| `LineEnding.DiamondArrow`     | Diamond-shaped ending marker.         |
 
 ## Size Override Behavior
 
@@ -192,4 +188,3 @@ INode
 ## Next
 
 - [Path Node reference](./path-node)
-

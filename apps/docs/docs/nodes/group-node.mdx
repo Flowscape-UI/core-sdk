@@ -5,98 +5,98 @@ sidebar_label: Group
 description: "Reference for Group Node in Flowscape: hierarchy composition, shared transforms, and practical grouping workflow."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const groupSceneSpec = {
-  background: {
-    fill: '#121212',
-    showLogo: true,
-    logoOpacity: 0.22,
-    logoSize: { width: 220, height: 220 },
-  },
-  camera: {
-    padding: 92,
-    minScale: 0.14,
-    maxScale: 6,
-  },
-  nodes: [
-    {
-      kind: 'group',
-      name: 'PrimaryCluster',
-      x: -210,
-      y: -30,
-      rotation: 0.18,
-      children: [
-        {
-          kind: 'rect',
-          name: 'GroupRectA',
-          x: -120,
-          y: -80,
-          width: 210,
-          height: 130,
-          fill: '#3b82f6',
-          strokeFill: '#dbeafe',
-          strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-          strokeAlign: 'inside',
-          cornerRadius: 18,
-        },
-        {
-          kind: 'ellipse',
-          name: 'GroupEllipseA',
-          x: 120,
-          y: 10,
-          width: 150,
-          height: 150,
-          fill: '#f97316',
-          strokeFill: '#ffedd5',
-          strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-          strokeAlign: 'inside',
-          innerRatio: 0.38,
-          startAngle: 0,
-          endAngle: 360,
-        },
-      ],
-    },
-    {
-      kind: 'group',
-      name: 'SecondaryCluster',
-      x: 220,
-      y: 90,
-      rotation: -0.14,
-      scaleX: 0.92,
-      scaleY: 0.92,
-      children: [
-        {
-          kind: 'rect',
-          name: 'GroupRectB',
-          x: -110,
-          y: -90,
-          width: 190,
-          height: 120,
-          fill: '#10b981',
-          strokeFill: '#d1fae5',
-          strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-          strokeAlign: 'inside',
-          cornerRadius: 14,
-        },
-        {
-          kind: 'ellipse',
-          name: 'GroupEllipseB',
-          x: 110,
-          y: 30,
-          width: 150,
-          height: 150,
-          fill: '#f59e0b',
-          strokeFill: '#fef3c7',
-          strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-          strokeAlign: 'inside',
-          innerRatio: 0.62,
-          startAngle: 36,
-          endAngle: 320,
-        },
-      ],
-    },
-  ],
+	background: {
+		fill: "#121212",
+		showLogo: true,
+		logoOpacity: 0.22,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 92,
+		minScale: 0.14,
+		maxScale: 6,
+	},
+	nodes: [
+		{
+			kind: "group",
+			name: "PrimaryCluster",
+			x: -210,
+			y: -30,
+			rotation: 0.18,
+			children: [
+				{
+					kind: "rect",
+					name: "GroupRectA",
+					x: -120,
+					y: -80,
+					width: 210,
+					height: 130,
+					fill: "#3b82f6",
+					strokeFill: "#dbeafe",
+					strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+					strokeAlign: "inside",
+					cornerRadius: 18,
+				},
+				{
+					kind: "ellipse",
+					name: "GroupEllipseA",
+					x: 120,
+					y: 10,
+					width: 150,
+					height: 150,
+					fill: "#f97316",
+					strokeFill: "#ffedd5",
+					strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+					strokeAlign: "inside",
+					innerRatio: 0.38,
+					startAngle: 0,
+					endAngle: 360,
+				},
+			],
+		},
+		{
+			kind: "group",
+			name: "SecondaryCluster",
+			x: 220,
+			y: 90,
+			rotation: -0.14,
+			scaleX: 0.92,
+			scaleY: 0.92,
+			children: [
+				{
+					kind: "rect",
+					name: "GroupRectB",
+					x: -110,
+					y: -90,
+					width: 190,
+					height: 120,
+					fill: "#10b981",
+					strokeFill: "#d1fae5",
+					strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+					strokeAlign: "inside",
+					cornerRadius: 14,
+				},
+				{
+					kind: "ellipse",
+					name: "GroupEllipseB",
+					x: 110,
+					y: 30,
+					width: 150,
+					height: 150,
+					fill: "#f59e0b",
+					strokeFill: "#fef3c7",
+					strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+					strokeAlign: "inside",
+					innerRatio: 0.62,
+					startAngle: 36,
+					endAngle: 320,
+				},
+			],
+		},
+	],
 };
 
 ## Group Node (INodeGroup)
@@ -125,34 +125,34 @@ The preview demonstrates two transformed groups with mixed child nodes (`Rect` +
 
 ```ts
 import {
-  NodeGroup,
-  NodeRect,
-  NodeEllipse,
-  StrokeAlign,
-} from '@flowscape-ui/core-sdk';
+	NodeGroup,
+	NodeRect,
+	NodeEllipse,
+	StrokeAlign,
+} from "@flowscape-ui/core-sdk";
 
 const group = new NodeGroup(100);
-group.setName('PrimaryCluster');
+group.setName("PrimaryCluster");
 group.setPosition(-210, -30);
 group.setRotation(0.18);
 
 const rect = new NodeRect(101);
-rect.setName('GroupRectA');
+rect.setName("GroupRectA");
 rect.setSize(210, 130);
 rect.setPosition(-120, -80);
-rect.setFill('#3b82f6');
-rect.setStrokeFill('#dbeafe');
+rect.setFill("#3b82f6");
+rect.setStrokeFill("#dbeafe");
 rect.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
 rect.setStrokeAlign(StrokeAlign.Inside);
 rect.setCornerRadius({ tl: 18, tr: 18, br: 18, bl: 18 });
 group.addChild(rect);
 
 const ellipse = new NodeEllipse(102);
-ellipse.setName('GroupEllipseA');
+ellipse.setName("GroupEllipseA");
 ellipse.setSize(150, 150);
 ellipse.setPosition(120, 10);
-ellipse.setFill('#f97316');
-ellipse.setStrokeFill('#ffedd5');
+ellipse.setFill("#f97316");
+ellipse.setStrokeFill("#ffedd5");
 ellipse.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
 ellipse.setStrokeAlign(StrokeAlign.Inside);
 ellipse.setInnerRatio(0.38);
@@ -175,4 +175,3 @@ scene.invalidate();
 ## Next
 
 - [Line Node reference](./line-node)
-

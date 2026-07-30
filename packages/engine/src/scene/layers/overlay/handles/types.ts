@@ -1,7 +1,7 @@
 export interface ILayerOverlayHandle {
-    isEnabled(): boolean;
-    setEnabled(value: boolean): void;
+	isEnabled(): boolean;
+	setEnabled(value: boolean): void;
 
-    clear(): void;
-    destroy(): void;
+	clear(): void;
+	destroy(): void;
 }

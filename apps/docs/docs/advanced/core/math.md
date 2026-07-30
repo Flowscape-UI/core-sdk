@@ -58,8 +58,8 @@ These values align with float32/WebGL-style numeric boundaries.
 ## Validation and normalization
 
 ```ts
-MathF32.isValidNumber(value)
-MathF32.toF32(value)
+MathF32.isValidNumber(value);
+MathF32.toF32(value);
 ```
 
 `toF32` behavior:
@@ -72,15 +72,15 @@ MathF32.toF32(value)
 ## Arithmetic helpers
 
 ```ts
-MathF32.add(a, b)
-MathF32.sub(a, b)
-MathF32.mul(a, b)
-MathF32.div(a, b)
-MathF32.neg(value)
-MathF32.abs(value)
-MathF32.min(a, b)
-MathF32.max(a, b)
-MathF32.clamp(value, min, max)
+MathF32.add(a, b);
+MathF32.sub(a, b);
+MathF32.mul(a, b);
+MathF32.div(a, b);
+MathF32.neg(value);
+MathF32.abs(value);
+MathF32.min(a, b);
+MathF32.max(a, b);
+MathF32.clamp(value, min, max);
 ```
 
 Notes:
@@ -104,17 +104,17 @@ MathF32.ceil(value)
 ## Trigonometry and angle utilities
 
 ```ts
-MathF32.sin(value)
-MathF32.cos(value)
-MathF32.tan(value)
-MathF32.atan(value)
-MathF32.atan2(y, x)
-MathF32.asin(value)
-MathF32.acos(value)
-MathF32.radToDeg(rad)
-MathF32.degToRad(deg)
-MathF32.normalizeRad(angle)
-MathF32.normalizeDeg(angle)
+MathF32.sin(value);
+MathF32.cos(value);
+MathF32.tan(value);
+MathF32.atan(value);
+MathF32.atan2(y, x);
+MathF32.asin(value);
+MathF32.acos(value);
+MathF32.radToDeg(rad);
+MathF32.degToRad(deg);
+MathF32.normalizeRad(angle);
+MathF32.normalizeDeg(angle);
 ```
 
 Angle normalization ranges:
@@ -125,7 +125,7 @@ Angle normalization ranges:
 ## Minimal Example
 
 ```ts
-import { MathF32, DEG_TO_RAD } from '@flowscape-ui/core-sdk';
+import { MathF32, DEG_TO_RAD } from "@flowscape-ui/core-sdk";
 
 const angle = MathF32.normalizeRad(450 * DEG_TO_RAD);
 const x = MathF32.cos(angle);

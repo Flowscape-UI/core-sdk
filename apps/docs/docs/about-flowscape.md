@@ -14,16 +14,16 @@ The architecture is centered around a scene model, camera, and separated layers,
 
 ## Key Facts
 
-| | |
-|---|---|
-| **Type** | 2D engine for editor-style applications |
-| **Package** | [`@flowscape-ui/core-sdk`](https://www.npmjs.com/package/@flowscape-ui/core-sdk) |
-| **Current major version** | `2.x` |
-| **Language** | TypeScript |
-| **License** | MIT |
-| **GitHub** | [github.com/Flowscape-UI/core-sdk](https://github.com/Flowscape-UI/core-sdk) |
-| **Issues** | [GitHub Issues](https://github.com/Flowscape-UI/core-sdk/issues) |
-| **Community** | [Discord](https://discord.gg/GBVWxGuyTn) |
+|                           |                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| **Type**                  | 2D engine for editor-style applications                                          |
+| **Package**               | [`@flowscape-ui/core-sdk`](https://www.npmjs.com/package/@flowscape-ui/core-sdk) |
+| **Current major version** | `2.x`                                                                            |
+| **Language**              | TypeScript                                                                       |
+| **License**               | MIT                                                                              |
+| **GitHub**                | [github.com/Flowscape-UI/core-sdk](https://github.com/Flowscape-UI/core-sdk)     |
+| **Issues**                | [GitHub Issues](https://github.com/Flowscape-UI/core-sdk/issues)                 |
+| **Community**             | [Discord](https://discord.gg/GBVWxGuyTn)                                         |
 
 ## Where Flowscape Fits
 

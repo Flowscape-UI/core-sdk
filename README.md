@@ -94,16 +94,16 @@ Flowscape can be imported as a regular package in TypeScript and JavaScript appl
 
 ```ts
 import {
-  Scene,
-  LayerBackground,
-  LayerWorld,
-  LayerOverlay,
-  RendererLayerBackgroundCanvas,
-  RendererLayerWorldCanvas,
-  RendererLayerOverlayCanvas,
-  CanvasRendererHost,
-  NodeRect,
-} from '@flowscape-ui/core-sdk';
+	Scene,
+	LayerBackground,
+	LayerWorld,
+	LayerOverlay,
+	RendererLayerBackgroundCanvas,
+	RendererLayerWorldCanvas,
+	RendererLayerOverlayCanvas,
+	CanvasRendererHost,
+	NodeRect,
+} from "@flowscape-ui/core-sdk";
 ```
 
 ### Browser Script
@@ -114,7 +114,7 @@ Flowscape can also be used directly in the browser without a bundler.
 <script src="https://unpkg.com/@flowscape-ui/core-sdk/dist/flowscape.global.js"></script>
 
 <script>
-  const scene = new Flowscape.Scene(1280, 720);
+	const scene = new Flowscape.Scene(1280, 720);
 </script>
 ```
 
@@ -140,9 +140,9 @@ Make sure it has a visible size:
 html,
 body,
 #app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
 }
 ```
 
@@ -150,27 +150,24 @@ Then create a scene:
 
 ```ts
 import {
-  Scene,
-  LayerBackground,
-  LayerWorld,
-  LayerOverlay,
-  RendererLayerBackgroundCanvas,
-  RendererLayerWorldCanvas,
-  RendererLayerOverlayCanvas,
-  CanvasRendererHost,
-  NodeRect,
-} from '@flowscape-ui/core-sdk';
+	Scene,
+	LayerBackground,
+	LayerWorld,
+	LayerOverlay,
+	RendererLayerBackgroundCanvas,
+	RendererLayerWorldCanvas,
+	RendererLayerOverlayCanvas,
+	CanvasRendererHost,
+	NodeRect,
+} from "@flowscape-ui/core-sdk";
 
-const container = document.getElementById('app');
+const container = document.getElementById("app");
 
 if (!container) {
-  throw new Error('Container #app not found');
+	throw new Error("Container #app not found");
 }
 
-const scene = new Scene(
-  container.clientWidth,
-  container.clientHeight,
-);
+const scene = new Scene(container.clientWidth, container.clientHeight);
 
 // Create layers
 const background = new LayerBackground();
@@ -182,20 +179,11 @@ scene.addLayer(world);
 scene.addLayer(overlay);
 
 // Bind renderers
-scene.bindLayerRenderer(
-  background,
-  new RendererLayerBackgroundCanvas(),
-);
+scene.bindLayerRenderer(background, new RendererLayerBackgroundCanvas());
 
-scene.bindLayerRenderer(
-  world,
-  new RendererLayerWorldCanvas(),
-);
+scene.bindLayerRenderer(world, new RendererLayerWorldCanvas());
 
-scene.bindLayerRenderer(
-  overlay,
-  new RendererLayerOverlayCanvas(),
-);
+scene.bindLayerRenderer(overlay, new RendererLayerOverlayCanvas());
 
 // Create a render host
 const host = new CanvasRendererHost(container, -1);
@@ -203,14 +191,14 @@ const host = new CanvasRendererHost(container, -1);
 scene.addHost(host);
 
 // Configure the background
-background.setFill('#101010');
+background.setFill("#101010");
 
 // Add a node
 const rect = new NodeRect(1);
 
 rect.setPosition(300, 220);
 rect.setSize(220, 140);
-rect.setFill('#3b82f6');
+rect.setFill("#3b82f6");
 
 world.addNode(rect);
 
@@ -381,17 +369,14 @@ More information about contributing can be found in [`CONTRIBUTING.md`](./CONTRI
 Applications should import Flowscape exclusively through the public package API:
 
 ```ts
-import {
-  Scene,
-  NodeRect,
-} from '@flowscape-ui/core-sdk';
+import { Scene, NodeRect } from "@flowscape-ui/core-sdk";
 ```
 
 Do not import internal modules directly:
 
 ```ts
 // ❌ Do not do this
-import { Scene } from '@flowscape-ui/core-sdk/src/scene';
+import { Scene } from "@flowscape-ui/core-sdk/src/scene";
 ```
 
 Internal project structure may change between releases.

@@ -4,10 +4,7 @@ import {
 	GradientTransformerModule,
 	transformTo,
 } from "gradiente";
-import type {
-	CanvasGradientPaint,
-	KonvaGradientPaint,
-} from "./types";
+import type { CanvasGradientPaint, KonvaGradientPaint } from "./types";
 
 const TRANSFORM_TARGET = "konvajs";
 const MESH_MAX_RENDER_SCALE = 2;
@@ -60,20 +57,11 @@ export class ModuleTransformerMeshGradientToKonvajs extends GradientTransformerM
 				 * Непрерывный scale камеры постоянно сбрасывал бы кеш.
 				 */
 				const scale =
-					MESH_MAX_RENDER_SCALE >= 2 &&
-					renderScale >= 1.75
-						? 2
-						: 1;
+					MESH_MAX_RENDER_SCALE >= 2 && renderScale >= 1.75 ? 2 : 1;
 
-				const pixelWidth = Math.max(
-					1,
-					Math.ceil(width * scale),
-				);
+				const pixelWidth = Math.max(1, Math.ceil(width * scale));
 
-				const pixelHeight = Math.max(
-					1,
-					Math.ceil(height * scale),
-				);
+				const pixelHeight = Math.max(1, Math.ceil(height * scale));
 
 				const cacheInvalid =
 					pixelWidth !== cachedWidth ||
@@ -84,11 +72,7 @@ export class ModuleTransformerMeshGradientToKonvajs extends GradientTransformerM
 					canvas.width = pixelWidth;
 					canvas.height = pixelHeight;
 
-					canvasPaint.draw(
-						canvasContext,
-						pixelWidth,
-						pixelHeight,
-					);
+					canvasPaint.draw(canvasContext, pixelWidth, pixelHeight);
 
 					cachedWidth = pixelWidth;
 					cachedHeight = pixelHeight;

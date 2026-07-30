@@ -5,63 +5,63 @@ sidebar_label: Polygon
 description: "Reference for Polygon Node in Flowscape: side count, shape behavior, and live preview."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const polygonSceneSpec = {
-  background: {
-    fill: '#121212',
-    showLogo: true,
-    logoOpacity: 0.22,
-    logoSize: { width: 220, height: 220 },
-  },
-  camera: {
-    padding: 92,
-    minScale: 0.2,
-    maxScale: 5,
-  },
-  nodes: [
-    {
-      kind: 'polygon',
-      name: 'Triangle',
-      x: -350,
-      y: -40,
-      width: 220,
-      height: 220,
-      rotation: -0.14,
-      sideCount: 3,
-      fill: '#ef4444',
-      strokeFill: '#fee2e2',
-      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-      strokeAlign: 'inside',
-    },
-    {
-      kind: 'polygon',
-      name: 'Hexagon',
-      x: 0,
-      y: -40,
-      width: 230,
-      height: 230,
-      sideCount: 6,
-      fill: '#22c55e',
-      strokeFill: '#dcfce7',
-      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-      strokeAlign: 'inside',
-    },
-    {
-      kind: 'polygon',
-      name: 'Octagon',
-      x: 350,
-      y: -40,
-      width: 230,
-      height: 230,
-      rotation: 0.22,
-      sideCount: 8,
-      fill: '#3b82f6',
-      strokeFill: '#dbeafe',
-      strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
-      strokeAlign: 'inside',
-    },
-  ],
+	background: {
+		fill: "#121212",
+		showLogo: true,
+		logoOpacity: 0.22,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 92,
+		minScale: 0.2,
+		maxScale: 5,
+	},
+	nodes: [
+		{
+			kind: "polygon",
+			name: "Triangle",
+			x: -350,
+			y: -40,
+			width: 220,
+			height: 220,
+			rotation: -0.14,
+			sideCount: 3,
+			fill: "#ef4444",
+			strokeFill: "#fee2e2",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "polygon",
+			name: "Hexagon",
+			x: 0,
+			y: -40,
+			width: 230,
+			height: 230,
+			sideCount: 6,
+			fill: "#22c55e",
+			strokeFill: "#dcfce7",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "polygon",
+			name: "Octagon",
+			x: 350,
+			y: -40,
+			width: 230,
+			height: 230,
+			rotation: 0.22,
+			sideCount: 8,
+			fill: "#3b82f6",
+			strokeFill: "#dbeafe",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+		},
+	],
 };
 
 ## Polygon Node (INodePolygon)
@@ -70,8 +70,8 @@ export const polygonSceneSpec = {
 
 ```ts
 export interface INodePolygon extends IShapeBase {
-  getSideCount(): number;
-  setSideCount(value: number): void;
+	getSideCount(): number;
+	setSideCount(value: number): void;
 }
 ```
 
@@ -87,18 +87,15 @@ No group hierarchy is used here, each polygon is added directly to `layerWorld`.
 ## Create Polygon Node in Code
 
 ```ts
-import {
-  NodePolygon,
-  StrokeAlign,
-} from '@flowscape-ui/core-sdk';
+import { NodePolygon, StrokeAlign } from "@flowscape-ui/core-sdk";
 
 const polygon = new NodePolygon(1);
-polygon.setName('Hexagon');
+polygon.setName("Hexagon");
 polygon.setPosition(0, -40);
 polygon.setSize(230, 230);
 polygon.setSideCount(6);
-polygon.setFill('#22c55e');
-polygon.setStrokeFill('#dcfce7');
+polygon.setFill("#22c55e");
+polygon.setStrokeFill("#dcfce7");
 polygon.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
 polygon.setStrokeAlign(StrokeAlign.Inside);
 
@@ -108,9 +105,9 @@ scene.invalidate();
 
 ## Side Count API
 
-| Method | Description |
-| --- | --- |
-| `getSideCount()` | Returns current polygon side count. |
+| Method                | Description                                           |
+| --------------------- | ----------------------------------------------------- |
+| `getSideCount()`      | Returns current polygon side count.                   |
 | `setSideCount(value)` | Updates side count (value is clamped to valid range). |
 
 ## Inheritance
@@ -126,4 +123,3 @@ INode
 ## Next
 
 - [Text Node reference](./text-node)
-

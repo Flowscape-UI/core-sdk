@@ -6,162 +6,165 @@ import { matrixInvert } from "../utils/matrix-invert";
 import type { INodePolygon } from "./types";
 
 export class NodePolygon extends ShapeBase implements INodePolygon {
-    private static readonly MIN_SIDE_COUNT: number = 3;
-    private static readonly MAX_SIDE_COUNT: number = 60;
+	private static readonly MIN_SIDE_COUNT: number = 3;
+	private static readonly MAX_SIDE_COUNT: number = 60;
 
-    private _sideCount: number;
+	private _sideCount: number;
 
-    constructor(id: ID, name?: string, type?: NodeType) {
-        super(id, type ?? NodeType.Polygon, name ?? "Polygon");
-        this._sideCount = NodePolygon.MIN_SIDE_COUNT;
-    }
+	constructor(id: ID, name?: string, type?: NodeType) {
+		super(id, type ?? NodeType.Polygon, name ?? "Polygon");
+		this._sideCount = NodePolygon.MIN_SIDE_COUNT;
+	}
 
-    /*********************************************************/
-    /*                         Sides                         */
-    /*********************************************************/
+	/*********************************************************/
+	/*                         Sides                         */
+	/*********************************************************/
 
-    public getSideCount(): number {
-        return this._sideCount;
-    }
+	public getSideCount(): number {
+		return this._sideCount;
+	}
 
-    public setSideCount(value: number): void {
-        const next = this._clampSideCount(value);
+	public setSideCount(value: number): void {
+		const next = this._clampSideCount(value);
 
-        if (next === this._sideCount) {
-            return;
-        }
+		if (next === this._sideCount) {
+			return;
+		}
 
-        this._sideCount = next;
-    }
+		this._sideCount = next;
+	}
 
-    public getVertices(): Vector2[] {
-        return this._getVertices();
-    }
+	public getVertices(): Vector2[] {
+		return this._getVertices();
+	}
 
+	/*********************************************************/
+	/*                       Overrides                       */
+	/*********************************************************/
+	public override toPathCommands(): readonly ShapePathCommand[] {
+		const vertices = this._toViewVertices(this._getVertices());
 
-    /*********************************************************/
-    /*                       Overrides                       */
-    /*********************************************************/
-    public override toPathCommands(): readonly ShapePathCommand[] {
-        const vertices = this._toViewVertices(this._getVertices());
+		if (vertices.length === 0) {
+			return [];
+		}
 
-        if (vertices.length === 0) {
-            return [];
-        }
+		const commands: ShapePathCommand[] = [
+			{
+				type: "moveTo",
+				point: vertices[0]!,
+			},
+		];
 
-        const commands: ShapePathCommand[] = [
-            {
-                type: "moveTo",
-                point: vertices[0]!,
-            },
-        ];
+		for (let i = 1; i < vertices.length; i += 1) {
+			commands.push({
+				type: "lineTo",
+				point: vertices[i]!,
+			});
+		}
 
-        for (let i = 1; i < vertices.length; i += 1) {
-            commands.push({
-                type: "lineTo",
-                point: vertices[i]!,
-            });
-        }
+		commands.push({ type: "closePath" });
+		return commands;
+	}
 
-        commands.push({ type: "closePath" });
-        return commands;
-    }
+	public override hitTest(worldPoint: Vector2): boolean {
+		const bounds = this.getWorldViewAABB();
 
-    public override hitTest(worldPoint: Vector2): boolean {
-        const bounds = this.getWorldViewAABB();
+		if (
+			worldPoint.x < bounds.x ||
+			worldPoint.x > bounds.x + bounds.width ||
+			worldPoint.y < bounds.y ||
+			worldPoint.y > bounds.y + bounds.height
+		) {
+			return false;
+		}
 
-        if (
-            worldPoint.x < bounds.x ||
-            worldPoint.x > bounds.x + bounds.width ||
-            worldPoint.y < bounds.y ||
-            worldPoint.y > bounds.y + bounds.height
-        ) {
-            return false;
-        }
+		try {
+			const invMatrix = matrixInvert(this.getWorldMatrix());
+			const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
 
-        try {
-            const invMatrix = matrixInvert(this.getWorldMatrix());
-            const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+			const vertices = this._toViewVertices(this._getVertices());
 
-            const vertices = this._toViewVertices(this._getVertices());
+			let inside = false;
 
-            let inside = false;
+			for (
+				let i = 0, j = vertices.length - 1;
+				i < vertices.length;
+				j = i++
+			) {
+				const xi = vertices[i]!.x;
+				const yi = vertices[i]!.y;
 
-            for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-                const xi = vertices[i]!.x;
-                const yi = vertices[i]!.y;
+				const xj = vertices[j]!.x;
+				const yj = vertices[j]!.y;
 
-                const xj = vertices[j]!.x;
-                const yj = vertices[j]!.y;
+				const intersect =
+					yi > localPoint.y !== yj > localPoint.y &&
+					localPoint.x <
+						((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
 
-                const intersect =
-                    yi > localPoint.y !== yj > localPoint.y &&
-                    localPoint.x <
-                    ((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
+				if (intersect) {
+					inside = !inside;
+				}
+			}
 
-                if (intersect) {
-                    inside = !inside;
-                }
-            }
+			return inside;
+		} catch {
+			return false;
+		}
+	}
 
-            return inside;
-        } catch {
-            return false;
-        }
-    }
+	/*********************************************************/
+	/*                        Helpers                        */
+	/*********************************************************/
 
-    /*********************************************************/
-    /*                        Helpers                        */
-    /*********************************************************/
+	protected _clampSideCount(count: number): number {
+		return Math.max(
+			NodePolygon.MIN_SIDE_COUNT,
+			Math.min(NodePolygon.MAX_SIDE_COUNT, Math.round(count)),
+		);
+	}
 
-    protected _clampSideCount(count: number): number {
-        return Math.max(
-            NodePolygon.MIN_SIDE_COUNT,
-            Math.min(NodePolygon.MAX_SIDE_COUNT, Math.round(count))
-        );
-    }
+	protected _getVertices(): Vector2[] {
+		console.log("herer");
 
-    protected _getVertices(): Vector2[] {
-        console.log('herer');
-        
-        const sides = this._sideCount;
+		const sides = this._sideCount;
 
-        const rx = this.getWidth() / 2;
-        const ry = this.getHeight() / 2;
+		const rx = this.getWidth() / 2;
+		const ry = this.getHeight() / 2;
 
-        const cx = rx;
-        const cy = ry;
+		const cx = rx;
+		const cy = ry;
 
-        const step = (Math.PI * 2) / sides;
+		const step = (Math.PI * 2) / sides;
 
-        const vertices = new Array<Vector2>(sides);
+		const vertices = new Array<Vector2>(sides);
 
-        for (let i = 0; i < sides; i++) {
-            const angle = i * step - Math.PI / 2;
+		for (let i = 0; i < sides; i++) {
+			const angle = i * step - Math.PI / 2;
 
-            vertices[i] = {
-                x: cx + Math.cos(angle) * rx,
-                y: cy + Math.sin(angle) * ry,
-            };
-        }
+			vertices[i] = {
+				x: cx + Math.cos(angle) * rx,
+				y: cy + Math.sin(angle) * ry,
+			};
+		}
 
-        return vertices;
-    }
+		return vertices;
+	}
 
-    private _toViewVertices(vertices: readonly Vector2[]): Vector2[] {
-        const local = this.getLocalOBB();
-        const view = this.getLocalViewOBB();
+	private _toViewVertices(vertices: readonly Vector2[]): Vector2[] {
+		const local = this.getLocalOBB();
+		const view = this.getLocalViewOBB();
 
-        if (vertices.length === 0) {
-            return [];
-        }
+		if (vertices.length === 0) {
+			return [];
+		}
 
-        const scaleX = local.width !== 0 ? view.width / local.width : 1;
-        const scaleY = local.height !== 0 ? view.height / local.height : 1;
+		const scaleX = local.width !== 0 ? view.width / local.width : 1;
+		const scaleY = local.height !== 0 ? view.height / local.height : 1;
 
-        return vertices.map((point) => ({
-            x: view.x + (point.x - local.x) * scaleX,
-            y: view.y + (point.y - local.y) * scaleY,
-        }));
-    }
+		return vertices.map((point) => ({
+			x: view.x + (point.x - local.x) * scaleX,
+			y: view.y + (point.y - local.y) * scaleY,
+		}));
+	}
 }

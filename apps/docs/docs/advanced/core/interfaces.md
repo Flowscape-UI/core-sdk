@@ -21,8 +21,8 @@ They define three base concerns:
 
 ```ts
 export interface IAttachable<T> {
-  attach(target: T): void;
-  detach(): void;
+	attach(target: T): void;
+	detach(): void;
 }
 ```
 
@@ -38,7 +38,7 @@ Typical examples:
 
 ```ts
 export interface IDestroyable {
-  destroy(): void;
+	destroy(): void;
 }
 ```
 
@@ -50,7 +50,7 @@ Defines irreversible cleanup: remove listeners, release caches, clear references
 
 ```ts
 export interface IWithId<TId extends ID = ID> {
-  readonly id: TId;
+	readonly id: TId;
 }
 ```
 
@@ -60,7 +60,7 @@ Stable identity for maps, managers, history, selection, and serialization.
 
 ```ts
 export interface IWithType<TType = string> {
-  readonly type: TType;
+	readonly type: TType;
 }
 ```
 
@@ -69,10 +69,8 @@ Classification used by registries/factories and behavior routing.
 ### `IEntity<TType, TId>`
 
 ```ts
-export interface IEntity<
-  TType = string,
-  TId extends ID = ID
-> extends IWithId<TId>, IWithType<TType> {}
+export interface IEntity<TType = string, TId extends ID = ID>
+	extends IWithId<TId>, IWithType<TType> {}
 ```
 
 Combines identity (`id`) and classification (`type`).  
@@ -84,7 +82,7 @@ Most engine objects naturally fit this contract.
 
 ```ts
 export interface IUpdatable {
-  update(): void;
+	update(): void;
 }
 ```
 
@@ -94,7 +92,7 @@ Per-frame or per-tick state synchronization.
 
 ```ts
 export interface IRenderable {
-  render(): void;
+	render(): void;
 }
 ```
 
@@ -106,7 +104,7 @@ Draw output (canvas/html/webgl backend implementation).
 import type { IRenderable } from "./IRenderable";
 
 export interface IInvalidatable {
-  invalidate(render: IRenderable): void;
+	invalidate(render: IRenderable): void;
 }
 ```
 
@@ -131,45 +129,45 @@ Practical flow:
 ## Minimal Example
 
 ```ts
-type LayerType = 'world-layer';
+type LayerType = "world-layer";
 type LayerId = number;
 
 class DebugLayer
-  implements
-    IEntity<LayerType, LayerId>,
-    IAttachable<{ mount: HTMLElement }>,
-    IUpdatable,
-    IRenderable,
-    IDestroyable
+	implements
+		IEntity<LayerType, LayerId>,
+		IAttachable<{ mount: HTMLElement }>,
+		IUpdatable,
+		IRenderable,
+		IDestroyable
 {
-  public readonly id: LayerId;
-  public readonly type: LayerType = 'world-layer';
-  private _mount: HTMLElement | null = null;
+	public readonly id: LayerId;
+	public readonly type: LayerType = "world-layer";
+	private _mount: HTMLElement | null = null;
 
-  constructor(id: LayerId) {
-    this.id = id;
-  }
+	constructor(id: LayerId) {
+		this.id = id;
+	}
 
-  public attach(target: { mount: HTMLElement }): void {
-    this._mount = target.mount;
-  }
+	public attach(target: { mount: HTMLElement }): void {
+		this._mount = target.mount;
+	}
 
-  public detach(): void {
-    this._mount = null;
-  }
+	public detach(): void {
+		this._mount = null;
+	}
 
-  public update(): void {
-    // sync state
-  }
+	public update(): void {
+		// sync state
+	}
 
-  public render(): void {
-    if (!this._mount) return;
-    // draw output
-  }
+	public render(): void {
+		if (!this._mount) return;
+		// draw output
+	}
 
-  public destroy(): void {
-    this.detach();
-  }
+	public destroy(): void {
+		this.detach();
+	}
 }
 ```
 

@@ -21,103 +21,105 @@ Its goal is to give teams a solid scene and interaction foundation, so they can 
 
 ```ts
 import {
-  Scene,
-  LayerBackground,
-  LayerWorld,
-  LayerOverlay,
-  LayerUI,
-  NodeRect,
-  RendererLayerBackgroundCanvas,
-  RendererLayerWorldCanvas,
-  RendererLayerOverlayCanvas,
-  RendererLayerUI,
-  CanvasRendererHost,
-  LayerWorldInputController,
-  LayerOverlayInputController,
-} from '@flowscape-ui/core-sdk';
+	Scene,
+	LayerBackground,
+	LayerWorld,
+	LayerOverlay,
+	LayerUI,
+	NodeRect,
+	RendererLayerBackgroundCanvas,
+	RendererLayerWorldCanvas,
+	RendererLayerOverlayCanvas,
+	RendererLayerUI,
+	CanvasRendererHost,
+	LayerWorldInputController,
+	LayerOverlayInputController,
+} from "@flowscape-ui/core-sdk";
 
 export function createFlowscape(container: HTMLDivElement) {
-  const scene = new Scene(container.clientWidth, container.clientHeight);
-  const layerBackground = new LayerBackground();
-  const layerWorld = new LayerWorld();
-  const layerOverlay = new LayerOverlay(layerWorld);
-  const layerUI = new LayerUI(layerWorld);
+	const scene = new Scene(container.clientWidth, container.clientHeight);
+	const layerBackground = new LayerBackground();
+	const layerWorld = new LayerWorld();
+	const layerOverlay = new LayerOverlay(layerWorld);
+	const layerUI = new LayerUI(layerWorld);
 
-  scene.addLayer(layerBackground);
-  scene.addLayer(layerWorld);
-  scene.addLayer(layerOverlay);
-  scene.addLayer(layerUI);
+	scene.addLayer(layerBackground);
+	scene.addLayer(layerWorld);
+	scene.addLayer(layerOverlay);
+	scene.addLayer(layerUI);
 
-  const backgroundRenderer = new RendererLayerBackgroundCanvas();
-  scene.bindLayerRenderer(layerBackground, backgroundRenderer);
+	const backgroundRenderer = new RendererLayerBackgroundCanvas();
+	scene.bindLayerRenderer(layerBackground, backgroundRenderer);
 
-  const worldRenderer = new RendererLayerWorldCanvas();
-  scene.bindLayerRenderer(layerWorld, worldRenderer);
+	const worldRenderer = new RendererLayerWorldCanvas();
+	scene.bindLayerRenderer(layerWorld, worldRenderer);
 
-  const overlayRenderer = new RendererLayerOverlayCanvas();
-  scene.bindLayerRenderer(layerOverlay, overlayRenderer);
+	const overlayRenderer = new RendererLayerOverlayCanvas();
+	scene.bindLayerRenderer(layerOverlay, overlayRenderer);
 
-  const uiRenderer = new RendererLayerUI(container);
-  scene.bindLayerRenderer(layerUI, uiRenderer);
+	const uiRenderer = new RendererLayerUI(container);
+	scene.bindLayerRenderer(layerUI, uiRenderer);
 
-  const host = new CanvasRendererHost(container, -1);
-  scene.addHost(host);
+	const host = new CanvasRendererHost(container, -1);
+	scene.addHost(host);
 
-  const worldInputController = new LayerWorldInputController();
-  scene.inputManager.add(layerWorld, worldInputController, {
-    stage: host.getRenderNode(),
-    world: layerWorld,
-    options: {
-      enabled: true,
-      panMode: 'right',
-      zoomEnabled: true,
-      zoomFactor: 1.08,
-      preventWheelDefault: true,
-      keyboardPanSpeed: 900,
-      keyboardPanShiftMultiplier: 1.5,
-    },
-    emitChange: () => scene.invalidate(),
-  });
+	const worldInputController = new LayerWorldInputController();
+	scene.inputManager.add(layerWorld, worldInputController, {
+		stage: host.getRenderNode(),
+		world: layerWorld,
+		options: {
+			enabled: true,
+			panMode: "right",
+			zoomEnabled: true,
+			zoomFactor: 1.08,
+			preventWheelDefault: true,
+			keyboardPanSpeed: 900,
+			keyboardPanShiftMultiplier: 1.5,
+		},
+		emitChange: () => scene.invalidate(),
+	});
 
-  let overlayInteractionOwner: string | null = null;
-  const overlayInputController = new LayerOverlayInputController();
-  scene.inputManager.add(layerOverlay, overlayInputController, {
-    stage: host.getRenderNode(),
-    world: layerWorld,
-    overlay: layerOverlay,
-    emitChange: () => scene.invalidate(),
-    getInteractionOwner: () => overlayInteractionOwner,
-    tryBeginInteraction: (ownerId: string) => {
-      if (overlayInteractionOwner !== null) return overlayInteractionOwner === ownerId;
-      overlayInteractionOwner = ownerId;
-      return true;
-    },
-    endInteraction: (ownerId: string) => {
-      if (overlayInteractionOwner === ownerId) overlayInteractionOwner = null;
-    },
-  });
+	let overlayInteractionOwner: string | null = null;
+	const overlayInputController = new LayerOverlayInputController();
+	scene.inputManager.add(layerOverlay, overlayInputController, {
+		stage: host.getRenderNode(),
+		world: layerWorld,
+		overlay: layerOverlay,
+		emitChange: () => scene.invalidate(),
+		getInteractionOwner: () => overlayInteractionOwner,
+		tryBeginInteraction: (ownerId: string) => {
+			if (overlayInteractionOwner !== null)
+				return overlayInteractionOwner === ownerId;
+			overlayInteractionOwner = ownerId;
+			return true;
+		},
+		endInteraction: (ownerId: string) => {
+			if (overlayInteractionOwner === ownerId)
+				overlayInteractionOwner = null;
+		},
+	});
 
-  layerBackground.setFill('#101010');
+	layerBackground.setFill("#101010");
 
-  const node = new NodeRect(1);
-  node.setSize(220, 140);
-  node.setPosition(0, 0);
-  layerWorld.addNode(node);
+	const node = new NodeRect(1);
+	node.setSize(220, 140);
+	node.setPosition(0, 0);
+	layerWorld.addNode(node);
 
-  scene.invalidate();
+	scene.invalidate();
 
-  const resizeObserver = new ResizeObserver(() => {
-    scene.setSize(container.clientWidth, container.clientHeight);
-    scene.invalidate();
-  });
-  resizeObserver.observe(container);
+	const resizeObserver = new ResizeObserver(() => {
+		scene.setSize(container.clientWidth, container.clientHeight);
+		scene.invalidate();
+	});
+	resizeObserver.observe(container);
 
-  return () => {
-    resizeObserver.disconnect();
-    scene.inputManager.remove(worldInputController.id);
-    scene.inputManager.remove(overlayInputController.id);
-    scene.removeHost(-1);
-  };
+	return () => {
+		resizeObserver.disconnect();
+		scene.inputManager.remove(worldInputController.id);
+		scene.inputManager.remove(overlayInputController.id);
+		scene.removeHost(-1);
+	};
 }
 ```
 
@@ -150,4 +152,3 @@ bun add @flowscape-ui/core-sdk
 - Internal canvas tools for operations or analytics.
 - Dataflow and workflow canvas applications.
 - Charts.
-

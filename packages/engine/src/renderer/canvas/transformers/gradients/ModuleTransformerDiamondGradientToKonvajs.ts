@@ -4,10 +4,7 @@ import {
 	GradientTransformerModule,
 	transformTo,
 } from "gradiente";
-import type {
-	CanvasGradientPaint,
-	KonvaGradientPaint,
-} from "./types";
+import type { CanvasGradientPaint, KonvaGradientPaint } from "./types";
 
 const TRANSFORM_TARGET = "konvajs";
 

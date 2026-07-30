@@ -18,9 +18,8 @@ import type { ID } from "../types";
  * на протяжении жизненного цикла системы.
  */
 export interface IWithId<TId extends ID = ID> {
-    readonly id: TId;
+	readonly id: TId;
 }
-
 
 /**
  * Represents an object that has a type classification.
@@ -40,9 +39,8 @@ export interface IWithId<TId extends ID = ID> {
  * Тип описывает, ЧТО это за объект, а не КАКОЙ это конкретно объект.
  */
 export interface IWithType<TType = string> {
-    readonly type: TType;
+	readonly type: TType;
 }
-
 
 /**
  * Represents an entity that has both a unique identifier and a type.
@@ -63,7 +61,5 @@ export interface IWithType<TType = string> {
  * Сущности могут храниться в менеджерах (по id)
  * и обрабатываться через registry (по type).
  */
-export interface IEntity<
-    TType = string,
-    TId extends ID = ID
-> extends IWithId<TId>, IWithType<TType> { }
+export interface IEntity<TType = string, TId extends ID = ID>
+	extends IWithId<TId>, IWithType<TType> {}

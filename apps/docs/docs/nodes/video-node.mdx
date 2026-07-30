@@ -5,109 +5,109 @@ sidebar_label: Video
 description: "Reference for Video Node in Flowscape: playback, volume, poster, and fit controls."
 ---
 
-import FlowscapeScenePreview from '@site/src/components/FlowscapeScenePreview';
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
 
 export const videoSceneSpec = {
-  background: {
-    fill: '#121212',
-    showLogo: true,
-    logoOpacity: 0.16,
-    logoSize: { width: 220, height: 220 },
-  },
-  camera: {
-    padding: 86,
-    minScale: 0.2,
-    maxScale: 5,
-  },
-  nodes: [
-    {
-      kind: 'text',
-      x: 0,
-      y: -230,
-      width: 980,
-      height: 80,
-      text: 'Video Node: media inside editor scenes',
-      fill: '#f8fafc',
-      fontFamily: 'Georgia',
-      fontSize: 44,
-      fontWeight: 800,
-      textAlign: 'center',
-      verticalAlign: 'center',
-      wrapMode: 'none',
-    },
-    {
-      kind: 'text',
-      x: -220,
-      y: -130,
-      width: 340,
-      height: 50,
-      text: 'Autoplay + muted',
-      fill: '#cbd5e1',
-      fontFamily: 'Georgia',
-      fontSize: 28,
-      fontWeight: 700,
-      textAlign: 'center',
-      verticalAlign: 'center',
-      wrapMode: 'none',
-    },
-    {
-      kind: 'text',
-      x: 220,
-      y: -130,
-      width: 340,
-      height: 50,
-      text: 'Contain + muted',
-      fill: '#cbd5e1',
-      fontFamily: 'Georgia',
-      fontSize: 28,
-      fontWeight: 700,
-      textAlign: 'center',
-      verticalAlign: 'center',
-      wrapMode: 'none',
-    },
-    {
-      kind: 'video',
-      name: 'DemoVideoCover',
-      x: -220,
-      y: 35,
-      width: 360,
-      height: 230,
-      src: '/video/vid.mp4',
-      poster: '/img/cover-image.png',
-      alt: 'Video preview cover mode',
-      fit: 'cover',
-      autoplay: true,
-      looping: true,
-      playbackSpeed: 1,
-      volume: 0.3,
-      muted: true,
-      paused: false,
-      strokeFill: '#38bdf8',
-      strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
-      strokeAlign: 'inside',
-    },
-    {
-      kind: 'video',
-      name: 'DemoVideoContain',
-      x: 220,
-      y: 35,
-      width: 360,
-      height: 230,
-      src: '/video/vid.mp4',
-      poster: '/img/logo.png',
-      alt: 'Video preview contain mode',
-      fit: 'contain',
-      autoplay: false,
-      looping: false,
-      playbackSpeed: 1,
-      volume: 0.4,
-      muted: true,
-      paused: true,
-      strokeFill: '#f59e0b',
-      strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
-      strokeAlign: 'inside',
-    },
-  ],
+	background: {
+		fill: "#121212",
+		showLogo: true,
+		logoOpacity: 0.16,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 86,
+		minScale: 0.2,
+		maxScale: 5,
+	},
+	nodes: [
+		{
+			kind: "text",
+			x: 0,
+			y: -230,
+			width: 980,
+			height: 80,
+			text: "Video Node: media inside editor scenes",
+			fill: "#f8fafc",
+			fontFamily: "Georgia",
+			fontSize: 44,
+			fontWeight: 800,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: -220,
+			y: -130,
+			width: 340,
+			height: 50,
+			text: "Autoplay + muted",
+			fill: "#cbd5e1",
+			fontFamily: "Georgia",
+			fontSize: 28,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: 220,
+			y: -130,
+			width: 340,
+			height: 50,
+			text: "Contain + muted",
+			fill: "#cbd5e1",
+			fontFamily: "Georgia",
+			fontSize: 28,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "video",
+			name: "DemoVideoCover",
+			x: -220,
+			y: 35,
+			width: 360,
+			height: 230,
+			src: "/video/vid.mp4",
+			poster: "/img/cover-image.png",
+			alt: "Video preview cover mode",
+			fit: "cover",
+			autoplay: true,
+			looping: true,
+			playbackSpeed: 1,
+			volume: 0.3,
+			muted: true,
+			paused: false,
+			strokeFill: "#38bdf8",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "video",
+			name: "DemoVideoContain",
+			x: 220,
+			y: 35,
+			width: 360,
+			height: 230,
+			src: "/video/vid.mp4",
+			poster: "/img/logo.png",
+			alt: "Video preview contain mode",
+			fit: "contain",
+			autoplay: false,
+			looping: false,
+			playbackSpeed: 1,
+			volume: 0.4,
+			muted: true,
+			paused: true,
+			strokeFill: "#f59e0b",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+	],
 };
 
 ## Video Node (INodeVideo)
@@ -121,31 +121,31 @@ export const videoSceneSpec = {
 
 ```ts
 export interface INodeVideo extends INodeImage {
-  getDuration(): number;
-  getCurrentTime(): number;
-  setCurrentTime(value: number): void;
+	getDuration(): number;
+	getCurrentTime(): number;
+	setCurrentTime(value: number): void;
 
-  getCurrentFrame(): number;
-  getTotalFrames(): number;
+	getCurrentFrame(): number;
+	getTotalFrames(): number;
 
-  isAutoplay(): boolean;
-  setAutoplay(value: boolean): void;
-  isLooping(): boolean;
-  setLooping(value: boolean): void;
-  isPaused(): boolean;
-  play(): void;
-  pause(): void;
-  getPlaybackSpeed(): number;
-  setPlaybackSpeed(value: number): void;
+	isAutoplay(): boolean;
+	setAutoplay(value: boolean): void;
+	isLooping(): boolean;
+	setLooping(value: boolean): void;
+	isPaused(): boolean;
+	play(): void;
+	pause(): void;
+	getPlaybackSpeed(): number;
+	setPlaybackSpeed(value: number): void;
 
-  isMuted(): boolean;
-  getVolume(): number;
-  setVolume(value: number): void;
-  mute(): void;
-  unmute(): void;
+	isMuted(): boolean;
+	getVolume(): number;
+	setVolume(value: number): void;
+	mute(): void;
+	unmute(): void;
 
-  getPoster(): string;
-  setPoster(value: string): void;
+	getPoster(): string;
+	setPoster(value: string): void;
 }
 ```
 
@@ -156,19 +156,15 @@ export interface INodeVideo extends INodeImage {
 ## Create Video Node in Code
 
 ```ts
-import {
-  NodeVideo,
-  ImageFit,
-  StrokeAlign,
-} from '@flowscape-ui/core-sdk';
+import { NodeVideo, ImageFit, StrokeAlign } from "@flowscape-ui/core-sdk";
 
 const videoNode = new NodeVideo(1);
-videoNode.setName('HeroVideo');
+videoNode.setName("HeroVideo");
 videoNode.setPosition(0, 35);
 videoNode.setSize(520, 290);
-videoNode.setSrc('/video/vid.mp4');
-videoNode.setPoster('/img/cover-image.png');
-videoNode.setAlt('Main product video');
+videoNode.setSrc("/video/vid.mp4");
+videoNode.setPoster("/img/cover-image.png");
+videoNode.setAlt("Main product video");
 videoNode.setFit(ImageFit.Cover);
 
 videoNode.setAutoplay(true);
@@ -179,7 +175,7 @@ videoNode.setVolume(0.3);
 videoNode.mute();
 videoNode.play();
 
-videoNode.setStrokeFill('#38bdf8');
+videoNode.setStrokeFill("#38bdf8");
 videoNode.setStrokeWidth({ t: 6, r: 6, b: 6, l: 6 });
 videoNode.setStrokeAlign(StrokeAlign.Inside);
 
@@ -192,12 +188,12 @@ If playback is still blocked, call `videoNode.play()` after setting `mute()` or 
 
 ## Playback API
 
-| Area | Methods |
-| --- | --- |
-| Timeline | `getDuration()`, `getCurrentTime()`, `setCurrentTime(value)`, `getCurrentFrame()`, `getTotalFrames()` |
+| Area     | Methods                                                                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Timeline | `getDuration()`, `getCurrentTime()`, `setCurrentTime(value)`, `getCurrentFrame()`, `getTotalFrames()`                                                        |
 | Playback | `isAutoplay()`, `setAutoplay(value)`, `isLooping()`, `setLooping(value)`, `isPaused()`, `play()`, `pause()`, `getPlaybackSpeed()`, `setPlaybackSpeed(value)` |
-| Volume | `isMuted()`, `getVolume()`, `setVolume(value)`, `mute()`, `unmute()` |
-| Poster | `getPoster()`, `setPoster(value)` |
+| Volume   | `isMuted()`, `getVolume()`, `setVolume(value)`, `mute()`, `unmute()`                                                                                         |
+| Poster   | `getPoster()`, `setPoster(value)`                                                                                                                            |
 
 ## Inheritance
 
@@ -214,4 +210,3 @@ INode
 ## Next
 
 - [Advanced section](../advanced/intro)
-

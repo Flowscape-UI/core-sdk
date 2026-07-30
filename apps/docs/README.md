@@ -10,9 +10,9 @@ It is built with [Docusaurus](https://docusaurus.io/) and documents the engine f
 - Scene architecture (Background, World, Overlay, UI)
 - Shape Nodes and node-specific API pages
 - Advanced sections:
-  - Core (interfaces, types, events, enableable, transform, math, camera)
-  - Input System (Input + Controllers + custom controller guide)
-  - Advanced Nodes deep dives (OBB, AABB, Pivot)
+    - Core (interfaces, types, events, enableable, transform, math, camera)
+    - Input System (Input + Controllers + custom controller guide)
+    - Advanced Nodes deep dives (OBB, AABB, Pivot)
 - Support, Changelog, FAQ, Donate, About Flowscape
 
 ## Tech stack
