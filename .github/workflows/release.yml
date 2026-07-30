@@ -34,6 +34,9 @@ jobs:
             - name: Format code
               run: bun run format
 
+            - name: Format code
+              run: bun run format
+
             - name: Check formatting
               run: bun run format:check
 
