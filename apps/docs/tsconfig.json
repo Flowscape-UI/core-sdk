@@ -4,5 +4,13 @@
 	"compilerOptions": {
 		"baseUrl": "."
 	},
-	"exclude": [".docusaurus", "build"]
+	"paths": {
+		"@flowscape-ui/core-sdk": [
+			"../../packages/engine/src/index.ts"
+		]
+	},
+	"exclude": [
+		".docusaurus",
+		"build"
+	]
 }
