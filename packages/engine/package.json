@@ -1,23 +1,47 @@
 {
 	"name": "@flowscape-ui/core-sdk",
-	"version": "2.0.2",
-	"description": "Engine for building infinite canvas editors, design tools, and visual builders.",
+	"version": "2.0.3",
+	"description": "Framework-agnostic 2D graphics engine for infinite canvases, editors, design tools, and visual applications.",
 	"license": "MIT",
-	"type": "module",
 	"sideEffects": false,
-	"main": "./dist/index.cjs",
+	"type": "module",
+	"main": "./dist/index.js",
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js",
-			"require": "./dist/index.cjs"
+			"default": "./dist/index.js"
 		}
 	},
 	"files": [
 		"dist"
 	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Flowscape-UI/core-sdk.git",
+		"directory": "packages/engine"
+	},
+	"homepage": "https://flowscape-ui.github.io/core-sdk/",
+	"bugs": {
+		"url": "https://github.com/Flowscape-UI/core-sdk/issues"
+	},
+	"keywords": [
+		"2d",
+		"canvas",
+		"graphics",
+		"graphics-engine",
+		"rendering",
+		"infinite-canvas",
+		"editor",
+		"design-tools",
+		"typescript"
+	],
+	"publishConfig": {
+		"access": "public",
+		"registry": "https://registry.npmjs.org/"
+	},
 	"scripts": {
 		"build": "tsdown",
 		"typecheck": "tsc --noEmit",
@@ -30,9 +54,8 @@
 		"konva": "^10.0.12"
 	},
 	"devDependencies": {
-		"@typescript/native-preview": "^7.0.0-dev.20260707.2",
 		"tsdown": "^0.22.9",
-		"typescript": "^5.6.2",
+		"typescript": "^5.9.2",
 		"vitest": "^2.1.9"
 	}
 }

@@ -16,7 +16,10 @@
 		"dev:playground": "turbo run dev --filter=@flowscape-ui/playground",
 		"dev:docs": "turbo run dev --filter=@flowscape-ui/docs",
 		"build:playground": "turbo run build --filter=@flowscape-ui/playground",
-		"build:docs": "turbo run build --filter=@flowscape-ui/docs"
+		"build:docs": "turbo run build --filter=@flowscape-ui/docs",
+		"version:patch": "cd packages/engine && bun pm version patch --no-git-tag-version && cd ../.. && bun install --lockfile-only",
+		"version:minor": "cd packages/engine && bun pm version minor --no-git-tag-version && cd ../.. && bun install --lockfile-only",
+		"version:major": "cd packages/engine && bun pm version major --no-git-tag-version && cd ../.. && bun install --lockfile-only"
 	},
 	"devDependencies": {
 		"prettier": "^3.7.4",
