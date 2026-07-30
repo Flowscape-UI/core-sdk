@@ -11,7 +11,8 @@
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 [![X](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
 
-[![Documentation](https://img.shields.io/badge/Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/docs/)
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/core-sdk/)
+[![Playground](https://img.shields.io/badge/🎮_Playground-64748b?style=for-the-badge)](https://flowscape-ui.github.io/core-sdk/playground/)
 [![npm](https://img.shields.io/badge/npm-@flowscape--ui/core--sdk-CB3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![Changelog](https://img.shields.io/badge/Changelog-181717?style=for-the-badge&logo=github)](./CHANGELOG.md)
 
@@ -399,7 +400,8 @@ See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
 
 ## Documentation
 
-- [Documentation](https://flowscape-ui.github.io/docs/)
+[![Documentation](https://img.shields.io/badge/📚_Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/core-sdk/)
+[![Playground](https://img.shields.io/badge/🎮_Playground-64748b?style=for-the-badge)](https://flowscape-ui.github.io/core-sdk/playground/)
 - [npm Package](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 - [GitHub Issues](https://github.com/Flowscape-UI/core-sdk/issues)
 - [Changelog](./CHANGELOG.md)
