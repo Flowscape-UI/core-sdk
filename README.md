@@ -1,29 +1,118 @@
 <div align="center">
 
+<img src="./apps/docs/static/img/logo.svg" alt="Flowscape" width="96" />
+
 # Flowscape
 
-**A developer-first 2D engine for building infinite canvas editors, design tools, and visual builders.**
+### A framework-agnostic 2D graphics engine for infinite canvases, editors and visual tools.
+
+**Scenes · Nodes · Rendering · Gradients · Hit Testing · Transforms · Infinite Canvas**
 
 `@flowscape-ui/core-sdk`
+
+[![Open Playground](https://img.shields.io/badge/Open_Playground-111827?style=for-the-badge&logo=codepen&logoColor=white)](https://flowscape-ui.github.io/core-sdk/playground/)
+[![Read Documentation](https://img.shields.io/badge/Read_Documentation-7C3AED?style=for-the-badge&logo=readthedocs&logoColor=white)](https://flowscape-ui.github.io/core-sdk/)
+
+<br />
 
 [![npm version](https://img.shields.io/npm/v/@flowscape-ui/core-sdk)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@flowscape-ui/core-sdk)](https://bundlephobia.com/package/@flowscape-ui/core-sdk)
 [![X](https://img.shields.io/badge/X-@FlowscapeUI-000000?logo=x&logoColor=white)](https://x.com/FlowscapeUI)
 
-[![Documentation](https://img.shields.io/badge/Documentation-FF4785?style=for-the-badge)](https://flowscape-ui.github.io/docs/)
-[![npm](https://img.shields.io/badge/npm-@flowscape--ui/core--sdk-CB3837?style=for-the-badge&logo=npm)](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
-[![Changelog](https://img.shields.io/badge/Changelog-181717?style=for-the-badge&logo=github)](./CHANGELOG.md)
-
 </div>
+
+<p align="center">
+	<a href="https://flowscape-ui.github.io/core-sdk/playground/">
+		<img src="./.github/assets/flowscape-demo.gif" alt="Flowscape 2D graphics engine demo" width="100%" />
+	</a>
+</p>
+
+<p align="center">
+	<strong>Click the demo to open the live Playground.</strong>
+</p>
+
+---
+
+## Build the editor. Don't rebuild the engine.
+
+Flowscape provides the **2D graphics, scene, rendering, and interaction foundation** behind sophisticated editor-like applications.
+
+Build design tools, whiteboards, diagram editors, visual builders, node editors, CAD-like interfaces, and custom infinite-canvas experiences without rebuilding the same engine infrastructure every time.
+
+**You build the product. Flowscape powers the canvas.**
+
+---
+
+## Engine capabilities
+
+| Scene graph | Rendering | Interaction |
+| --- | --- | --- |
+| Layered scenes | Canvas renderer | Hit testing |
+| Node hierarchy | Gradient paints | Selection foundations |
+| Groups and transforms | Renderer abstraction | Transform overlays |
+| Bounds and coordinates | Demand-driven invalidation | Pan and zoom |
+| Background / World / Overlay / UI | Render-host architecture | Editor-style controllers |
+
+<details>
+<summary><strong>🎨 Paint system</strong></summary>
+
+<br />
+
+- Solid colors
+- Linear gradients
+- Radial gradients
+- Conic gradients
+- Diamond gradients
+- Mesh gradients
+- Fill and stroke rendering
+
+</details>
+
+<details>
+<summary><strong>🧩 Built-in node types</strong></summary>
+
+<br />
+
+- Rect
+- Ellipse
+- Polygon
+- Star
+- Line
+- Path
+- Text
+- Image
+- Video
+- Group
+
+</details>
+
+<details>
+<summary><strong>🧭 Editor foundations</strong></summary>
+
+<br />
+
+- Infinite canvas camera
+- Pan and zoom
+- Bounds and hit testing
+- Selection overlays
+- Transform handles
+- Layered rendering
+- Renderer-independent scene state
+
+</details>
 
 ---
 
 ## What is Flowscape?
 
-Flowscape is a framework-agnostic 2D engine for building complex editor-like products.
+Flowscape is a framework-agnostic 2D engine for building complex graphical applications.
 
-It provides the engine layer between low-level rendering libraries and full applications, giving developers a structured foundation for scenes, nodes, transforms, rendering, interaction systems, overlays, and infinite canvas workflows.
+It sits between low-level rendering libraries and full products, providing a reusable engine layer for scenes, nodes, transforms, rendering, interaction systems, overlays, and infinite-canvas workflows.
+
+It is **not** a UI framework and it does not dictate how your application should look.
+
+Your application owns the UI and product logic. Flowscape owns the graphics engine underneath it.
 
 Flowscape is designed for products such as:
 
@@ -34,27 +123,6 @@ Flowscape is designed for products such as:
 - Node-based editors
 - CAD-like 2D interfaces
 - Internal graphical editor tools
-
-It is not a UI framework and it does not dictate how your application should look.
-
-You own the product.
-
-Flowscape provides the engine underneath it.
-
----
-
-## Features
-
-- **Scene-based architecture** with dedicated `Background`, `World`, `Overlay`, and `UI` layers
-- **Node system** with transforms, hierarchy, bounds, hit testing, and grouping
-- **Infinite canvas foundations** including camera movement, pan, and zoom
-- **Renderer abstraction** designed to evolve independently from application logic
-- **Input controllers** for editor-style interactions
-- **Overlay architecture** for selection, handles, and transformation tools
-- **TypeScript-first API**
-- **Framework-agnostic**
-- **ES module support** for modern applications
-- **Standalone browser build** for direct usage through `<script>`
 
 ---
 
@@ -86,46 +154,6 @@ yarn add @flowscape-ui/core-sdk
 
 ---
 
-## Usage
-
-### ES Modules
-
-Flowscape can be imported as a regular package in TypeScript and JavaScript applications.
-
-```ts
-import {
-	Scene,
-	LayerBackground,
-	LayerWorld,
-	LayerOverlay,
-	RendererLayerBackgroundCanvas,
-	RendererLayerWorldCanvas,
-	RendererLayerOverlayCanvas,
-	CanvasRendererHost,
-	NodeRect,
-} from "@flowscape-ui/core-sdk";
-```
-
-### Browser Script
-
-Flowscape can also be used directly in the browser without a bundler.
-
-```html
-<script src="https://unpkg.com/@flowscape-ui/core-sdk/dist/flowscape.global.js"></script>
-
-<script>
-	const scene = new Flowscape.Scene(1280, 720);
-</script>
-```
-
-The standalone build exposes the public API through the global `Flowscape` object.
-
-```js
-const rect = new Flowscape.NodeRect(1);
-```
-
----
-
 ## Quick Start
 
 Create a container:
@@ -134,7 +162,7 @@ Create a container:
 <div id="app"></div>
 ```
 
-Make sure it has a visible size:
+Give it a visible size:
 
 ```css
 html,
@@ -169,7 +197,6 @@ if (!container) {
 
 const scene = new Scene(container.clientWidth, container.clientHeight);
 
-// Create layers
 const background = new LayerBackground();
 const world = new LayerWorld();
 const overlay = new LayerOverlay(world);
@@ -178,41 +205,84 @@ scene.addLayer(background);
 scene.addLayer(world);
 scene.addLayer(overlay);
 
-// Bind renderers
 scene.bindLayerRenderer(background, new RendererLayerBackgroundCanvas());
-
 scene.bindLayerRenderer(world, new RendererLayerWorldCanvas());
-
 scene.bindLayerRenderer(overlay, new RendererLayerOverlayCanvas());
 
-// Create a render host
 const host = new CanvasRendererHost(container, -1);
-
 scene.addHost(host);
 
-// Configure the background
 background.setFill("#101010");
 
-// Add a node
 const rect = new NodeRect(1);
-
 rect.setPosition(300, 220);
 rect.setSize(220, 140);
 rect.setFill("#3b82f6");
 
 world.addNode(rect);
-
-// Render
 scene.invalidate();
 ```
 
-For input controllers, selection, transformations, camera controls, and more advanced editor workflows, see the documentation.
+For input controllers, selection, transformations, camera controls, and advanced editor workflows, see the [documentation](https://flowscape-ui.github.io/core-sdk/).
+
+---
+
+## Usage
+
+### ES Modules
+
+```ts
+import {
+	Scene,
+	NodeRect,
+	LayerWorld,
+	CanvasRendererHost,
+} from "@flowscape-ui/core-sdk";
+```
+
+### Browser Script
+
+Flowscape can also be used directly in the browser without a bundler.
+
+```html
+<script src="https://unpkg.com/@flowscape-ui/core-sdk/dist/flowscape.global.js"></script>
+
+<script>
+	const scene = new Flowscape.Scene(1280, 720);
+</script>
+```
+
+The standalone build exposes the public API through the global `Flowscape` object.
+
+```js
+const rect = new Flowscape.NodeRect(1);
+```
 
 ---
 
 ## Architecture
 
-Flowscape separates scene state, rendering, and interaction logic.
+Flowscape separates **scene state**, **rendering**, and **interaction logic**.
+
+```text
+                         Flowscape
+                            │
+              ┌─────────────┼─────────────┐
+              │             │             │
+            Scene          Nodes       Controllers
+              │             │             │
+            Layers       Transform       Input
+              │             │             │
+              └─────────────┼─────────────┘
+                            │
+                       Renderer API
+                            │
+                       Canvas backend
+                            │
+                          Browser
+```
+
+The scene is organized into dedicated layers:
 
 ```text
 Scene
@@ -224,43 +294,15 @@ Scene
 └── UI Layer
 ```
 
-The main architectural areas are:
-
-```text
-Scene
-│
-├── Layers
-│   ├── Background
-│   ├── World
-│   ├── Overlay
-│   └── UI
-│
-├── Nodes
-│   ├── Rect
-│   ├── Ellipse
-│   ├── Polygon
-│   ├── Star
-│   ├── Line
-│   ├── Path
-│   ├── Text
-│   └── Group
-│
-├── Renderers
-│
-├── Renderer Hosts
-│
-└── Input Controllers
-```
-
 This separation allows rendering implementations to evolve without requiring editor-level product logic to be rewritten.
 
 ---
 
-## Philosophy
+## Why Flowscape?
 
 Most canvas libraries provide rendering primitives.
 
-Flowscape aims to provide the architectural layer above those primitives.
+Flowscape aims to provide the **engine layer above those primitives**.
 
 Instead of rebuilding the same infrastructure for every graphical product, developers can start with reusable foundations for:
 
@@ -275,7 +317,7 @@ Instead of rebuilding the same infrastructure for every graphical product, devel
 - interaction systems
 - editor overlays
 
-Flowscape is closer in philosophy to an engine for building graphical applications than to a component library or ready-made editor.
+Flowscape is closer in philosophy to an engine for graphical applications than to a component library or ready-made editor.
 
 ---
 
@@ -303,7 +345,7 @@ The Flowscape documentation application.
 
 ### `apps/playground`
 
-Interactive development environment used to test Flowscape through its public package API.
+The interactive development environment and public engine showcase.
 
 ### `packages/engine`
 
@@ -317,12 +359,7 @@ The core Flowscape engine, published as:
 
 ## Development
 
-Flowscape uses:
-
-- Bun
-- Turborepo
-- TypeScript
-- tsdown
+Flowscape uses Bun, Turborepo, TypeScript, and tsdown.
 
 Clone the repository and install dependencies:
 
@@ -354,10 +391,10 @@ Run type checking:
 bun run typecheck
 ```
 
-Run tests:
+Run linting:
 
 ```bash
-bun run test
+bun run lint
 ```
 
 More information about contributing can be found in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
@@ -397,9 +434,10 @@ See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
 
 ---
 
-## Documentation
+## Links
 
-- [Documentation](https://flowscape-ui.github.io/docs/)
+- [Documentation](https://flowscape-ui.github.io/core-sdk/)
+- [Playground](https://flowscape-ui.github.io/core-sdk/playground/)
 - [npm Package](https://www.npmjs.com/package/@flowscape-ui/core-sdk)
 - [GitHub Issues](https://github.com/Flowscape-UI/core-sdk/issues)
 - [Changelog](./CHANGELOG.md)
@@ -426,11 +464,11 @@ See [`AUTHORS.md`](./AUTHORS.md).
 
 Flowscape is developed as an open-source project.
 
-If Flowscape is useful to you or your team, you can support its continued development through GitHub Sponsors.
+If Flowscape is useful to you or your team, you can support its continued development.
 
-Your support helps fund development, documentation, tooling, testing, and long-term maintenance.
+[❤️ Sponsor Flowscape](https://github.com/sponsors/Flowscape-UI)
 
-[❤️ Sponsor Flowscape](https://buymeacoffee.com/flowscape)
+---
 
 ## License
 

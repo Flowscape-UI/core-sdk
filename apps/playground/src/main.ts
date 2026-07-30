@@ -303,14 +303,14 @@ textNode.setText(
 // groupNode.addChild(rectNode2);
 // layerWorld.addNode(groupNode);
 
-// layerWorld.addNode(textNode);
-// layerWorld.addNode(lineNode);
-// layerWorld.addNode(polygonNode);
-// layerWorld.addNode(rectNode2);
+layerWorld.addNode(textNode);
+layerWorld.addNode(lineNode);
+layerWorld.addNode(polygonNode);
+layerWorld.addNode(rectNode2);
 layerWorld.addNode(rectNode);
-// layerWorld.addNode(ellipseNode);
-// layerWorld.addNode(starNode);
-// layerWorld.addNode(pathNode);
+layerWorld.addNode(ellipseNode);
+layerWorld.addNode(starNode);
+layerWorld.addNode(pathNode);
 
 // layerWorld.moveNodesToTop([polygonNode.id]);
 
