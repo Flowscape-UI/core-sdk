@@ -12,3 +12,9 @@ bun.lock
 
 apps/docs/.docusaurus/
 apps/docs/build/
+
+**/dist/
+**/build/
+**/.docusaurus/
+**/.turbo/
+**/coverage/

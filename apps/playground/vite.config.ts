@@ -2,6 +2,8 @@ import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
 
 export default defineConfig(({ command }) => ({
+	base: command === "build" ? "/core-sdk/playground/" : "/",
+
 	resolve: {
 		alias:
 			command === "serve"
