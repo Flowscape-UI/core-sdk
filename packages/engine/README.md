@@ -46,13 +46,13 @@ Build design tools, whiteboards, diagram editors, visual builders, node editors,
 
 ## Engine capabilities
 
-| Scene graph | Rendering | Interaction |
-| --- | --- | --- |
-| Layered scenes | Canvas renderer | Hit testing |
-| Node hierarchy | Gradient paints | Selection foundations |
-| Groups and transforms | Renderer abstraction | Transform overlays |
-| Bounds and coordinates | Demand-driven invalidation | Pan and zoom |
-| Background / World / Overlay / UI | Render-host architecture | Editor-style controllers |
+| Scene graph                       | Rendering                  | Interaction              |
+| --------------------------------- | -------------------------- | ------------------------ |
+| Layered scenes                    | Canvas renderer            | Hit testing              |
+| Node hierarchy                    | Gradient paints            | Selection foundations    |
+| Groups and transforms             | Renderer abstraction       | Transform overlays       |
+| Bounds and coordinates            | Demand-driven invalidation | Pan and zoom             |
+| Background / World / Overlay / UI | Render-host architecture   | Editor-style controllers |
 
 <details>
 <summary><strong>🎨 Paint system</strong></summary>
