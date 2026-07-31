@@ -55,8 +55,8 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 		if (!this._view) {
 			return;
 		}
-
-		const worldPoints = this._getNodeWorldOutlinePoints(node);
+		
+		const worldPoints = node.getWorldCorners();
 
 		if (worldPoints.length < 2) {
 			this._view.visible(false);

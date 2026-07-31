@@ -1,16 +1,11 @@
 import Konva from "konva";
 import type { IRendererLayerWorld } from "./types";
 import {
-	RendererCanvasEllipse,
 	RendererCanvasGroup,
 	RendererCanvasImage,
-	RendererCanvasLine,
 	RendererCanvasManager,
-	RendererCanvasPath,
-	RendererCanvasPolygon,
-	RendererCanvasRect,
 	RendererCanvasRegistry,
-	RendererCanvasStar,
+	RendererCanvasShape,
 	RendererCanvasText,
 	RendererCanvasVideo,
 } from "../../../nodes";
@@ -140,16 +135,25 @@ export class RendererLayerWorldCanvas implements IRendererLayerWorld {
 	}
 
 	private _registerDefaultRenderers(): void {
+		const shapeRenderer = new RendererCanvasShape();
+
+		const shapeTypes = [
+			NodeType.Rect,
+			NodeType.Ellipse,
+			NodeType.Polygon,
+			NodeType.Star,
+			NodeType.Line,
+			NodeType.Path,
+		] as const;
+
+		for (const type of shapeTypes) {
+			this._registry.register(type, shapeRenderer);
+		}
+
 		this._registry.register(NodeType.Group, new RendererCanvasGroup());
-		this._registry.register(NodeType.Rect, new RendererCanvasRect());
-		this._registry.register(NodeType.Ellipse, new RendererCanvasEllipse());
-		this._registry.register(NodeType.Polygon, new RendererCanvasPolygon());
-		this._registry.register(NodeType.Star, new RendererCanvasStar());
-		this._registry.register(NodeType.Line, new RendererCanvasLine());
 		this._registry.register(NodeType.Text, new RendererCanvasText());
 		this._registry.register(NodeType.Image, new RendererCanvasImage());
 		this._registry.register(NodeType.Video, new RendererCanvasVideo());
-		this._registry.register(NodeType.Path, new RendererCanvasPath());
 	}
 
 	private _applyCamera(state: CameraState): void {

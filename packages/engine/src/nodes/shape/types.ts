@@ -3,19 +3,17 @@ import type { ShapeEffect } from "./effect";
 import type { INode, OrientedRect, Rect } from "../base";
 import type { Matrix, Vector2 } from "../../core/transform/types";
 
-export type CornerRadius = {
-	tl: number;
-	tr: number;
-	br: number;
-	bl: number;
+export type CornerRadius = number[];
+export type StrokeWidth = number[];
+
+export type ShapeCornerRadiusAnchor = {
+	point: Vector2;
+	previous: Vector2;
+	next: Vector2;
+
+	handleTarget?: Vector2;
 };
 
-export type StrokeWidth = {
-	t: number;
-	r: number;
-	b: number;
-	l: number;
-};
 
 export enum StrokeAlign {
 	Inside = 0,
@@ -46,27 +44,51 @@ export type ShapeGeometry = {
 	worldViewAABB: Rect;
 };
 
+export type RoundedCornerGeometry = {
+	entry: Vector2;
+	exit: Vector2;
+
+	center: Vector2;
+
+	radius: number;
+
+	startAngle: number;
+	endAngle: number;
+
+	clockwise: boolean;
+};
+
 export type ShapePathCommand =
 	| {
-			type: "moveTo";
-			point: Vector2;
-	  }
+		type: "moveTo";
+		point: Vector2;
+	}
 	| {
-			type: "lineTo";
-			point: Vector2;
-	  }
+		type: "lineTo";
+		point: Vector2;
+	}
 	| {
-			type: "arcTo";
-			center: Vector2;
-			radiusX: number;
-			radiusY: number;
-			startAngle: number;
-			endAngle: number;
-			clockwise: boolean;
-	  }
+		type: "arcTo";
+		center: Vector2;
+		radiusX: number;
+		radiusY: number;
+		startAngle: number;
+		endAngle: number;
+		clockwise: boolean;
+	}
 	| {
-			type: "closePath";
-	  };
+		type: "closePath";
+	}
+	| {
+		type: "quadraticCurveTo";
+		control: Vector2;
+		point: Vector2;
+	};
+
+export type ShapeStrokePath = {
+	outer: readonly ShapePathCommand[];
+	inner: readonly ShapePathCommand[];
+};
 
 export interface IShapeBase extends INode {
 	readonly effect: ShapeEffect;
@@ -196,6 +218,10 @@ export interface IShapeBase extends INode {
 	 * Устанавливает режим выравнивания обводки.
 	 */
 	setStrokeAlign(value: StrokeAlign): void;
+
+	getStrokePath(): ShapeStrokePath | null;
+
+	getCornerRadiusAnchors(): readonly ShapeCornerRadiusAnchor[];
 
 	/***********************************************************/
 	/*                       View Bounds                       */

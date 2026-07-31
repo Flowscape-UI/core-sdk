@@ -66,7 +66,7 @@ function getEdgeWorldPoints(
 	node: IShapeBase,
 	direction: Direction,
 ): [Point, Point] {
-	const corners = node.getWorldViewCorners();
+	const corners = node.getWorldCorners();
 	switch (direction) {
 		case Direction.E:
 			return [corners[1], corners[2]];
