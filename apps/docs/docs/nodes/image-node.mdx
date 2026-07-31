@@ -1,0 +1,233 @@
+---
+sidebar_position: 2.0
+title: Image Node (INodeImage)
+sidebar_label: Image
+description: "Reference for Image Node in Flowscape: source, alt text, fit modes, and live preview."
+---
+
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
+
+export const imageSceneSpec = {
+	background: {
+		fill: "#121212",
+		showLogo: true,
+		logoOpacity: 0.18,
+		logoSize: { width: 220, height: 220 },
+	},
+	camera: {
+		padding: 86,
+		minScale: 0.2,
+		maxScale: 5,
+	},
+	nodes: [
+		{
+			kind: "text",
+			name: "ImageModesTitle",
+			x: 0,
+			y: -250,
+			width: 980,
+			height: 80,
+			text: "ImageFit modes: Fill, Contain, Cover, None",
+			fill: "#f8fafc",
+			fontFamily: "Georgia",
+			fontSize: 44,
+			fontWeight: 800,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: -360,
+			y: -145,
+			width: 190,
+			height: 50,
+			text: "Fill",
+			fill: "#e2e8f0",
+			fontFamily: "Georgia",
+			fontSize: 30,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: -120,
+			y: -145,
+			width: 190,
+			height: 50,
+			text: "Contain",
+			fill: "#e2e8f0",
+			fontFamily: "Georgia",
+			fontSize: 30,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: 120,
+			y: -145,
+			width: 190,
+			height: 50,
+			text: "Cover",
+			fill: "#e2e8f0",
+			fontFamily: "Georgia",
+			fontSize: 30,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "text",
+			x: 360,
+			y: -145,
+			width: 190,
+			height: 50,
+			text: "None",
+			fill: "#e2e8f0",
+			fontFamily: "Georgia",
+			fontSize: 30,
+			fontWeight: 700,
+			textAlign: "center",
+			verticalAlign: "center",
+			wrapMode: "none",
+		},
+		{
+			kind: "image",
+			name: "ImageFill",
+			x: -360,
+			y: 40,
+			width: 190,
+			height: 220,
+			src: "/img/cover-image.png",
+			alt: "Cover image demo",
+			fit: "fill",
+			strokeFill: "#94a3b8",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "image",
+			name: "ImageContain",
+			x: -120,
+			y: 40,
+			width: 190,
+			height: 220,
+			src: "/img/cover-image.png",
+			alt: "Cover image demo",
+			fit: "contain",
+			strokeFill: "#22d3ee",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "image",
+			name: "ImageCover",
+			x: 120,
+			y: 40,
+			width: 190,
+			height: 220,
+			src: "/img/cover-image.png",
+			alt: "Cover image demo",
+			fit: "cover",
+			strokeFill: "#38bdf8",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+		{
+			kind: "image",
+			name: "ImageNone",
+			x: 360,
+			y: 40,
+			width: 190,
+			height: 220,
+			src: "/img/cover-image.png",
+			alt: "Cover image demo",
+			fit: "none",
+			strokeFill: "#f59e0b",
+			strokeWidth: { t: 6, r: 6, b: 6, l: 6 },
+			strokeAlign: "inside",
+		},
+	],
+};
+
+## Image Node (INodeImage)
+
+`INodeImage` extends `INodeRect` and adds image-specific content API:
+
+- image source URL (`src`)
+- accessibility alt text (`alt`)
+- fit mode inside node bounds (`ImageFit`)
+
+```ts
+export interface INodeImage extends INodeRect {
+	getSrc(): string;
+	setSrc(value: string): void;
+
+	getAlt(): string;
+	setAlt(value: string): void;
+
+	getFit(): ImageFit;
+	setFit(value: ImageFit): void;
+}
+```
+
+## Live Preview
+
+<FlowscapeScenePreview height={500} spec={imageSceneSpec} />
+
+## Create Image Node in Code
+
+```ts
+import { NodeImage, ImageFit, StrokeAlign } from "@flowscape-ui/core-sdk";
+
+const imageNode = new NodeImage(1);
+imageNode.setName("HeroImage");
+imageNode.setPosition(0, 40);
+imageNode.setSize(320, 220);
+imageNode.setSrc("/img/cover-image.png");
+imageNode.setAlt("Product hero preview");
+imageNode.setFit(ImageFit.Cover);
+imageNode.setStrokeFill("#38bdf8");
+imageNode.setStrokeWidth({ t: 6, r: 6, b: 6, l: 6 });
+imageNode.setStrokeAlign(StrokeAlign.Inside);
+
+layerWorld.addNode(imageNode);
+scene.invalidate();
+```
+
+## ImageFit Modes
+
+| Value              | Behavior                                               |
+| ------------------ | ------------------------------------------------------ |
+| `ImageFit.Fill`    | Stretch image to node size (aspect ratio may distort). |
+| `ImageFit.Contain` | Keep aspect ratio, fit fully inside bounds.            |
+| `ImageFit.Cover`   | Keep aspect ratio, cover bounds (may crop).            |
+| `ImageFit.None`    | Draw using native image sizing rules in node space.    |
+
+## Image API
+
+| Method                       | Description                         |
+| ---------------------------- | ----------------------------------- |
+| `getSrc()` / `setSrc(value)` | Read/write image source URL.        |
+| `getAlt()` / `setAlt(value)` | Read/write alternative text.        |
+| `getFit()` / `setFit(value)` | Read/write fit mode in node bounds. |
+
+## Inheritance
+
+```text
+INode
+  -> IShapeBase
+      -> INodeRect
+          -> INodeImage
+```
+
+`INodeImage` inherits full rect/shape/base behavior: fill, stroke, transform, hierarchy, bounds, hit testing, serialization.
+
+## Next
+
+- [Video Node reference](./video-node)

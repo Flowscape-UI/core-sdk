@@ -1,0 +1,164 @@
+---
+sidebar_position: 1.91
+title: Base Node (INode)
+sidebar_label: Base
+description: "Detailed reference for the Base node interface (INode): transforms, hierarchy, bounds, hit testing, invalidation, and serialization."
+---
+
+## Base Node (INode)
+
+`INode` is the foundational interface for all scene graph objects in Flowscape.  
+Every concrete node (`Rect`, `Ellipse`, `Text`, `Image`, and others) is built on top of this contract.
+
+It combines:
+
+- transform behavior (`ITransform`)
+- identity and state
+- hierarchy control (parent/children)
+- bounds and hit-test utilities
+- serialization
+
+## Identity and Core State
+
+| Member                               | Description                                                                              |
+| ------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `id: ID`                             | Unique node identifier (read-only).                                                      |
+| `type: NodeType`                     | Functional node type (read-only).                                                        |
+| `getOpacity()` / `setOpacity(value)` | Read/write global node opacity.                                                          |
+| `setDirty()`                         | Invalidates transform caches for this node and descendants, and hierarchy bounds upward. |
+| `setHierarchyBoundsDirty()`          | Invalidates hierarchy bounds caches without touching transform caches.                   |
+| `traverse(callback)`                 | Recursive hierarchy traversal. Return `false` to stop deep traversal of a branch.        |
+
+:::tip Dirty vs Bounds Dirty
+Use `setDirty()` when transform or size changes.  
+Use `setHierarchyBoundsDirty()` when geometry/visibility changes but transform stays the same.
+:::
+
+## Basic Functionality
+
+| Area        | Methods                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Name        | `getName()`, `setName(value)`                                                                                          |
+| Size        | `getWidth()`, `setWidth(value)`, `getHeight()`, `setHeight(value)`, `getSize(width, height)`, `setSize(width, height)` |
+| Scaled Size | `getScaledWidth()`, `getScaledHeight()`, `getScaledSize()`                                                             |
+| Visibility  | `isVisible()`, `setVisible(value)`, `isVisibleInHierarchy()`                                                           |
+| Lock State  | `isLocked()`, `setLocked(value)`, `isLockedInHierarchy()`                                                              |
+
+## World Transform and Geometry
+
+| Method               | Description                                                                    |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `getWorldMatrix()`   | Final matrix in world space (`parentWorld * local`). Cached until invalidated. |
+| `getWorldRotation()` | Accumulated rotation from the full parent chain.                               |
+| `getWorldCorners()`  | Four world-space corners ordered clockwise from top-left.                      |
+
+These methods are used by rendering, selection, resize handles, snapping, and advanced editor tooling.
+
+## Hierarchy Control
+
+| Area     | Methods                                                  |
+| -------- | -------------------------------------------------------- |
+| Parent   | `getParent()`, `setParent(parent)`, `removeParent()`     |
+| Children | `getChildren()`, `addChild(child)`, `removeChild(child)` |
+
+`addChild` prevents invalid hierarchy operations such as self-addition and cyclic relationships.
+
+## Bounds API
+
+### Node Bounds
+
+| Method           | Space | Type           |
+| ---------------- | ----- | -------------- |
+| `getLocalOBB()`  | Local | `Rect`         |
+| `getWorldOBB()`  | World | `OrientedRect` |
+| `getWorldAABB()` | World | `Rect`         |
+
+### Hierarchy Bounds
+
+| Method                    | Scope                                  | Type           |
+| ------------------------- | -------------------------------------- | -------------- |
+| `getHierarchyLocalOBB()`  | This node + descendants in local space | `Rect`         |
+| `getHierarchyWorldOBB()`  | This node + descendants in world space | `OrientedRect` |
+| `getHierarchyWorldAABB()` | This node + descendants in world space | `Rect`         |
+
+## Hit Testing
+
+`hitTest(worldPoint: Vector2): boolean` checks if a world-space point intersects node geometry.
+
+Internally:
+
+1. world point is transformed into node local space
+2. local-space geometry check is performed
+
+This method is typically used for selection, picking, and interaction tools.
+
+## Serialization
+
+`toJSON(): NodeJSON` returns a JSON-compatible representation of the node.
+
+Key behavior:
+
+- includes core node state (transform, size, visibility, etc.)
+- represents children by identifiers to avoid recursive full graph serialization
+
+## Practical Examples
+
+### Read common debug info
+
+```ts
+import type { INode } from "@flowscape-ui/core-sdk";
+
+export function logNode(node: INode): void {
+	const world = node.getWorldMatrix();
+	const aabb = node.getWorldAABB();
+
+	console.log({
+		id: node.id,
+		type: node.type,
+		name: node.getName(),
+		visible: node.isVisibleInHierarchy(),
+		locked: node.isLockedInHierarchy(),
+		world,
+		aabb,
+	});
+}
+```
+
+### Update size and preserve clean cache flow
+
+```ts
+import type { INode } from "@flowscape-ui/core-sdk";
+
+export function resizeNode(node: INode, width: number, height: number): void {
+	node.setSize(width, height);
+	// setSize already triggers invalidation in node implementations.
+}
+```
+
+### Traverse a subtree
+
+```ts
+import type { INode } from "@flowscape-ui/core-sdk";
+
+export function countVisible(root: INode): number {
+	let count = 0;
+
+	root.traverse((node) => {
+		if (node.isVisibleInHierarchy()) {
+			count += 1;
+		}
+	});
+
+	return count;
+}
+```
+
+## Notes
+
+- `INode` is an interface, not a concrete class. You work with actual node implementations (`NodeRect`, `NodeText`, etc.).
+- Prefer hierarchy-aware checks (`isVisibleInHierarchy`, `isLockedInHierarchy`) for editor UX logic.
+- Use world-space methods for viewport and selection logic; use local-space methods for internal node math.
+
+## Next
+
+- [Shape Nodes overview](./shape-nodes)

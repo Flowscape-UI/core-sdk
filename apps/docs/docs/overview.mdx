@@ -1,0 +1,111 @@
+---
+sidebar_position: 1.5
+---
+
+import FlowscapeWorldExample from "@site/src/components/FlowscapeWorldExample";
+
+# Overview
+
+## What is Flowscape
+
+Flowscape is an engine for editor-style 2D products, not an opinionated application framework.  
+It is also not a domain-specific SDK with fixed product APIs; it provides runtime primitives you compose into your own product architecture.  
+The core value is control: scene graph, camera, interaction, and rendering layers that you can adapt to your use case.
+
+You can use Flowscape in browser apps (React, Vue, Svelte, or vanilla TypeScript), desktop apps (Electron, Tauri), and mobile products via WebView-based stacks when needed.
+
+## How Flowscape works
+
+Flowscape is built around a `Scene` with 4 layers, each with a clear responsibility:
+
+| Layer        | Responsibility                          | Typical content                          |
+| ------------ | --------------------------------------- | ---------------------------------------- |
+| `Background` | Visual foundation behind world content  | Solid fill, watermark, brand texture     |
+| `World`      | Main editable coordinate space          | Nodes, shapes, text, app objects         |
+| `Overlay`    | Editor interaction visuals over world   | Selection frames, handles, guides        |
+| `UI`         | HTML/UI modules outside world transform | Toolbars, rulers UI, contextual controls |
+
+### Layer diagram
+
+```text
+Scene
+|- Background  (static visual base)
+|- World       (editable content space)
+|- Overlay     (selection + transform helpers)
+`- UI          (interface modules)
+```
+
+## Camera, nodes, math, renderers
+
+- **Camera** controls pan/zoom and world-to-screen mapping.
+- **Nodes** are the scene entities you add, transform, and render.
+- **Math layer** keeps geometry and transforms deterministic for editor behavior.
+- **Renderers** are layer-specific adapters, so your core scene logic is not tied to one backend.
+
+Because rendering is abstracted per layer, you can evolve from canvas-based rendering toward WebGL/WebGPU style implementations without rewriting the whole editor architecture.
+
+## Minimal world-layer example
+
+```ts
+import {
+	Scene,
+	LayerWorld,
+	NodeRect,
+	RendererLayerWorldCanvas,
+	CanvasRendererHost,
+	LayerWorldInputController,
+} from "@flowscape-ui/core-sdk";
+
+export function mountWorldOnly(container: HTMLDivElement) {
+	const scene = new Scene(container.clientWidth, container.clientHeight);
+	const layerWorld = new LayerWorld();
+	scene.addLayer(layerWorld);
+
+	const worldRenderer = new RendererLayerWorldCanvas();
+	scene.bindLayerRenderer(layerWorld, worldRenderer);
+
+	const host = new CanvasRendererHost(container, -1);
+	scene.addHost(host);
+
+	const worldInputController = new LayerWorldInputController();
+	scene.inputManager.add(layerWorld, worldInputController, {
+		stage: host.getRenderNode(),
+		world: layerWorld,
+		options: {
+			enabled: true,
+			panMode: "right",
+			zoomEnabled: true,
+			zoomFactor: 1.08,
+			preventWheelDefault: true,
+			keyboardPanSpeed: 900,
+			keyboardPanShiftMultiplier: 1.5,
+		},
+		emitChange: () => scene.invalidate(),
+	});
+
+	const node = new NodeRect(1);
+	node.setSize(220, 140);
+	node.setPosition(0, 0);
+	layerWorld.addNode(node);
+
+	scene.invalidate();
+
+	const resizeObserver = new ResizeObserver(() => {
+		scene.setSize(container.clientWidth, container.clientHeight);
+		scene.invalidate();
+	});
+	resizeObserver.observe(container);
+
+	return () => {
+		resizeObserver.disconnect();
+		scene.inputManager.remove(worldInputController.id);
+		scene.removeHost(-1);
+	};
+}
+```
+
+## Live result
+
+The example below uses the same Scene API and renders a world-only setup directly inside the docs page:
+
+<FlowscapeWorldExample height={340} />

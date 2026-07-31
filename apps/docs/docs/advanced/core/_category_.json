@@ -1,0 +1,8 @@
+{
+	"label": "Core",
+	"position": 1,
+	"link": {
+		"type": "doc",
+		"id": "advanced/core/overview"
+	}
+}

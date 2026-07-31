@@ -1,0 +1,291 @@
+---
+sidebar_position: 1.93
+title: Ellipse Node (INodeEllipse)
+sidebar_label: Ellipse
+description: "Reference for Ellipse Node in Flowscape: inner ratio, arc angles, inherited shape API, and live scene preview."
+---
+
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
+
+export const ellipseSceneSpec = {
+	background: {
+		showLogo: true,
+		logoOpacity: 0.5,
+		logoSize: { width: 240, height: 240 },
+	},
+	camera: {
+		minScale: 0.1,
+		maxScale: 100,
+	},
+	nodes: [
+		{
+			kind: "ellipse",
+			name: "Solid",
+			x: -460,
+			y: -160,
+			width: 260,
+			height: 260,
+			fill: "#ff7a00",
+			strokeFill: "#ffe0b2",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+			innerRatio: 0,
+			startAngle: 0,
+			endAngle: 360,
+		},
+		{
+			kind: "ellipse",
+			name: "Donut",
+			x: -120,
+			y: -160,
+			width: 260,
+			height: 260,
+			fill: "#ff4d00",
+			strokeFill: "#ffe9c7",
+			strokeWidth: { t: 10, r: 10, b: 10, l: 10 },
+			strokeAlign: "inside",
+			innerRatio: 0.58,
+			startAngle: 0,
+			endAngle: 360,
+		},
+		{
+			kind: "ellipse",
+			name: "Arc",
+			x: 220,
+			y: -160,
+			width: 260,
+			height: 260,
+			fill: "#ff9f1c",
+			strokeFill: "#fff0d6",
+			strokeWidth: { t: 10, r: 10, b: 10, l: 10 },
+			strokeAlign: "inside",
+			innerRatio: 0,
+			startAngle: 28,
+			endAngle: 306,
+		},
+		{
+			kind: "ellipse",
+			name: "Ring Arc",
+			x: -460,
+			y: 140,
+			width: 260,
+			height: 260,
+			fill: "#ff5a36",
+			strokeFill: "#ffd8bf",
+			strokeWidth: { t: 10, r: 10, b: 10, l: 10 },
+			strokeAlign: "inside",
+			innerRatio: 0.7,
+			startAngle: 44,
+			endAngle: 332,
+		},
+		{
+			kind: "ellipse",
+			name: "Tilted Donut",
+			x: -120,
+			y: 140,
+			width: 260,
+			height: 260,
+			rotation: 0.24,
+			fill: "#f97316",
+			strokeFill: "#fff1db",
+			strokeWidth: { t: 8, r: 8, b: 8, l: 8 },
+			strokeAlign: "inside",
+			innerRatio: 0.3,
+			startAngle: 0,
+			endAngle: 360,
+		},
+		{
+			kind: "ellipse",
+			name: "Sun Ring",
+			x: 220,
+			y: 140,
+			width: 260,
+			height: 260,
+			fill: "#ffb347",
+			strokeFill: "#fff5dd",
+			strokeWidth: { t: 12, r: 12, b: 12, l: 12 },
+			strokeAlign: "inside",
+			innerRatio: 0.82,
+			startAngle: 0,
+			endAngle: 360,
+		},
+	],
+};
+
+## Ellipse Node (INodeEllipse)
+
+`INodeEllipse` extends `IShapeBase` and adds ellipse-specific controls for donut ratio and arc angles.
+
+```ts
+export interface INodeEllipse extends IShapeBase {
+	getInnerRatio(): number;
+	setInnerRatio(value: number): void;
+
+	getStartAngle(): number;
+	setStartAngle(value: number): void;
+
+	getEndAngle(): number;
+	setEndAngle(value: number): void;
+
+	getSweepAngle(): number;
+}
+```
+
+## Live Preview
+
+The example below uses warm, high-contrast colors and shows multiple ellipse variants in one scene:
+
+- `Background` layer (fill + logo)
+- `World` layer (`NodeEllipse` variants)
+- `Overlay` layer (editor overlays/interactions)
+
+<FlowscapeScenePreview height={460} spec={ellipseSceneSpec} />
+
+## Variations in Code
+
+### 1. Solid Ellipse
+
+```ts
+import { NodeEllipse, StrokeAlign } from "@flowscape-ui/core-sdk";
+
+const ellipse = new NodeEllipse(1);
+ellipse.setName("Solid");
+ellipse.setSize(260, 260);
+ellipse.setPosition(-460, -160);
+ellipse.setFill("#ff7a00");
+ellipse.setStrokeFill("#ffe0b2");
+ellipse.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
+ellipse.setStrokeAlign(StrokeAlign.Inside);
+ellipse.setInnerRatio(0);
+ellipse.setStartAngle(0);
+ellipse.setEndAngle(360);
+
+layerWorld.addNode(ellipse);
+scene.invalidate();
+```
+
+### 2. Donut Ellipse
+
+```ts
+const donut = new NodeEllipse(2);
+donut.setName("Donut");
+donut.setSize(260, 260);
+donut.setPosition(-120, -160);
+donut.setFill("#ff4d00");
+donut.setStrokeFill("#ffe9c7");
+donut.setStrokeWidth({ t: 10, r: 10, b: 10, l: 10 });
+donut.setStrokeAlign(StrokeAlign.Inside);
+donut.setInnerRatio(0.58);
+donut.setStartAngle(0);
+donut.setEndAngle(360);
+layerWorld.addNode(donut);
+```
+
+### 3. Arc Ellipse
+
+```ts
+const arc = new NodeEllipse(3);
+arc.setName("Arc");
+arc.setSize(260, 260);
+arc.setPosition(220, -160);
+arc.setFill("#ff9f1c");
+arc.setStrokeFill("#fff0d6");
+arc.setStrokeWidth({ t: 10, r: 10, b: 10, l: 10 });
+arc.setStrokeAlign(StrokeAlign.Inside);
+arc.setInnerRatio(0);
+arc.setStartAngle(28);
+arc.setEndAngle(306);
+layerWorld.addNode(arc);
+```
+
+### 4. Ring Arc
+
+```ts
+const ringArc = new NodeEllipse(4);
+ringArc.setName("Ring Arc");
+ringArc.setSize(260, 260);
+ringArc.setPosition(-460, 140);
+ringArc.setFill("#ff5a36");
+ringArc.setStrokeFill("#ffd8bf");
+ringArc.setStrokeWidth({ t: 10, r: 10, b: 10, l: 10 });
+ringArc.setStrokeAlign(StrokeAlign.Inside);
+ringArc.setInnerRatio(0.7);
+ringArc.setStartAngle(44);
+ringArc.setEndAngle(332);
+layerWorld.addNode(ringArc);
+```
+
+### 5. Rotated Donut
+
+```ts
+const rotated = new NodeEllipse(5);
+rotated.setName("Tilted Donut");
+rotated.setSize(260, 260);
+rotated.setPosition(-120, 140);
+rotated.setRotation(0.24);
+rotated.setFill("#f97316");
+rotated.setStrokeFill("#fff1db");
+rotated.setStrokeWidth({ t: 8, r: 8, b: 8, l: 8 });
+rotated.setStrokeAlign(StrokeAlign.Inside);
+rotated.setInnerRatio(0.3);
+rotated.setStartAngle(0);
+rotated.setEndAngle(360);
+layerWorld.addNode(rotated);
+```
+
+### 6. Thin Ring
+
+```ts
+const thinRing = new NodeEllipse(6);
+thinRing.setName("Sun Ring");
+thinRing.setSize(260, 260);
+thinRing.setPosition(220, 140);
+thinRing.setFill("#ffb347");
+thinRing.setStrokeFill("#fff5dd");
+thinRing.setStrokeWidth({ t: 12, r: 12, b: 12, l: 12 });
+thinRing.setStrokeAlign(StrokeAlign.Inside);
+thinRing.setInnerRatio(0.82);
+thinRing.setStartAngle(0);
+thinRing.setEndAngle(360);
+layerWorld.addNode(thinRing);
+```
+
+## Ratio API
+
+| Method                 | Description                                     |
+| ---------------------- | ----------------------------------------------- |
+| `getInnerRatio()`      | Returns inner ratio (`0` means filled ellipse). |
+| `setInnerRatio(value)` | Sets inner ratio, clamped to `[0, 0.999]`.      |
+
+`innerRatio > 0` creates a donut-like visual form.
+
+## Angle API
+
+| Method                 | Description                                       |
+| ---------------------- | ------------------------------------------------- |
+| `getStartAngle()`      | Returns arc start angle in degrees.               |
+| `setStartAngle(value)` | Sets arc start angle in degrees.                  |
+| `getEndAngle()`        | Returns arc end angle in degrees.                 |
+| `setEndAngle(value)`   | Sets arc end angle in degrees.                    |
+| `getSweepAngle()`      | Returns computed sweep (`endAngle - startAngle`). |
+
+These methods let you build full ellipses, arcs, and ring-like segments.
+
+## Inheritance
+
+```text
+INode
+  -> IShapeBase
+      -> INodeEllipse
+```
+
+`INodeEllipse` also inherits all shape/base methods:
+
+- fill and stroke API
+- transform and hierarchy API
+- bounds and hit-test API
+- serialization API
+
+## Next
+
+- [Group Node reference](./group-node)

@@ -1,0 +1,67 @@
+---
+sidebar_position: 4
+title: What Is Pivot
+sidebar_label: What Is Pivot
+description: "Pivot in Flowscape: local transform anchor that controls rotation and scaling behavior."
+---
+
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
+
+export const pivotSpec = {
+	background: {
+		showLogo: false,
+	},
+	nodes: [
+		{
+			kind: "rect",
+			id: 0,
+			width: 100,
+			height: 100,
+		},
+	],
+};
+
+## What Is Pivot
+
+Pivot is the transform anchor of a node.
+
+In Flowscape, pivot is normalized (`0..1`) and stored per node:
+
+- `pivotX = 0`, `pivotY = 0` means top-left corner
+- `pivotX = 0.5`, `pivotY = 0.5` means center
+- `pivotX = 1`, `pivotY = 1` means bottom-right corner
+
+## Why pivot matters
+
+Pivot directly affects:
+
+- where rotation happens around the node
+- where scale expands/shrinks from
+- how world corners and world bounds are produced after transform
+
+This is why two nodes with the same size/rotation can behave differently if their pivots are different.
+
+## Pivot and bounds
+
+- OBB uses transformed corners and keeps orientation
+- AABB wraps those transformed corners into axis-aligned bounds
+- both depend on the final transform, and final transform depends on pivot
+
+So pivot is not a visual-only detail. It is part of geometry behavior.
+
+## Live Pivot Example
+
+<FlowscapeScenePreview
+	height={430}
+	spec={pivotSpec}
+	debugNodes={{
+		showOBB: true,
+		showAABB: true,
+		showOrbit: true,
+		showPivot: true,
+	}}
+/>
+
+## Next
+
+- [Shape Nodes Docs](/nodes/shape-nodes)

@@ -1,0 +1,80 @@
+.editorRoot {
+	width: 100%;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-height: 200px;
+	min-width: 0;
+	border: 4px solid #000000;
+	background: #ffffff;
+}
+
+[data-theme="dark"] .editorRoot {
+	border-color: #ffffff;
+	background: #000000;
+}
+
+.editorMount {
+	position: relative;
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
+}
+
+.editorRootInsertMode .editorMount {
+	cursor: crosshair;
+}
+
+.editorToolbar {
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: 0.5rem;
+	padding: 0.65rem;
+	border-top: 4px solid #000000;
+	background: #ffffff;
+}
+
+[data-theme="dark"] .editorToolbar {
+	border-top-color: #ffffff;
+	background: #000000;
+}
+
+.toolbarButton {
+	width: 100%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border: 4px solid #000000;
+	background: #ffffff;
+	color: #000000;
+	font-weight: 700;
+	padding: 0.32rem 0.62rem;
+	cursor: pointer;
+	transition:
+		background 0.18s ease,
+		color 0.18s ease;
+}
+
+.toolbarButtonActive {
+	background: #000000;
+	color: #ffffff;
+}
+
+[data-theme="dark"] .toolbarButton {
+	border-color: #ffffff;
+	background: #000000;
+	color: #ffffff;
+}
+
+[data-theme="dark"] .toolbarButtonActive {
+	background: #ffffff;
+	color: #000000;
+}
+
+@media (max-width: 860px) {
+	.editorToolbar {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+	}
+}

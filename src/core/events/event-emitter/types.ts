@@ -1,1 +1,0 @@
-export type EventMap = Record<string, any>;

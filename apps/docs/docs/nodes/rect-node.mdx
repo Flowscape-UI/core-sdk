@@ -1,0 +1,122 @@
+---
+sidebar_position: 1.92
+title: Rect Node (INodeRect)
+sidebar_label: Rect
+description: "Reference for Rect Node in Flowscape: appearance, stroke, visual bounds API, and live scene preview."
+---
+
+import FlowscapeScenePreview from "@site/src/components/FlowscapeScenePreview";
+
+export const rectSceneSpec = {
+	background: {
+		fill: "#1E1E1E",
+		showLogo: true,
+		logoOpacity: 0.32,
+		logoSize: { width: 240, height: 240 },
+	},
+	camera: {
+		padding: 84,
+		minScale: 0.22,
+		maxScale: 2.2,
+	},
+	nodes: [
+		{
+			kind: "rect",
+			name: "HeroRect",
+			width: 360,
+			height: 220,
+			fill: "#0b1220",
+			strokeFill: "#2f7cf6",
+			strokeWidth: { t: 10, r: 1, b: 1, l: 1 },
+			strokeAlign: "inside",
+			cornerRadius: { tl: 28, tr: 28, br: 20, bl: 20 },
+		},
+	],
+};
+
+## Rect Node (INodeRect)
+
+`INodeRect` is a rectangle node contract:
+
+```ts
+export interface INodeRect extends IShapeBase {}
+```
+
+It inherits all core node behavior from `INode` through `IShapeBase`, and adds rectangle-focused visual behavior through shape appearance and stroke APIs.
+
+## Live Preview
+
+The demo below uses the reusable scene preview component with:
+
+- `Background` layer (fill + centered logo)
+- `World` layer (Rect node)
+- `Overlay` layer (ready for editor interactions)
+
+<FlowscapeScenePreview height={380} spec={rectSceneSpec} />
+
+## Create Rect Like in the Demo
+
+```ts
+import { NodeRect, StrokeAlign } from "@flowscape-ui/core-sdk";
+
+const rect = new NodeRect(1);
+rect.setSize(360, 220);
+rect.setFill("#0b1220");
+rect.setStrokeFill("#2f7cf6");
+rect.setStrokeWidth({ t: 10, r: 1, b: 1, l: 1 });
+rect.setStrokeAlign(StrokeAlign.Inside);
+rect.setCornerRadius({ tl: 28, tr: 28, br: 20, bl: 20 });
+
+layerWorld.addNode(rect);
+scene.invalidate();
+```
+
+## Inheritance
+
+```text
+INode
+  -> IShapeBase
+      -> INodeRect
+```
+
+`INodeRect` gets:
+
+- identity, hierarchy, transforms, bounds, hit-test, serialization from `INode`
+- shape appearance and visual-bounds behavior from `IShapeBase`
+
+## Appearance API
+
+| Method                   | Description                                    |
+| ------------------------ | ---------------------------------------------- |
+| `getCornerRadius()`      | Returns corner radii (`tl`, `tr`, `br`, `bl`). |
+| `setCornerRadius(value)` | Sets corner radii for all rectangle corners.   |
+| `getFill()`              | Returns fill color in hex format.              |
+| `setFill(value)`         | Sets fill color (`string` or `Color`).         |
+
+## Stroke API
+
+| Method                  | Description                                            |
+| ----------------------- | ------------------------------------------------------ |
+| `getStrokeWidth()`      | Returns stroke widths by side (`t`, `r`, `b`, `l`).    |
+| `setStrokeWidth(value)` | Sets per-side stroke width.                            |
+| `getStrokeFill()`       | Returns stroke color in hex format.                    |
+| `setStrokeFill(value)`  | Sets stroke color (`string` or `Color`).               |
+| `getStrokeAlign()`      | Returns stroke alignment mode.                         |
+| `setStrokeAlign(value)` | Sets stroke alignment (`Inside`, `Center`, `Outside`). |
+
+## View Bounds API (Visual Bounds)
+
+These methods include stroke in bounds calculations:
+
+| Method                  | Space | Notes                                        |
+| ----------------------- | ----- | -------------------------------------------- |
+| `getLocalViewOBB()`     | Local | OBB including stroke width/alignment.        |
+| `getWorldViewCorners()` | World | World corners of the visual rectangle.       |
+| `getWorldViewOBB()`     | World | Rotated visual bounds including stroke.      |
+| `getWorldViewAABB()`    | World | Axis-aligned visual bounds including stroke. |
+
+Use view-bounds methods for editor overlays, visual selection, and accurate hit workflows where stroke must be respected.
+
+## Next
+
+- [Ellipse Node reference](./ellipse-node)
