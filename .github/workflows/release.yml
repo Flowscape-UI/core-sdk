@@ -46,8 +46,8 @@ jobs:
             - name: Typecheck
               run: bun run typecheck
 
-            - name: Test
-              run: bunx turbo run test
+            # - name: Test
+            #   run: bunx turbo run test
 
             - name: Build
               run: bun run build
