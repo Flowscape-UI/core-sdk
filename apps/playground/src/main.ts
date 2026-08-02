@@ -26,6 +26,8 @@ import {
 	LayerOverlayInputController,
 	FillMode,
 	StrokeAlign,
+	StrokeStyle,
+	StrokeDashCap,
 } from "@flowscape-ui/core-sdk";
 
 const container = document.querySelector<HTMLDivElement>("#app");
@@ -109,9 +111,16 @@ layerBackground.setImagePosition("50%", "50%");
 const rectNode = new NodeRect(1);
 rectNode.setFillMode(FillMode.LinearGradient);
 rectNode.setFill("linear-gradient(red, blue)");
-rectNode.setStrokeWidth([6, 50]);
+rectNode.setStrokeWidth([3]);
 rectNode.setStrokeAlign(StrokeAlign.Outside);
 rectNode.setStrokeFill("black");
+rectNode.setStrokeStyle(StrokeStyle.Dashed);
+rectNode.setStrokeStyleProperties(
+	StrokeStyle.Dashed,
+	20,
+	10,
+	StrokeDashCap.Round,
+);
 
 const rectNode2 = new NodeRect(20);
 rectNode2.setPosition(-100, 0);

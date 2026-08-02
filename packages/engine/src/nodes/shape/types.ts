@@ -21,6 +21,152 @@ export enum StrokeAlign {
 	Outside = 2,
 }
 
+export enum StrokeStyle {
+	Solid = "solid",
+	Dashed = "dashed",
+	Dotted = "dotted",
+	Custom = "custom",
+}
+
+export type StrokeStyleLength =
+	number |
+	readonly number[];
+
+export type StrokeStyleGap =
+	number |
+	readonly number[];
+
+export type StrokeStyleShape =
+	string;
+
+export enum StrokeDashCap {
+	Flat = "flat",
+	Round = "round",
+}
+
+export type StrokeDashedStyleProperties = Readonly<{
+	length: StrokeStyleLength;
+	gap: StrokeStyleGap;
+	cap: StrokeDashCap;
+}>;
+
+export type StrokeDottedStyleProperties = Readonly<{
+	length: StrokeStyleLength;
+	gap: StrokeStyleGap;
+}>;
+
+export type StrokeCustomStyleProperties = Readonly<{
+	length: StrokeStyleLength;
+	gap: StrokeStyleGap;
+	shape?: StrokeStyleShape;
+}>;
+
+export type StrokeStyleProperties =
+	| StrokeDashedStyleProperties
+	| StrokeDottedStyleProperties
+	| StrokeCustomStyleProperties;
+
+export type ConfigurableStrokeStyle =
+	| StrokeStyle.Dashed
+	| StrokeStyle.Dotted
+	| StrokeStyle.Custom;
+
+export type ResolvedStrokeStylePatternItem = Readonly<{
+	length: number;
+	gap: number;
+}>;
+
+export type ResolvedStrokeStylePattern =
+	readonly ResolvedStrokeStylePatternItem[];
+
+export type StrokePathMetricPoint = Readonly<{
+	point: Vector2;
+	distance: number;
+}>;
+
+export type StrokePathMetrics = Readonly<{
+	points: readonly StrokePathMetricPoint[];
+	length: number;
+	closed: boolean;
+	winding: number;
+}>;
+
+export type StrokePatternInterval = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+}>;
+
+export type ResolvedStrokePatternSegment = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+
+	points: readonly Vector2[];
+}>;
+
+export type ResolvedStrokePatternEdge = Readonly<{
+	start: Vector2;
+	end: Vector2;
+
+	startDistance: number;
+	endDistance: number;
+
+	length: number;
+
+	tangent: Vector2;
+	outwardNormal: Vector2;
+}>;
+
+export type ResolvedStrokePatternEdgeSegment = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+
+	edges: readonly ResolvedStrokePatternEdge[];
+}>;
+
+export type ResolvedStrokePatternOffsetEdge = Readonly<{
+	source: ResolvedStrokePatternEdge;
+
+	outerOffset: number;
+	innerOffset: number;
+
+	outerStart: Vector2;
+	outerEnd: Vector2;
+
+	innerStart: Vector2;
+	innerEnd: Vector2;
+}>;
+
+export type ResolvedStrokePatternOffsetSegment = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+
+	edges: readonly ResolvedStrokePatternOffsetEdge[];
+}>;
+
+export type ResolvedStrokePatternContourSegment = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+
+	startTangent: Vector2;
+	endTangent: Vector2;
+
+	outer: readonly Vector2[];
+	inner: readonly Vector2[];
+}>;
+
+export type ResolvedStrokePatternPathSegment = Readonly<{
+	start: number;
+	end: number;
+	patternIndex: number;
+
+	commands: readonly ShapePathCommand[];
+}>;
+
 export enum FillMode {
 	Color = "color",
 	LinearGradient = "linear-gradient",
@@ -220,6 +366,42 @@ export interface IShapeBase extends INode {
 	setStrokeAlign(value: StrokeAlign): void;
 
 	getStrokePath(): ShapeStrokePath | null;
+
+	getStrokeStyle(): StrokeStyle;
+
+	setStrokeStyle(value: StrokeStyle): void;
+
+	getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dashed,
+	): StrokeDashedStyleProperties;
+
+	getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dotted,
+	): StrokeDottedStyleProperties;
+
+	getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Custom,
+	): StrokeCustomStyleProperties;
+
+	setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dashed,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+		cap?: StrokeDashCap,
+	): void;
+
+	setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dotted,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+	): void;
+
+	setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Custom,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+		shape?: StrokeStyleShape,
+	): void;
 
 	getCornerRadiusAnchors(): readonly ShapeCornerRadiusAnchor[];
 

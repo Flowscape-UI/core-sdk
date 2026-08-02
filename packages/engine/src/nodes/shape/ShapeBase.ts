@@ -12,6 +12,16 @@ import {
 	type ShapeCornerRadiusAnchor,
 	type RoundedCornerGeometry,
 	type ShapeStrokePath,
+	StrokeStyle,
+	type StrokeCustomStyleProperties,
+	type StrokeDottedStyleProperties,
+	type StrokeDashedStyleProperties,
+	StrokeDashCap,
+	type StrokeStyleLength,
+	type StrokeStyleGap,
+	type StrokeStyleProperties,
+	type ConfigurableStrokeStyle,
+	type StrokeStyleShape,
 } from "./types";
 import { ShapeEffect } from "./effect";
 import type { Vector2 } from "../../core/transform/types";
@@ -42,6 +52,10 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	private _strokeFillMode: FillMode;
 	private _strokeFills: Record<FillMode, string>;
 	private _strokeAlign: StrokeAlign;
+	private _strokeStyle: StrokeStyle;
+	private _strokeDashedStyleProperties: StrokeDashedStyleProperties;
+	private _strokeDottedStyleProperties: StrokeDottedStyleProperties;
+	private _strokeCustomStyleProperties: StrokeCustomStyleProperties;
 
 	constructor(id: ID, type: NodeType, name?: string) {
 		super(id, type, name);
@@ -55,6 +69,22 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		this._strokeFillMode = FillMode.Color;
 		this._strokeFills = { ...ShapeBase.DEFAULT_FILLS };
 		this._strokeAlign = StrokeAlign.Center;
+		this._strokeStyle = StrokeStyle.Solid;
+		this._strokeDashedStyleProperties = {
+			length: 12,
+			gap: 8,
+			cap: StrokeDashCap.Flat,
+		};
+
+		this._strokeDottedStyleProperties = {
+			length: 4,
+			gap: 8,
+		};
+
+		this._strokeCustomStyleProperties = {
+			length: 12,
+			gap: 8,
+		};
 
 		this.effect = new ShapeEffect();
 	}
@@ -167,6 +197,149 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 
 	public getStrokePath(): ShapeStrokePath | null {
 		return null;
+	}
+
+	public getStrokeStyle(): StrokeStyle {
+		return this._strokeStyle;
+	}
+
+	public setStrokeStyle(value: StrokeStyle): void {
+		if (value === this._strokeStyle) {
+			return;
+		}
+		this._strokeStyle = value;
+	}
+
+	public getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dashed,
+	): StrokeDashedStyleProperties;
+
+	public getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dotted,
+	): StrokeDottedStyleProperties;
+
+	public getStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Custom,
+	): StrokeCustomStyleProperties;
+
+	public getStrokeStyleProperties(
+		strokeStyle: ConfigurableStrokeStyle,
+	): StrokeStyleProperties {
+		switch (strokeStyle) {
+			case StrokeStyle.Dashed:
+				return {
+					length:
+						this._cloneStrokeStyleMetric(
+							this._strokeDashedStyleProperties.length,
+						),
+
+					gap:
+						this._cloneStrokeStyleMetric(
+							this._strokeDashedStyleProperties.gap,
+						),
+
+					cap:
+						this._strokeDashedStyleProperties.cap,
+				};
+
+			case StrokeStyle.Dotted:
+				return {
+					length:
+						this._cloneStrokeStyleMetric(
+							this._strokeDottedStyleProperties.length,
+						),
+
+					gap:
+						this._cloneStrokeStyleMetric(
+							this._strokeDottedStyleProperties.gap,
+						),
+				};
+
+			case StrokeStyle.Custom:
+				return {
+					length:
+						this._cloneStrokeStyleMetric(
+							this._strokeCustomStyleProperties.length,
+						),
+
+					gap:
+						this._cloneStrokeStyleMetric(
+							this._strokeCustomStyleProperties.gap,
+						),
+
+					shape:
+						this._strokeCustomStyleProperties.shape,
+				};
+		}
+	}
+
+	public setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dashed,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+		cap?: StrokeDashCap,
+	): void;
+
+	public setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Dotted,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+	): void;
+
+	public setStrokeStyleProperties(
+		strokeStyle: StrokeStyle.Custom,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+		shape?: StrokeStyleShape,
+	): void;
+
+	public setStrokeStyleProperties(
+		strokeStyle: ConfigurableStrokeStyle,
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+		option?: StrokeDashCap | StrokeStyleShape,
+	): void {
+		const {
+			length: normalizedLength,
+			gap: normalizedGap,
+		} = this._normalizeStrokeStylePattern(
+			length,
+			gap,
+		);
+
+		switch (strokeStyle) {
+			case StrokeStyle.Dashed:
+				this._strokeDashedStyleProperties = {
+					length: normalizedLength,
+					gap: normalizedGap,
+
+					cap:
+						(option as StrokeDashCap | undefined) ??
+						this._strokeDashedStyleProperties.cap,
+				};
+
+				return;
+
+			case StrokeStyle.Dotted:
+				this._strokeDottedStyleProperties = {
+					length: normalizedLength,
+					gap: normalizedGap,
+				};
+
+				return;
+
+			case StrokeStyle.Custom:
+				this._strokeCustomStyleProperties = {
+					length: normalizedLength,
+					gap: normalizedGap,
+
+					...(typeof option === "string"
+						? { shape: option }
+						: {}),
+				};
+
+				return;
+		}
 	}
 
 	/***********************************************************/
@@ -330,147 +503,147 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	}
 
 	protected _buildClosedPolygonStrokePath(
-	anchors: readonly ShapeCornerRadiusAnchor[],
-): ShapeStrokePath | null {
-	const count = anchors.length;
+		anchors: readonly ShapeCornerRadiusAnchor[],
+	): ShapeStrokePath | null {
+		const count = anchors.length;
 
-	if (count < 3) {
-		return null;
-	}
-
-	const winding =
-		this._getCornerContourWinding(
-			anchors,
-		);
-
-	if (Math.abs(winding) <= EPSILON) {
-		return null;
-	}
-
-	const strokeWidths =
-		this._resolveShapeValues(
-			this.getStrokeWidth(),
-			count,
-		).map((value) =>
-			MathF32.max(
-				0,
-				Number.isFinite(value)
-					? value
-					: 0,
-			),
-		);
-
-	if (
-		strokeWidths.every(
-			(value) => value <= EPSILON,
-		)
-	) {
-		return null;
-	}
-
-	const cornerRadii =
-		this._resolveShapeValues(
-			this.getCornerRadius(),
-			count,
-		);
-
-	const outerOffsets =
-		new Array<number>(count);
-
-	const innerOffsets =
-		new Array<number>(count);
-
-	for (
-		let index = 0;
-		index < count;
-		index += 1
-	) {
-		const width =
-			strokeWidths[index] ?? 0;
-
-		switch (this.getStrokeAlign()) {
-			case StrokeAlign.Inside:
-				outerOffsets[index] = 0;
-				innerOffsets[index] =
-					-width;
-				break;
-
-			case StrokeAlign.Center:
-				outerOffsets[index] =
-					width * 0.5;
-
-				innerOffsets[index] =
-					-width * 0.5;
-				break;
-
-			case StrokeAlign.Outside:
-				outerOffsets[index] =
-					width;
-
-				innerOffsets[index] = 0;
-				break;
+		if (count < 3) {
+			return null;
 		}
-	}
 
-	const outerAnchors =
-		this._buildOffsetCornerAnchors(
-			anchors,
-			outerOffsets,
-			winding,
-		);
+		const winding =
+			this._getCornerContourWinding(
+				anchors,
+			);
 
-	const innerAnchors =
-		this._buildOffsetCornerAnchors(
-			anchors,
-			innerOffsets,
-			winding,
-		);
+		if (Math.abs(winding) <= EPSILON) {
+			return null;
+		}
 
-	if (
-		outerAnchors.length !== count ||
-		innerAnchors.length !== count
-	) {
-		return null;
-	}
+		const strokeWidths =
+			this._resolveShapeValues(
+				this.getStrokeWidth(),
+				count,
+			).map((value) =>
+				MathF32.max(
+					0,
+					Number.isFinite(value)
+						? value
+						: 0,
+				),
+			);
 
-	const outerRadii =
-		this._buildOffsetCornerRadii(
-			cornerRadii,
-			outerOffsets,
-		);
+		if (
+			strokeWidths.every(
+				(value) => value <= EPSILON,
+			)
+		) {
+			return null;
+		}
 
-	const innerRadii =
-		this._buildOffsetCornerRadii(
-			cornerRadii,
-			innerOffsets,
-		);
+		const cornerRadii =
+			this._resolveShapeValues(
+				this.getCornerRadius(),
+				count,
+			);
 
-	const outer =
-		this._buildRoundedCornerPathWithRadii(
-			outerAnchors,
-			outerRadii,
-		);
+		const outerOffsets =
+			new Array<number>(count);
 
-	if (outer.length === 0) {
-		return null;
-	}
+		const innerOffsets =
+			new Array<number>(count);
 
-	const inner =
-		this._isValidInnerStrokeContour(
-			innerAnchors,
-			winding,
-		)
-			? this._buildRoundedCornerPathWithRadii(
+		for (
+			let index = 0;
+			index < count;
+			index += 1
+		) {
+			const width =
+				strokeWidths[index] ?? 0;
+
+			switch (this.getStrokeAlign()) {
+				case StrokeAlign.Inside:
+					outerOffsets[index] = 0;
+					innerOffsets[index] =
+						-width;
+					break;
+
+				case StrokeAlign.Center:
+					outerOffsets[index] =
+						width * 0.5;
+
+					innerOffsets[index] =
+						-width * 0.5;
+					break;
+
+				case StrokeAlign.Outside:
+					outerOffsets[index] =
+						width;
+
+					innerOffsets[index] = 0;
+					break;
+			}
+		}
+
+		const outerAnchors =
+			this._buildOffsetCornerAnchors(
+				anchors,
+				outerOffsets,
+				winding,
+			);
+
+		const innerAnchors =
+			this._buildOffsetCornerAnchors(
+				anchors,
+				innerOffsets,
+				winding,
+			);
+
+		if (
+			outerAnchors.length !== count ||
+			innerAnchors.length !== count
+		) {
+			return null;
+		}
+
+		const outerRadii =
+			this._buildOffsetCornerRadii(
+				cornerRadii,
+				outerOffsets,
+			);
+
+		const innerRadii =
+			this._buildOffsetCornerRadii(
+				cornerRadii,
+				innerOffsets,
+			);
+
+		const outer =
+			this._buildRoundedCornerPathWithRadii(
+				outerAnchors,
+				outerRadii,
+			);
+
+		if (outer.length === 0) {
+			return null;
+		}
+
+		const inner =
+			this._isValidInnerStrokeContour(
+				innerAnchors,
+				winding,
+			)
+				? this._buildRoundedCornerPathWithRadii(
 					innerAnchors,
 					innerRadii,
 				)
-			: [];
+				: [];
 
-	return {
-		outer,
-		inner,
-	};
-}
+		return {
+			outer,
+			inner,
+		};
+	}
 
 	protected _buildRoundedCornerPath(
 		anchors: readonly ShapeCornerRadiusAnchor[],
@@ -635,356 +808,356 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	}
 
 	private _buildOffsetCornerAnchors(
-	anchors: readonly ShapeCornerRadiusAnchor[],
-	offsets: readonly number[],
-	winding: number,
-): ShapeCornerRadiusAnchor[] {
-	const count = anchors.length;
+		anchors: readonly ShapeCornerRadiusAnchor[],
+		offsets: readonly number[],
+		winding: number,
+	): ShapeCornerRadiusAnchor[] {
+		const count = anchors.length;
 
-	if (count < 3) {
-		return [];
-	}
+		if (count < 3) {
+			return [];
+		}
 
-	const points =
-		anchors.map(
-			(anchor) => anchor.point,
-		);
-
-	const offsetPoints: Vector2[] = [];
-
-	for (
-		let index = 0;
-		index < count;
-		index += 1
-	) {
-		const previousIndex =
-			(index - 1 + count) %
-			count;
-
-		const nextIndex =
-			(index + 1) % count;
-
-		const previous =
-			points[previousIndex]!;
-
-		const current =
-			points[index]!;
-
-		const next =
-			points[nextIndex]!;
-
-		const previousNormal =
-			this._getPolygonEdgeOutwardNormal(
-				previous,
-				current,
-				winding,
+		const points =
+			anchors.map(
+				(anchor) => anchor.point,
 			);
 
-		const nextNormal =
-			this._getPolygonEdgeOutwardNormal(
-				current,
-				next,
-				winding,
-			);
+		const offsetPoints: Vector2[] = [];
 
-		if (
-			!previousNormal ||
-			!nextNormal
+		for (
+			let index = 0;
+			index < count;
+			index += 1
 		) {
-			offsetPoints.push(
-				this._toCornerF32Point(
+			const previousIndex =
+				(index - 1 + count) %
+				count;
+
+			const nextIndex =
+				(index + 1) % count;
+
+			const previous =
+				points[previousIndex]!;
+
+			const current =
+				points[index]!;
+
+			const next =
+				points[nextIndex]!;
+
+			const previousNormal =
+				this._getPolygonEdgeOutwardNormal(
+					previous,
 					current,
-				),
-			);
+					winding,
+				);
 
-			continue;
-		}
+			const nextNormal =
+				this._getPolygonEdgeOutwardNormal(
+					current,
+					next,
+					winding,
+				);
 
-		const previousOffset =
-			offsets[previousIndex] ?? 0;
+			if (
+				!previousNormal ||
+				!nextNormal
+			) {
+				offsetPoints.push(
+					this._toCornerF32Point(
+						current,
+					),
+				);
 
-		const nextOffset =
-			offsets[index] ?? 0;
+				continue;
+			}
 
-		const previousLinePoint = {
-			x:
-				current.x +
-				previousNormal.x *
-					previousOffset,
+			const previousOffset =
+				offsets[previousIndex] ?? 0;
 
-			y:
-				current.y +
-				previousNormal.y *
-					previousOffset,
-		};
+			const nextOffset =
+				offsets[index] ?? 0;
 
-		const nextLinePoint = {
-			x:
-				current.x +
-				nextNormal.x *
-					nextOffset,
-
-			y:
-				current.y +
-				nextNormal.y *
-					nextOffset,
-		};
-
-		const previousDirection = {
-			x:
-				current.x -
-				previous.x,
-
-			y:
-				current.y -
-				previous.y,
-		};
-
-		const nextDirection = {
-			x:
-				next.x -
-				current.x,
-
-			y:
-				next.y -
-				current.y,
-		};
-
-		const intersection =
-			this._intersectStrokeLines(
-				previousLinePoint,
-				previousDirection,
-
-				nextLinePoint,
-				nextDirection,
-			);
-
-		if (intersection) {
-			offsetPoints.push(
-				this._toCornerF32Point(
-					intersection,
-				),
-			);
-
-			continue;
-		}
-
-		/*
-		 * Почти параллельные edges.
-		 * Берём среднее двух offset positions.
-		 */
-		offsetPoints.push(
-			this._toCornerF32Point({
+			const previousLinePoint = {
 				x:
-					(
-						previousLinePoint.x +
-						nextLinePoint.x
-					) *
-					0.5,
+					current.x +
+					previousNormal.x *
+					previousOffset,
 
 				y:
-					(
-						previousLinePoint.y +
-						nextLinePoint.y
-					) *
-					0.5,
+					current.y +
+					previousNormal.y *
+					previousOffset,
+			};
+
+			const nextLinePoint = {
+				x:
+					current.x +
+					nextNormal.x *
+					nextOffset,
+
+				y:
+					current.y +
+					nextNormal.y *
+					nextOffset,
+			};
+
+			const previousDirection = {
+				x:
+					current.x -
+					previous.x,
+
+				y:
+					current.y -
+					previous.y,
+			};
+
+			const nextDirection = {
+				x:
+					next.x -
+					current.x,
+
+				y:
+					next.y -
+					current.y,
+			};
+
+			const intersection =
+				this._intersectStrokeLines(
+					previousLinePoint,
+					previousDirection,
+
+					nextLinePoint,
+					nextDirection,
+				);
+
+			if (intersection) {
+				offsetPoints.push(
+					this._toCornerF32Point(
+						intersection,
+					),
+				);
+
+				continue;
+			}
+
+			/*
+			 * Почти параллельные edges.
+			 * Берём среднее двух offset positions.
+			 */
+			offsetPoints.push(
+				this._toCornerF32Point({
+					x:
+						(
+							previousLinePoint.x +
+							nextLinePoint.x
+						) *
+						0.5,
+
+					y:
+						(
+							previousLinePoint.y +
+							nextLinePoint.y
+						) *
+						0.5,
+				}),
+			);
+		}
+
+		return offsetPoints.map(
+			(point, index) => ({
+				point,
+
+				previous:
+					offsetPoints[
+					(index - 1 + count) %
+					count
+					]!,
+
+				next:
+					offsetPoints[
+					(index + 1) %
+					count
+					]!,
 			}),
 		);
 	}
 
-	return offsetPoints.map(
-		(point, index) => ({
-			point,
+	private _getPolygonEdgeOutwardNormal(
+		start: Vector2,
+		end: Vector2,
+		winding: number,
+	): Vector2 | null {
+		const dx =
+			end.x - start.x;
 
-			previous:
-				offsetPoints[
-					(index - 1 + count) %
-						count
-				]!,
+		const dy =
+			end.y - start.y;
 
-			next:
-				offsetPoints[
-					(index + 1) %
-						count
-				]!,
-		}),
-	);
-}
+		const length =
+			Math.hypot(
+				dx,
+				dy,
+			);
 
-private _getPolygonEdgeOutwardNormal(
-	start: Vector2,
-	end: Vector2,
-	winding: number,
-): Vector2 | null {
-	const dx =
-		end.x - start.x;
+		if (length <= EPSILON) {
+			return null;
+		}
 
-	const dy =
-		end.y - start.y;
+		const windingSign =
+			winding > 0 ? 1 : -1;
 
-	const length =
-		Math.hypot(
-			dx,
-			dy,
-		);
+		/*
+		 * Для нашего contour winding:
+		 *
+		 * positive -> right normal наружу
+		 * negative -> left normal наружу
+		 */
+		return {
+			x:
+				(windingSign * dy) /
+				length,
 
-	if (length <= EPSILON) {
-		return null;
+			y:
+				(-windingSign * dx) /
+				length,
+		};
 	}
 
-	const windingSign =
-		winding > 0 ? 1 : -1;
+	private _intersectStrokeLines(
+		firstPoint: Vector2,
+		firstDirection: Vector2,
 
-	/*
-	 * Для нашего contour winding:
-	 *
-	 * positive -> right normal наружу
-	 * negative -> left normal наружу
-	 */
-	return {
-		x:
-			(windingSign * dy) /
-			length,
-
-		y:
-			(-windingSign * dx) /
-			length,
-	};
-}
-
-private _intersectStrokeLines(
-	firstPoint: Vector2,
-	firstDirection: Vector2,
-
-	secondPoint: Vector2,
-	secondDirection: Vector2,
-): Vector2 | null {
-	const denominator =
-		firstDirection.x *
+		secondPoint: Vector2,
+		secondDirection: Vector2,
+	): Vector2 | null {
+		const denominator =
+			firstDirection.x *
 			secondDirection.y -
-		firstDirection.y *
+			firstDirection.y *
 			secondDirection.x;
 
-	if (
-		Math.abs(denominator) <=
-		EPSILON
-	) {
-		return null;
-	}
+		if (
+			Math.abs(denominator) <=
+			EPSILON
+		) {
+			return null;
+		}
 
-	const delta = {
-		x:
-			secondPoint.x -
-			firstPoint.x,
+		const delta = {
+			x:
+				secondPoint.x -
+				firstPoint.x,
 
-		y:
-			secondPoint.y -
-			firstPoint.y,
-	};
+			y:
+				secondPoint.y -
+				firstPoint.y,
+		};
 
-	const t =
-		(
-			delta.x *
+		const t =
+			(
+				delta.x *
 				secondDirection.y -
-			delta.y *
+				delta.y *
 				secondDirection.x
-		) /
-		denominator;
+			) /
+			denominator;
 
-	if (!Number.isFinite(t)) {
-		return null;
+		if (!Number.isFinite(t)) {
+			return null;
+		}
+
+		return {
+			x:
+				firstPoint.x +
+				firstDirection.x * t,
+
+			y:
+				firstPoint.y +
+				firstDirection.y * t,
+		};
 	}
 
-	return {
-		x:
-			firstPoint.x +
-			firstDirection.x * t,
+	private _buildOffsetCornerRadii(
+		radii: readonly number[],
+		offsets: readonly number[],
+	): number[] {
+		const count = radii.length;
 
-		y:
-			firstPoint.y +
-			firstDirection.y * t,
-	};
-}
+		return Array.from(
+			{ length: count },
+			(_, index) => {
+				const radius =
+					Math.max(
+						0,
+						radii[index] ?? 0,
+					);
 
-private _buildOffsetCornerRadii(
-	radii: readonly number[],
-	offsets: readonly number[],
-): number[] {
-	const count = radii.length;
+				if (radius <= EPSILON) {
+					/*
+					 * Sharp corner должен оставаться sharp.
+					 */
+					return 0;
+				}
 
-	return Array.from(
-		{ length: count },
-		(_, index) => {
-			const radius =
-				Math.max(
-					0,
-					radii[index] ?? 0,
-				);
-
-			if (radius <= EPSILON) {
-				/*
-				 * Sharp corner должен оставаться sharp.
-				 */
-				return 0;
-			}
-
-			const previousOffset =
-				offsets[
+				const previousOffset =
+					offsets[
 					(index - 1 + count) %
-						count
-				] ?? 0;
+					count
+					] ?? 0;
 
-			const currentOffset =
-				offsets[index] ?? 0;
+				const currentOffset =
+					offsets[index] ?? 0;
 
-			/*
-			 * Corner принадлежит двум сторонам:
-			 *
-			 * previous edge + current edge.
-			 *
-			 * Берём offset большей по модулю стороны,
-			 * как мы уже делали для Rect.
-			 */
-			const delta =
-				Math.abs(previousOffset) >=
-				Math.abs(currentOffset)
-					? previousOffset
-					: currentOffset;
+				/*
+				 * Corner принадлежит двум сторонам:
+				 *
+				 * previous edge + current edge.
+				 *
+				 * Берём offset большей по модулю стороны,
+				 * как мы уже делали для Rect.
+				 */
+				const delta =
+					Math.abs(previousOffset) >=
+						Math.abs(currentOffset)
+						? previousOffset
+						: currentOffset;
 
-			return MathF32.max(
-				0,
-				radius + delta,
-			);
-		},
-	);
-}
-
-private _isValidInnerStrokeContour(
-	anchors: readonly ShapeCornerRadiusAnchor[],
-	originalWinding: number,
-): boolean {
-	if (anchors.length < 3) {
-		return false;
-	}
-
-	const winding =
-		this._getCornerContourWinding(
-			anchors,
+				return MathF32.max(
+					0,
+					radius + delta,
+				);
+			},
 		);
-
-	if (Math.abs(winding) <= EPSILON) {
-		return false;
 	}
 
-	/*
-	 * Если inner contour схлопнулся и
-	 * перевернулся - отверстия больше нет.
-	 */
-	return (
-		Math.sign(winding) ===
-		Math.sign(originalWinding)
-	);
-}
+	private _isValidInnerStrokeContour(
+		anchors: readonly ShapeCornerRadiusAnchor[],
+		originalWinding: number,
+	): boolean {
+		if (anchors.length < 3) {
+			return false;
+		}
+
+		const winding =
+			this._getCornerContourWinding(
+				anchors,
+			);
+
+		if (Math.abs(winding) <= EPSILON) {
+			return false;
+		}
+
+		/*
+		 * Если inner contour схлопнулся и
+		 * перевернулся - отверстия больше нет.
+		 */
+		return (
+			Math.sign(winding) ===
+			Math.sign(originalWinding)
+		);
+	}
 
 	/***********************************************************/
 	/*                          Helper                         */
@@ -1005,6 +1178,74 @@ private _isValidInnerStrokeContour(
 			default:
 				return 0;
 		}
+	}
+
+	private _normalizeStrokeStyleMetric(
+		value: StrokeStyleLength | StrokeStyleGap,
+	): StrokeStyleLength {
+		if (typeof value === "number") {
+			return MathF32.max(
+				0,
+				Number.isFinite(value)
+					? value
+					: 0,
+			);
+		}
+
+		if (value.length === 0) {
+			return [0];
+		}
+
+		return value.map((item) =>
+			MathF32.max(
+				0,
+				Number.isFinite(item)
+					? item
+					: 0,
+			),
+		);
+	}
+
+	private _normalizeStrokeStylePattern(
+		length: StrokeStyleLength,
+		gap: StrokeStyleGap,
+	): {
+		length: StrokeStyleLength;
+		gap: StrokeStyleGap;
+	} {
+		const normalizedLength =
+			this._normalizeStrokeStyleMetric(
+				length,
+			);
+
+		const normalizedGap =
+			this._normalizeStrokeStyleMetric(
+				gap,
+			);
+
+		if (
+			Array.isArray(normalizedLength) &&
+			Array.isArray(normalizedGap) &&
+			normalizedLength.length !==
+			normalizedGap.length
+		) {
+			throw new RangeError(
+				"Stroke style length and gap patterns must have the same number of elements.",
+			);
+		}
+
+		return {
+			length: normalizedLength,
+			gap: normalizedGap,
+		};
+	}
+
+	private _cloneStrokeStyleMetric(
+		value: StrokeStyleLength | StrokeStyleGap,
+	): StrokeStyleLength {
+		return typeof value === "number"
+			? value
+			: [...value];
 	}
 
 	private _normalizeAppearanceValues(

@@ -8,10 +8,15 @@ import {
 
 import {
 	FillMode,
+	resolveStrokePatternGeometry,
+	StrokeAlign,
+	StrokeStyle,
 	type IShapeBase,
 	type Rect,
 	type ShapePathCommand,
 	type ShapeStrokePath,
+	type StrokeDashedStyleProperties,
+	type StrokeStyleProperties,
 } from "../../../../nodes";
 
 import { RendererCanvasBase } from "../base";
@@ -86,6 +91,38 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				STROKE_SHAPE_SELECTOR,
 			);
 
+		const strokeStyle =
+			node.getStrokeStyle();
+
+		let strokeStyleProperties:
+			StrokeStyleProperties | null = null;
+
+		switch (strokeStyle) {
+			case StrokeStyle.Dashed:
+				strokeStyleProperties =
+					node.getStrokeStyleProperties(
+						StrokeStyle.Dashed,
+					);
+				break;
+
+			case StrokeStyle.Dotted:
+				strokeStyleProperties =
+					node.getStrokeStyleProperties(
+						StrokeStyle.Dotted,
+					);
+				break;
+
+			case StrokeStyle.Custom:
+				strokeStyleProperties =
+					node.getStrokeStyleProperties(
+						StrokeStyle.Custom,
+					);
+				break;
+
+			case StrokeStyle.Solid:
+				break;
+		}
+
 		/*
 		 * Fill.
 		 *
@@ -128,11 +165,17 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			strokeWidths:
 				node.getStrokeWidth(),
 
+			strokeAlign:
+				node.getStrokeAlign(),
+
 			strokeMode:
 				node.getStrokeMode(),
 
 			strokeValue:
 				node.getStrokeFill(),
+
+			strokeStyle,
+			strokeStyleProperties,
 		});
 	}
 
@@ -237,6 +280,115 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 						"#000000",
 					);
 
+				const strokeStyle =
+					(
+						shape.getAttr(
+							"strokeStyle",
+						) as
+						| StrokeStyle
+						| undefined
+					) ??
+					StrokeStyle.Solid;
+
+				if (
+					strokeStyle ===
+					StrokeStyle.Dashed
+				) {
+					const commands =
+						shape.getAttr(
+							"pathCommands",
+						) as
+						| readonly ShapePathCommand[]
+						| undefined;
+
+					const strokeWidths =
+						shape.getAttr(
+							"strokeWidths",
+						) as
+						| readonly number[]
+						| undefined;
+
+					const properties =
+						shape.getAttr(
+							"strokeStyleProperties",
+						) as
+						| StrokeDashedStyleProperties
+						| null
+						| undefined;
+
+					const strokeAlign =
+						(
+							shape.getAttr(
+								"strokeAlign",
+							) as
+							| StrokeAlign
+							| undefined
+						) ??
+						StrokeAlign.Center;
+
+					if (
+						!commands ||
+						commands.length === 0 ||
+						!strokeWidths ||
+						strokeWidths.length === 0 ||
+						!properties
+					) {
+						return;
+					}
+
+					const width =
+						Math.max(
+							0,
+							strokeWidths[0] ?? 0,
+						);
+
+					if (width <= 0) {
+						return;
+					}
+
+					const paths =
+						resolveStrokePatternGeometry(
+							commands,
+							{
+								strokeWidth:
+									width,
+
+								strokeAlign,
+
+								length:
+									properties.length,
+
+								gap:
+									properties.gap,
+
+								cap:
+									properties.cap,
+							},
+						);
+
+					if (paths.length === 0) {
+						return;
+					}
+
+					ctx.beginPath();
+
+					for (const path of paths) {
+						this._appendPath(
+							ctx,
+							path.commands,
+						);
+					}
+
+					this._drawStrokeArea(
+						ctx,
+						shape,
+						strokeMode,
+						strokeValue,
+					);
+
+					return;
+				}
+
 				const strokePath =
 					shape.getAttr(
 						"strokePath",
@@ -273,58 +425,14 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 						);
 					}
 
-					switch (strokeMode) {
-						case FillMode.Color:
-							ctx.fillStyle =
-								strokeValue;
+					this._drawStrokeArea(
+						ctx,
+						shape,
+						strokeMode,
+						strokeValue,
+					);
 
-							ctx.fill(
-								"evenodd",
-							);
-
-							return;
-
-						case FillMode.LinearGradient:
-						case FillMode.RadialGradient:
-						case FillMode.ConicGradient:
-						case FillMode.DiamondGradient:
-						case FillMode.MeshGradient: {
-							const bounds =
-								shape.getAttr(
-									"paintBounds",
-								) as
-								| Rect
-								| undefined;
-
-							if (
-								!bounds ||
-								bounds.width <= 0 ||
-								bounds.height <= 0
-							) {
-								return;
-							}
-
-							this._drawGradientStroke(
-								ctx,
-								shape,
-								bounds,
-								strokeMode,
-								strokeValue,
-							);
-
-							return;
-						}
-
-						default:
-							ctx.fillStyle =
-								"#000000";
-
-							ctx.fill(
-								"evenodd",
-							);
-
-							return;
-					}
+					return;
 				}
 
 				/*
@@ -402,6 +510,64 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				ctx.stroke();
 			},
 		});
+	}
+
+	private _drawStrokeArea(
+		ctx: Konva.Context,
+		shape: Konva.Shape,
+		strokeMode: FillMode,
+		strokeValue: string,
+	): void {
+		switch (strokeMode) {
+			case FillMode.Color:
+				ctx.fillStyle =
+					strokeValue;
+
+				ctx.fill(
+					"evenodd",
+				);
+
+				return;
+
+			case FillMode.LinearGradient:
+			case FillMode.RadialGradient:
+			case FillMode.ConicGradient:
+			case FillMode.DiamondGradient:
+			case FillMode.MeshGradient: {
+				const bounds =
+					shape.getAttr(
+						"paintBounds",
+					) as
+					| Rect
+					| undefined;
+
+				if (
+					!bounds ||
+					bounds.width <= 0 ||
+					bounds.height <= 0
+				) {
+					return;
+				}
+
+				this._drawGradientStroke(
+					ctx,
+					shape,
+					bounds,
+					strokeMode,
+					strokeValue,
+				);
+
+				return;
+			}
+
+			default:
+				ctx.fillStyle =
+					"#000000";
+
+				ctx.fill(
+					"evenodd",
+				);
+		}
 	}
 
 	/*********************************************************/
