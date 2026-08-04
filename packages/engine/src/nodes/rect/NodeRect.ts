@@ -1,9 +1,9 @@
 import type { ID } from "../../core/types";
-import { MathF32 } from "../../core/math";
+import { EPSILON, MathF32 } from "../../core/math";
 import type { Vector2 } from "../../core/transform/types";
 import type { Rect } from "../base";
 import { NodeType } from "../base";
-import { ShapeBase, type ShapePathCommand } from "../shape";
+import { ShapeBase, StrokeAlign, type ShapeCornerRadiusAnchor, type ShapePathCommand, type ShapeStrokePath } from "../shape";
 import { matrixInvert } from "../utils/matrix-invert";
 import { type INodeRect } from "./types";
 
@@ -26,48 +26,422 @@ export class NodeRect extends ShapeBase implements INodeRect {
 
 		try {
 			const invMatrix = matrixInvert(this.getWorldMatrix());
-			const localPoint = this._applyMatrixToPoint(invMatrix, worldPoint);
+			const localPoint = this._applyMatrixToPoint(
+				invMatrix,
+				worldPoint,
+			);
 
 			const local = this.getLocalOBB();
 			const view = this.getLocalViewOBB();
-			const cornerRadius = this.getCornerRadius();
+
+			const [
+				topLeft,
+				topRight,
+				bottomRight,
+				bottomLeft,
+			] = this._getResolvedCornerRadii();
+
 			const outset = this._getViewOutset(local, view);
 
 			const normalized = this._normalizeCornerRadii(view, {
-				tlx: cornerRadius.tl + outset.l,
-				tly: cornerRadius.tl + outset.t,
-				trx: cornerRadius.tr + outset.r,
-				try: cornerRadius.tr + outset.t,
-				brx: cornerRadius.br + outset.r,
-				bry: cornerRadius.br + outset.b,
-				blx: cornerRadius.bl + outset.l,
-				bly: cornerRadius.bl + outset.b,
+				tlx: topLeft + outset.l,
+				tly: topLeft + outset.t,
+
+				trx: topRight + outset.r,
+				try: topRight + outset.t,
+
+				brx: bottomRight + outset.r,
+				bry: bottomRight + outset.b,
+
+				blx: bottomLeft + outset.l,
+				bly: bottomLeft + outset.b,
 			});
 
-			return this._isPointInsideRoundedRect(localPoint, view, normalized);
+			return this._isPointInsideRoundedRect(
+				localPoint,
+				view,
+				normalized,
+			);
 		} catch {
 			return false;
 		}
 	}
 
 	public override toPathCommands(): readonly ShapePathCommand[] {
-		const local = this.getLocalOBB();
-		const view = this.getLocalViewOBB();
-		const cornerRadius = this.getCornerRadius();
-		const outset = this._getViewOutset(local, view);
+		const bounds = this.getLocalOBB();
 
-		const viewPath = this._buildRoundedRectPath(view, {
-			tlx: cornerRadius.tl + outset.l,
-			tly: cornerRadius.tl + outset.t,
-			trx: cornerRadius.tr + outset.r,
-			try: cornerRadius.tr + outset.t,
-			brx: cornerRadius.br + outset.r,
-			bry: cornerRadius.br + outset.b,
-			blx: cornerRadius.bl + outset.l,
-			bly: cornerRadius.bl + outset.b,
+		const [
+			topLeft,
+			topRight,
+			bottomRight,
+			bottomLeft,
+		] = this._getResolvedCornerRadii();
+
+		return this._buildRoundedRectPath(bounds, {
+			tlx: topLeft,
+			tly: topLeft,
+
+			trx: topRight,
+			try: topRight,
+
+			brx: bottomRight,
+			bry: bottomRight,
+
+			blx: bottomLeft,
+			bly: bottomLeft,
 		});
+	}
 
-		return viewPath;
+	public override getCornerRadiusAnchors(): readonly ShapeCornerRadiusAnchor[] {
+		const bounds = this.getLocalOBB();
+
+		const tl = {
+			x: bounds.x,
+			y: bounds.y,
+		};
+
+		const tr = {
+			x: bounds.x + bounds.width,
+			y: bounds.y,
+		};
+
+		const br = {
+			x: bounds.x + bounds.width,
+			y: bounds.y + bounds.height,
+		};
+
+		const bl = {
+			x: bounds.x,
+			y: bounds.y + bounds.height,
+		};
+
+		return [
+			{
+				point: tl,
+				previous: bl,
+				next: tr,
+			},
+			{
+				point: tr,
+				previous: tl,
+				next: br,
+			},
+			{
+				point: br,
+				previous: tr,
+				next: bl,
+			},
+			{
+				point: bl,
+				previous: br,
+				next: tl,
+			},
+		];
+	}
+
+	public override getStrokePath(): ShapeStrokePath | null {
+		const bounds = this.getLocalOBB();
+
+		if (
+			bounds.width <= EPSILON ||
+			bounds.height <= EPSILON
+		) {
+			return null;
+		}
+
+		const [
+			top,
+			right,
+			bottom,
+			left,
+		] = this._resolveShapeValues(
+			this.getStrokeWidth(),
+			4,
+		);
+
+		const t = Math.max(0, top ?? 0);
+		const r = Math.max(0, right ?? 0);
+		const b = Math.max(0, bottom ?? 0);
+		const l = Math.max(0, left ?? 0);
+
+		if (
+			t <= EPSILON &&
+			r <= EPSILON &&
+			b <= EPSILON &&
+			l <= EPSILON
+		) {
+			return null;
+		}
+
+		const [
+			topLeft,
+			topRight,
+			bottomRight,
+			bottomLeft,
+		] = this._getResolvedCornerRadii();
+
+		const tlDelta = Math.max(l, t);
+		const trDelta = Math.max(r, t);
+		const brDelta = Math.max(r, b);
+		const blDelta = Math.max(l, b);
+
+		let outerBounds: Rect = {
+			...bounds,
+		};
+
+		let innerBounds: Rect = {
+			...bounds,
+		};
+
+		let outerRadius = {
+			tl: topLeft,
+			tr: topRight,
+			br: bottomRight,
+			bl: bottomLeft,
+		};
+
+		let innerRadius = {
+			...outerRadius,
+		};
+
+		switch (this.getStrokeAlign()) {
+			case StrokeAlign.Inside: {
+				innerBounds = {
+					x: bounds.x + l,
+					y: bounds.y + t,
+					width: Math.max(
+						0,
+						bounds.width - l - r,
+					),
+					height: Math.max(
+						0,
+						bounds.height - t - b,
+					),
+				};
+
+				innerRadius = {
+					tl: this._shrinkStrokeRadius(
+						topLeft,
+						tlDelta,
+					),
+					tr: this._shrinkStrokeRadius(
+						topRight,
+						trDelta,
+					),
+					br: this._shrinkStrokeRadius(
+						bottomRight,
+						brDelta,
+					),
+					bl: this._shrinkStrokeRadius(
+						bottomLeft,
+						blDelta,
+					),
+				};
+
+				break;
+			}
+
+			case StrokeAlign.Center: {
+				const halfT = t * 0.5;
+				const halfR = r * 0.5;
+				const halfB = b * 0.5;
+				const halfL = l * 0.5;
+
+				outerBounds = {
+					x: bounds.x - halfL,
+					y: bounds.y - halfT,
+
+					width:
+						bounds.width +
+						halfL +
+						halfR,
+
+					height:
+						bounds.height +
+						halfT +
+						halfB,
+				};
+
+				innerBounds = {
+					x: bounds.x + halfL,
+					y: bounds.y + halfT,
+
+					width: Math.max(
+						0,
+						bounds.width -
+						halfL -
+						halfR,
+					),
+
+					height: Math.max(
+						0,
+						bounds.height -
+						halfT -
+						halfB,
+					),
+				};
+
+				outerRadius = {
+					tl: this._expandStrokeRadius(
+						topLeft,
+						tlDelta * 0.5,
+					),
+					tr: this._expandStrokeRadius(
+						topRight,
+						trDelta * 0.5,
+					),
+					br: this._expandStrokeRadius(
+						bottomRight,
+						brDelta * 0.5,
+					),
+					bl: this._expandStrokeRadius(
+						bottomLeft,
+						blDelta * 0.5,
+					),
+				};
+
+				innerRadius = {
+					tl: this._shrinkStrokeRadius(
+						topLeft,
+						tlDelta * 0.5,
+					),
+					tr: this._shrinkStrokeRadius(
+						topRight,
+						trDelta * 0.5,
+					),
+					br: this._shrinkStrokeRadius(
+						bottomRight,
+						brDelta * 0.5,
+					),
+					bl: this._shrinkStrokeRadius(
+						bottomLeft,
+						blDelta * 0.5,
+					),
+				};
+
+				break;
+			}
+
+			case StrokeAlign.Outside: {
+				outerBounds = {
+					x: bounds.x - l,
+					y: bounds.y - t,
+
+					width:
+						bounds.width +
+						l +
+						r,
+
+					height:
+						bounds.height +
+						t +
+						b,
+				};
+
+				outerRadius = {
+					tl: this._expandStrokeRadius(
+						topLeft,
+						tlDelta,
+					),
+					tr: this._expandStrokeRadius(
+						topRight,
+						trDelta,
+					),
+					br: this._expandStrokeRadius(
+						bottomRight,
+						brDelta,
+					),
+					bl: this._expandStrokeRadius(
+						bottomLeft,
+						blDelta,
+					),
+				};
+
+				break;
+			}
+		}
+
+		if (
+			outerBounds.width <= EPSILON ||
+			outerBounds.height <= EPSILON
+		) {
+			return null;
+		}
+
+		const outer =
+			this._buildRoundedRectPath(
+				outerBounds,
+				this._toStrokeCornerRadii(
+					outerRadius,
+				),
+			);
+
+		const inner =
+			innerBounds.width > EPSILON &&
+				innerBounds.height > EPSILON
+				? this._buildRoundedRectPath(
+					innerBounds,
+					this._toStrokeCornerRadii(
+						innerRadius,
+					),
+				)
+				: [];
+
+		return {
+			outer,
+			inner,
+		};
+	}
+
+	private _toStrokeCornerRadii(
+		radii: {
+			tl: number;
+			tr: number;
+			br: number;
+			bl: number;
+		},
+	): {
+		tlx: number;
+		tly: number;
+		trx: number;
+		try: number;
+		brx: number;
+		bry: number;
+		blx: number;
+		bly: number;
+	} {
+		return {
+			tlx: radii.tl,
+			tly: radii.tl,
+
+			trx: radii.tr,
+			try: radii.tr,
+
+			brx: radii.br,
+			bry: radii.br,
+
+			blx: radii.bl,
+			bly: radii.bl,
+		};
+	}
+
+	private _getResolvedCornerRadii(): [
+		number,
+		number,
+		number,
+		number,
+	] {
+		const values = this._resolveShapeValues(
+			this.getCornerRadius(),
+			4,
+		);
+
+		return [
+			values[0]!,
+			values[1]!,
+			values[2]!,
+			values[3]!,
+		];
 	}
 
 	private _buildRoundedRectPath(
@@ -353,6 +727,46 @@ export class NodeRect extends ShapeBase implements INodeRect {
 		}
 
 		return true;
+	}
+
+	private _expandStrokeRadius(
+		radius: number,
+		delta: number,
+	): number {
+		/*
+		 * Sharp corner должен остаться sharp.
+		 *
+		 * Stroke сам по себе не должен создавать
+		 * border-radius там, где его не было.
+		 */
+		if (radius <= EPSILON) {
+			return 0;
+		}
+
+		return MathF32.max(
+			0,
+			MathF32.add(
+				radius,
+				delta,
+			),
+		);
+	}
+
+	private _shrinkStrokeRadius(
+		radius: number,
+		delta: number,
+	): number {
+		if (radius <= EPSILON) {
+			return 0;
+		}
+
+		return MathF32.max(
+			0,
+			MathF32.sub(
+				radius,
+				delta,
+			),
+		);
 	}
 
 	private _isInsideCornerEllipse(

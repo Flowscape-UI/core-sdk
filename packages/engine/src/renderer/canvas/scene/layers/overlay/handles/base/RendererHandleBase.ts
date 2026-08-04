@@ -110,7 +110,7 @@ export abstract class RendererHandleBase<
 	}
 
 	protected _getHandleWorldPoint(handle: T, node: IShapeBase): Point {
-		const localViewObb = node.getLocalViewOBB();
+		const localViewObb = node.getLocalOBB();
 		const localX = localViewObb.x + localViewObb.width * handle.getX();
 		const localY = localViewObb.y + localViewObb.height * handle.getY();
 		const matrix = node.getWorldMatrix();

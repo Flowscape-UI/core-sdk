@@ -46,7 +46,7 @@ export class RendererHandleFocusCanvas extends RendererHandleBase<IHandleFocus> 
 			return;
 		}
 
-		const worldPoints = this._getNodeWorldOutlinePoints(node);
+		const worldPoints = node.getWorldCorners();
 
 		if (worldPoints.length < 2) {
 			this._view.visible(false);

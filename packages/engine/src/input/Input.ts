@@ -901,19 +901,55 @@ export class Input {
 	//  Handlers — Pointer
 	// =========================================================
 
-	private static _onPointerDown = (e: PointerEvent): void => {
-		this._pointerDown = true;
-		this._activePointerId = e.pointerId;
-		this._pointerType = e.pointerType as "mouse" | "pen" | "touch";
-		this._pointerPressure = e.pressure;
-		this._updatePointerPosition(e);
-		this._lastInputTime = performance.now();
-
-		if (this._options.usePointerCapture) {
-			(e.currentTarget as Element).setPointerCapture(e.pointerId);
+	private static _onPointerDown = (
+		e: PointerEvent,
+	): void => {
+		if (
+			this._activePointerId !== null &&
+			this._activePointerId !== e.pointerId
+		) {
+			return;
 		}
 
-		this._emitInput({ type: "pointerdown", mouseButton: e.button });
+		this._pointerDown = true;
+		this._activePointerId =
+			e.pointerId;
+
+		this._pointerType =
+			e.pointerType as
+			| "mouse"
+			| "pen"
+			| "touch";
+
+		this._pointerPressure =
+			e.pressure;
+
+		this._pointerPosition = {
+			x: e.clientX,
+			y: e.clientY,
+		};
+
+		this._pointerDelta = {
+			x: 0,
+			y: 0,
+		};
+
+		this._lastInputTime =
+			performance.now();
+
+		if (
+			this._options.usePointerCapture &&
+			e.currentTarget instanceof Element
+		) {
+			e.currentTarget.setPointerCapture(
+				e.pointerId,
+			);
+		}
+
+		this._emitInput({
+			type: "pointerdown",
+			mouseButton: e.button,
+		});
 	};
 
 	private static _onPointerMove = (e: PointerEvent): void => {

@@ -11,13 +11,6 @@ import { RendererHandleCornerRadiusCanvas } from "./corner-radius";
 import { RendererHandleFocusCanvas } from "./focus";
 import { RendererHandleHoverCanvas } from "./hover";
 
-const CORNER_RADIUS_IDS = [
-	"corner-radius-tl",
-	"corner-radius-tr",
-	"corner-radius-br",
-	"corner-radius-bl",
-] as const;
-
 export class LayerOverlayShapeRenderersManager {
 	private readonly _root: Konva.Group;
 	private _overlay: ILayerOverlay | null;
@@ -74,7 +67,7 @@ export class LayerOverlayShapeRenderersManager {
 			this._focusRenderer.detach();
 		}
 
-		this._rebuildCornerRadiusRenderers();
+		this._syncCornerRadiusRenderers();
 	}
 
 	public detach(): void {
@@ -90,6 +83,8 @@ export class LayerOverlayShapeRenderersManager {
 	}
 
 	public update(): void {
+		this._syncCornerRadiusRenderers();
+		
 		this._hoverRenderer.update();
 		this._focusRenderer.update();
 
@@ -107,32 +102,39 @@ export class LayerOverlayShapeRenderersManager {
 		this._root.destroy();
 	}
 
-	private _rebuildCornerRadiusRenderers(): void {
-		this._destroyCornerRadiusRenderers();
+	private _syncCornerRadiusRenderers(): void {
+	if (!this._overlay || !this._camera) {
+		return;
+	}
 
-		if (!this._overlay || !this._camera) {
-			return;
-		}
+	let index = this._cornerRadiusRenderers.length;
 
-		for (const id of CORNER_RADIUS_IDS) {
-			const handle = this._overlay.shapeHandleManager.getById(id);
-
-			if (!handle) {
-				continue;
-			}
-
-			const renderer = new RendererHandleCornerRadiusCanvas();
-			renderer.attach(
-				new RendererHandleTarget(
-					handle as IHandleCornerRadius,
-					this._camera,
-				),
+	while (true) {
+		const handle =
+			this._overlay.shapeHandleManager.getById(
+				`corner-radius-${index}`,
 			);
 
-			this._cornerRadiusRenderers.push(renderer);
-			this._root.add(renderer.getRoot());
+		if (!handle) {
+			break;
 		}
+
+		const renderer =
+			new RendererHandleCornerRadiusCanvas();
+
+		renderer.attach(
+			new RendererHandleTarget(
+				handle as IHandleCornerRadius,
+				this._camera,
+			),
+		);
+
+		this._cornerRadiusRenderers.push(renderer);
+		this._root.add(renderer.getRoot());
+
+		index += 1;
 	}
+}
 
 	private _destroyCornerRadiusRenderers(): void {
 		for (const renderer of this._cornerRadiusRenderers) {
