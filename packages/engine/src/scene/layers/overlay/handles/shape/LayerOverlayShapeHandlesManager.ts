@@ -1,4 +1,4 @@
-import { Direction, type ID } from "../../../../../core/types";
+import type { ID } from "../../../../../core/types";
 import type { IHandleBase } from "../base";
 import type { ILayerOverlayHandle } from "../types";
 import { LayerOverlayHandleManager } from "../LayerOverlayHandlesManager";
@@ -8,6 +8,11 @@ import { HandleHover } from "./hover";
 
 export class LayerOverlayShapeHandlesManager {
 	private readonly _handles = new Map<ID, IHandleBase>();
+
+	private readonly _registeredTargets =
+		new Set<LayerOverlayHandleManager>();
+
+	private _cornerRadiusHandleCount = 0;
 
 	constructor() {
 		this._registerDefaults();
@@ -21,13 +26,54 @@ export class LayerOverlayShapeHandlesManager {
 		return [...this._handles.values()];
 	}
 
-	public registerTo(target: LayerOverlayHandleManager): void {
+	public registerTo(
+		target: LayerOverlayHandleManager,
+	): void {
+		this._registeredTargets.add(target);
+
 		for (const [id, handle] of this._handles) {
 			target.add(id, handle);
 		}
 	}
 
-	private _add(id: ID, handle: IHandleBase): void {
+	public ensureCornerRadiusHandleCount(
+		count: number,
+	): void {
+		const targetCount = Math.max(
+			0,
+			Math.floor(count),
+		);
+
+		while (
+			this._cornerRadiusHandleCount <
+			targetCount
+		) {
+			const index =
+				this._cornerRadiusHandleCount;
+
+			const id =
+				`corner-radius-${index}`;
+
+			const handle =
+				new HandleCornerRadius(index);
+
+			this._add(id, handle);
+
+			for (
+				const target of
+					this._registeredTargets
+			) {
+				target.add(id, handle);
+			}
+
+			this._cornerRadiusHandleCount += 1;
+		}
+	}
+
+	private _add(
+		id: ID,
+		handle: IHandleBase,
+	): void {
 		if (this._handles.has(id)) {
 			throw new Error(
 				`Overlay shape handler with id "${id}" is already added.`,
@@ -38,12 +84,14 @@ export class LayerOverlayShapeHandlesManager {
 	}
 
 	private _registerDefaults(): void {
-		this._add("hover", new HandleHover());
-		this._add("focus", new HandleFocus());
+		this._add(
+			"hover",
+			new HandleHover(),
+		);
 
-		this._add("corner-radius-tl", new HandleCornerRadius(Direction.NW));
-		this._add("corner-radius-tr", new HandleCornerRadius(Direction.NE));
-		this._add("corner-radius-br", new HandleCornerRadius(Direction.SE));
-		this._add("corner-radius-bl", new HandleCornerRadius(Direction.SW));
+		this._add(
+			"focus",
+			new HandleFocus(),
+		);
 	}
 }

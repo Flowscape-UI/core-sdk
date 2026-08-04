@@ -16,6 +16,7 @@ export class ModuleWorldPan implements IInputModule<WorldInputContext> {
 
 		Input.configure({
 			preventContextMenu: true,
+			preventWheelDefault: true,
 		});
 	}
 

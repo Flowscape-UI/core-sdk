@@ -336,14 +336,28 @@ export class ModuleOverlayTransformRotate implements IOverlayTransformSubModule 
 		handle: IHandleTransformRotate,
 		node: IShapeBase,
 	): Point {
-		const localViewObb = node.getLocalViewOBB();
-		const localX = localViewObb.x + localViewObb.width * handle.getX();
-		const localY = localViewObb.y + localViewObb.height * handle.getY();
+		const localObb = node.getLocalOBB();
+
+		const localX =
+			localObb.x +
+			localObb.width * handle.getX();
+
+		const localY =
+			localObb.y +
+			localObb.height * handle.getY();
+
 		const matrix = node.getWorldMatrix();
 
 		return {
-			x: matrix.a * localX + matrix.c * localY + matrix.tx,
-			y: matrix.b * localX + matrix.d * localY + matrix.ty,
+			x:
+				matrix.a * localX +
+				matrix.c * localY +
+				matrix.tx,
+
+			y:
+				matrix.b * localX +
+				matrix.d * localY +
+				matrix.ty,
 		};
 	}
 

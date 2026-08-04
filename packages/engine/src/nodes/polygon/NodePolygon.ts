@@ -1,7 +1,7 @@
 import type { Vector2 } from "../../core/transform/types";
 import type { ID } from "../../core/types";
 import { NodeType } from "../base";
-import { ShapeBase, type ShapePathCommand } from "../shape";
+import { ShapeBase, type ShapeCornerRadiusAnchor, type ShapePathCommand, type ShapeStrokePath } from "../shape";
 import { matrixInvert } from "../utils/matrix-invert";
 import type { INodePolygon } from "./types";
 
@@ -38,32 +38,36 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 		return this._getVertices();
 	}
 
+	public override getCornerRadiusAnchors(): readonly ShapeCornerRadiusAnchor[] {
+		const vertices = this._getVertices();
+		const count = vertices.length;
+
+		if (count < 3) {
+			return [];
+		}
+
+		return vertices.map((point, index) => ({
+			point,
+			previous:
+				vertices[(index - 1 + count) % count]!,
+			next:
+				vertices[(index + 1) % count]!,
+		}));
+	}
+
 	/*********************************************************/
 	/*                       Overrides                       */
 	/*********************************************************/
 	public override toPathCommands(): readonly ShapePathCommand[] {
-		const vertices = this._toViewVertices(this._getVertices());
+		return this._buildRoundedCornerPath(
+			this.getCornerRadiusAnchors(),
+		);
+	}
 
-		if (vertices.length === 0) {
-			return [];
-		}
-
-		const commands: ShapePathCommand[] = [
-			{
-				type: "moveTo",
-				point: vertices[0]!,
-			},
-		];
-
-		for (let i = 1; i < vertices.length; i += 1) {
-			commands.push({
-				type: "lineTo",
-				point: vertices[i]!,
-			});
-		}
-
-		commands.push({ type: "closePath" });
-		return commands;
+	public override getStrokePath(): ShapeStrokePath | null {
+		return this._buildClosedPolygonStrokePath(
+			this.getCornerRadiusAnchors(),
+		);
 	}
 
 	public override hitTest(worldPoint: Vector2): boolean {
@@ -100,7 +104,7 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 				const intersect =
 					yi > localPoint.y !== yj > localPoint.y &&
 					localPoint.x <
-						((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
+					((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
 
 				if (intersect) {
 					inside = !inside;

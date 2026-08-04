@@ -531,14 +531,28 @@ export class ModuleOverlayTransformResize implements IOverlayTransformSubModule 
 		handle: ResizeHandle,
 		node: IShapeBase,
 	): Point {
-		const localViewObb = node.getLocalViewOBB();
-		const localX = localViewObb.x + localViewObb.width * handle.getX();
-		const localY = localViewObb.y + localViewObb.height * handle.getY();
+		const localObb = node.getLocalOBB();
+
+		const localX =
+			localObb.x +
+			localObb.width * handle.getX();
+
+		const localY =
+			localObb.y +
+			localObb.height * handle.getY();
+
 		const matrix = node.getWorldMatrix();
 
 		return {
-			x: matrix.a * localX + matrix.c * localY + matrix.tx,
-			y: matrix.b * localX + matrix.d * localY + matrix.ty,
+			x:
+				matrix.a * localX +
+				matrix.c * localY +
+				matrix.tx,
+
+			y:
+				matrix.b * localX +
+				matrix.d * localY +
+				matrix.ty,
 		};
 	}
 
@@ -546,15 +560,18 @@ export class ModuleOverlayTransformResize implements IOverlayTransformSubModule 
 		node: IShapeBase,
 		axis: ResizeEdgeAxis,
 	): [Point, Point] {
-		const corners = node.getWorldViewCorners();
+		const corners = node.getWorldCorners();
 
 		switch (axis) {
 			case "n":
 				return [corners[0], corners[1]];
+
 			case "e":
 				return [corners[1], corners[2]];
+
 			case "s":
 				return [corners[2], corners[3]];
+
 			case "w":
 				return [corners[3], corners[0]];
 		}
