@@ -14,35 +14,24 @@ export function resolveStrokePatternOffsets(
 	strokeWidth: number,
 	strokeAlign: StrokeAlign,
 ): readonly ResolvedStrokePatternOffsetSegment[] {
-	const width =
-		MathF32.max(
-			0,
-			Number.isFinite(strokeWidth)
-				? strokeWidth
-				: 0,
-		);
+	const width = MathF32.max(
+		0,
+		Number.isFinite(strokeWidth) ? strokeWidth : 0,
+	);
 
-	if (
-		segments.length === 0 ||
-		width <= 0
-	) {
+	if (segments.length === 0 || width <= 0) {
 		return [];
 	}
 
-	const {
-		outerOffset,
-		innerOffset,
-	} = resolveStrokeOffsets(
+	const { outerOffset, innerOffset } = resolveStrokeOffsets(
 		width,
 		strokeAlign,
 	);
 
-	const resolvedSegments:
-		ResolvedStrokePatternOffsetSegment[] = [];
+	const resolvedSegments: ResolvedStrokePatternOffsetSegment[] = [];
 
 	for (const segment of segments) {
-		const edges:
-			ResolvedStrokePatternOffsetEdge[] = [];
+		const edges: ResolvedStrokePatternOffsetEdge[] = [];
 
 		for (const edge of segment.edges) {
 			edges.push({
@@ -51,33 +40,29 @@ export function resolveStrokePatternOffsets(
 				outerOffset,
 				innerOffset,
 
-				outerStart:
-					offsetPoint(
-						edge.start,
-						edge.outwardNormal,
-						outerOffset,
-					),
+				outerStart: offsetPoint(
+					edge.start,
+					edge.outwardNormal,
+					outerOffset,
+				),
 
-				outerEnd:
-					offsetPoint(
-						edge.end,
-						edge.outwardNormal,
-						outerOffset,
-					),
+				outerEnd: offsetPoint(
+					edge.end,
+					edge.outwardNormal,
+					outerOffset,
+				),
 
-				innerStart:
-					offsetPoint(
-						edge.start,
-						edge.outwardNormal,
-						innerOffset,
-					),
+				innerStart: offsetPoint(
+					edge.start,
+					edge.outwardNormal,
+					innerOffset,
+				),
 
-				innerEnd:
-					offsetPoint(
-						edge.end,
-						edge.outwardNormal,
-						innerOffset,
-					),
+				innerEnd: offsetPoint(
+					edge.end,
+					edge.outwardNormal,
+					innerOffset,
+				),
 			});
 		}
 
@@ -86,14 +71,11 @@ export function resolveStrokePatternOffsets(
 		}
 
 		resolvedSegments.push({
-			start:
-				segment.start,
+			start: segment.start,
 
-			end:
-				segment.end,
+			end: segment.end,
 
-			patternIndex:
-				segment.patternIndex,
+			patternIndex: segment.patternIndex,
 
 			edges,
 		});
@@ -113,52 +95,36 @@ function resolveStrokeOffsets(
 		case StrokeAlign.Inside:
 			return {
 				outerOffset: 0,
-				innerOffset:
-					-strokeWidth,
+				innerOffset: -strokeWidth,
 			};
 
 		case StrokeAlign.Center:
 			return {
-				outerOffset:
-					strokeWidth * 0.5,
+				outerOffset: strokeWidth * 0.5,
 
-				innerOffset:
-					-strokeWidth * 0.5,
+				innerOffset: -strokeWidth * 0.5,
 			};
 
 		case StrokeAlign.Outside:
 			return {
-				outerOffset:
-					strokeWidth,
+				outerOffset: strokeWidth,
 
 				innerOffset: 0,
 			};
 
 		default:
 			return {
-				outerOffset:
-					strokeWidth * 0.5,
+				outerOffset: strokeWidth * 0.5,
 
-				innerOffset:
-					-strokeWidth * 0.5,
+				innerOffset: -strokeWidth * 0.5,
 			};
 	}
 }
 
-function offsetPoint(
-	point: Vector2,
-	normal: Vector2,
-	offset: number,
-): Vector2 {
+function offsetPoint(point: Vector2, normal: Vector2, offset: number): Vector2 {
 	return {
-		x: MathF32.toF32(
-			point.x +
-				normal.x * offset,
-		),
+		x: MathF32.toF32(point.x + normal.x * offset),
 
-		y: MathF32.toF32(
-			point.y +
-				normal.y * offset,
-		),
+		y: MathF32.toF32(point.y + normal.y * offset),
 	};
 }

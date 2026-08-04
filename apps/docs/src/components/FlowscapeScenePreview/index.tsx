@@ -1063,41 +1063,30 @@ function FlowscapeScenePreviewInner({
 			...spec,
 
 			background: {
-				fill:
-					specBackground?.fill ??
-					defaultBackground?.fill,
+				fill: specBackground?.fill ?? defaultBackground?.fill,
 
 				showLogo:
-					specBackground?.showLogo ??
-					defaultBackground?.showLogo,
+					specBackground?.showLogo ?? defaultBackground?.showLogo,
 
 				logoOpacity:
 					specBackground?.logoOpacity ??
 					defaultBackground?.logoOpacity,
 
 				logoSize: {
-					width:
-						specLogoSize?.width ??
-						defaultLogoSize?.width,
+					width: specLogoSize?.width ?? defaultLogoSize?.width,
 
-					height:
-						specLogoSize?.height ??
-						defaultLogoSize?.height,
+					height: specLogoSize?.height ?? defaultLogoSize?.height,
 				},
 			},
 
 			camera: {
-				padding:
-					spec?.camera?.padding ??
-					DEFAULT_SPEC.camera?.padding,
+				padding: spec?.camera?.padding ?? DEFAULT_SPEC.camera?.padding,
 
 				minScale:
-					spec?.camera?.minScale ??
-					DEFAULT_SPEC.camera?.minScale,
+					spec?.camera?.minScale ?? DEFAULT_SPEC.camera?.minScale,
 
 				maxScale:
-					spec?.camera?.maxScale ??
-					DEFAULT_SPEC.camera?.maxScale,
+					spec?.camera?.maxScale ?? DEFAULT_SPEC.camera?.maxScale,
 			},
 
 			debug: {
@@ -1105,10 +1094,7 @@ function FlowscapeScenePreviewInner({
 				...spec?.debug,
 			},
 
-			nodes:
-				spec?.nodes?.length
-					? spec.nodes
-					: DEFAULT_SPEC.nodes,
+			nodes: spec?.nodes?.length ? spec.nodes : DEFAULT_SPEC.nodes,
 		};
 	}, [spec]);
 

@@ -84,7 +84,7 @@ export class LayerOverlayShapeRenderersManager {
 
 	public update(): void {
 		this._syncCornerRadiusRenderers();
-		
+
 		this._hoverRenderer.update();
 		this._focusRenderer.update();
 
@@ -103,38 +103,36 @@ export class LayerOverlayShapeRenderersManager {
 	}
 
 	private _syncCornerRadiusRenderers(): void {
-	if (!this._overlay || !this._camera) {
-		return;
-	}
+		if (!this._overlay || !this._camera) {
+			return;
+		}
 
-	let index = this._cornerRadiusRenderers.length;
+		let index = this._cornerRadiusRenderers.length;
 
-	while (true) {
-		const handle =
-			this._overlay.shapeHandleManager.getById(
+		while (true) {
+			const handle = this._overlay.shapeHandleManager.getById(
 				`corner-radius-${index}`,
 			);
 
-		if (!handle) {
-			break;
+			if (!handle) {
+				break;
+			}
+
+			const renderer = new RendererHandleCornerRadiusCanvas();
+
+			renderer.attach(
+				new RendererHandleTarget(
+					handle as IHandleCornerRadius,
+					this._camera,
+				),
+			);
+
+			this._cornerRadiusRenderers.push(renderer);
+			this._root.add(renderer.getRoot());
+
+			index += 1;
 		}
-
-		const renderer =
-			new RendererHandleCornerRadiusCanvas();
-
-		renderer.attach(
-			new RendererHandleTarget(
-				handle as IHandleCornerRadius,
-				this._camera,
-			),
-		);
-
-		this._cornerRadiusRenderers.push(renderer);
-		this._root.add(renderer.getRoot());
-
-		index += 1;
 	}
-}
 
 	private _destroyCornerRadiusRenderers(): void {
 		for (const renderer of this._cornerRadiusRenderers) {

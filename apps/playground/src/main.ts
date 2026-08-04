@@ -127,7 +127,6 @@ rectNode2.setPosition(-100, 0);
 rectNode2.setSize(180, 120);
 rectNode2.setCornerRadius([28]);
 
-
 rectNode2.setFill("#D1D5DB");
 rectNode2.setStrokeFill("blue");
 rectNode2.setStrokeWidth([3]);
@@ -149,9 +148,7 @@ const polygonNode = new NodePolygon(3);
 
 polygonNode.setStrokeAlign(StrokeAlign.Inside);
 polygonNode.setFillMode(FillMode.LinearGradient);
-polygonNode.setFill(
-	"linear-gradient(to right, red, white)"
-);
+polygonNode.setFill("linear-gradient(to right, red, white)");
 // polygonNode.setPosition(610, 100);
 polygonNode.setSize(180, 150);
 polygonNode.setSideCount(7);
@@ -208,8 +205,8 @@ textNode.setVerticalAlign(TextVerticalAlign.Top);
 textNode.setWrapMode(TextWrapMode.Word);
 textNode.setText(
 	"Flowscape Editor\n" +
-	"Precision tools for building\n" +
-	"interactive scene systems.",
+		"Precision tools for building\n" +
+		"interactive scene systems.",
 );
 
 // groupNode.addChild(rectNode);

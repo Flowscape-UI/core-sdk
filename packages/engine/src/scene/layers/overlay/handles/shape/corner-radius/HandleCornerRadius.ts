@@ -2,14 +2,12 @@ import { EPSILON } from "../../../../../../core";
 import type { Point } from "../../../../../../core/camera";
 import type { IShapeBase } from "../../../../../../nodes";
 import { HandleBase, HandleType } from "../../base";
-import type {
-	CornerRadiusSection,
-	IHandleCornerRadius,
-} from "./types";
+import type { CornerRadiusSection, IHandleCornerRadius } from "./types";
 
 export class HandleCornerRadius
 	extends HandleBase
-	implements IHandleCornerRadius {
+	implements IHandleCornerRadius
+{
 	private readonly _cornerIndex: number;
 
 	constructor(cornerIndex: number) {
@@ -18,10 +16,7 @@ export class HandleCornerRadius
 
 		super(HandleType.CornerRadius);
 
-		this._cornerIndex = Math.max(
-			0,
-			Math.floor(cornerIndex),
-		);
+		this._cornerIndex = Math.max(0, Math.floor(cornerIndex));
 
 		super.setFill("#FFFFFF");
 		super.setStrokeFill("#4DA3FF");
@@ -70,49 +65,33 @@ export class HandleCornerRadius
 			return null;
 		}
 
-		const diagonalEnd =
-			this._getSectionDiagonalPoint(section);
+		const diagonalEnd = this._getSectionDiagonalPoint(section);
 
 		const diagonalVector = {
 			x: diagonalEnd.x - section.origin.x,
 			y: diagonalEnd.y - section.origin.y,
 		};
 
-		const diagonalLength = Math.hypot(
-			diagonalVector.x,
-			diagonalVector.y,
-		);
+		const diagonalLength = Math.hypot(diagonalVector.x, diagonalVector.y);
 
 		if (diagonalLength <= EPSILON) {
 			return section.origin;
 		}
 
-		const value =
-			this._getCornerRadiusValue();
+		const value = this._getCornerRadiusValue();
 
-		const maxRadius =
-			this._getSectionMaxRadius(section);
+		const maxRadius = this._getSectionMaxRadius(section);
 
 		if (maxRadius <= EPSILON) {
 			return section.origin;
 		}
 
-		const progress = Math.max(
-			0,
-			Math.min(
-				value / maxRadius,
-				1,
-			),
-		);
+		const progress = Math.max(0, Math.min(value / maxRadius, 1));
 
 		return {
-			x:
-				section.origin.x +
-				diagonalVector.x * progress,
+			x: section.origin.x + diagonalVector.x * progress,
 
-			y:
-				section.origin.y +
-				diagonalVector.y * progress,
+			y: section.origin.y + diagonalVector.y * progress,
 		};
 	}
 
@@ -125,42 +104,25 @@ export class HandleCornerRadius
 
 		this._syncNormalizedPosition();
 
-		const anchors =
-			node.getCornerRadiusAnchors();
+		const anchors = node.getCornerRadiusAnchors();
 
-		const anchor =
-			anchors[this._cornerIndex];
+		const anchor = anchors[this._cornerIndex];
 
 		if (!anchor) {
 			return null;
 		}
 
-		const origin =
-			this._toWorldPoint(anchor.point);
+		const origin = this._toWorldPoint(anchor.point);
 
-		const previous =
-			this._toWorldPoint(anchor.previous);
+		const previous = this._toWorldPoint(anchor.previous);
 
-		const next =
-			this._toWorldPoint(anchor.next);
+		const next = this._toWorldPoint(anchor.next);
 
-		const previousDistance =
-			this._getDistance(
-				origin,
-				previous,
-			);
+		const previousDistance = this._getDistance(origin, previous);
 
-		const nextDistance =
-			this._getDistance(
-				origin,
-				next,
-			);
+		const nextDistance = this._getDistance(origin, next);
 
-		const maxRadius =
-			Math.min(
-				previousDistance,
-				nextDistance,
-			) * 0.5;
+		const maxRadius = Math.min(previousDistance, nextDistance) * 0.5;
 
 		if (maxRadius <= EPSILON) {
 			return null;
@@ -169,36 +131,22 @@ export class HandleCornerRadius
 		let target: Point;
 
 		if (anchor.handleTarget) {
-			target =
-				this._toWorldPoint(
-					anchor.handleTarget,
-				);
+			target = this._toWorldPoint(anchor.handleTarget);
 		} else {
-			const bounds =
-				node.getLocalOBB();
+			const bounds = node.getLocalOBB();
 
-			target =
-				this._toWorldPoint({
-					x:
-						bounds.x +
-						bounds.width * 0.5,
+			target = this._toWorldPoint({
+				x: bounds.x + bounds.width * 0.5,
 
-					y:
-						bounds.y +
-						bounds.height * 0.5,
-				});
+				y: bounds.y + bounds.height * 0.5,
+			});
 		}
 
-		return this._createSection(
-			origin,
-			target,
-			maxRadius,
-		);
+		return this._createSection(origin, target, maxRadius);
 	}
 
 	private _syncNormalizedPosition(): void {
-		const position =
-			this._getNormalizedAnchorPosition();
+		const position = this._getNormalizedAnchorPosition();
 
 		if (!position) {
 			return;
@@ -214,10 +162,7 @@ export class HandleCornerRadius
 			return null;
 		}
 
-		const anchor =
-			node.getCornerRadiusAnchors()[
-			this._cornerIndex
-			];
+		const anchor = node.getCornerRadiusAnchors()[this._cornerIndex];
 
 		if (!anchor) {
 			return null;
@@ -227,18 +172,12 @@ export class HandleCornerRadius
 
 		const x =
 			Math.abs(bounds.width) > EPSILON
-				? (
-					anchor.point.x -
-					bounds.x
-				) / bounds.width
+				? (anchor.point.x - bounds.x) / bounds.width
 				: 0;
 
 		const y =
 			Math.abs(bounds.height) > EPSILON
-				? (
-					anchor.point.y -
-					bounds.y
-				) / bounds.height
+				? (anchor.point.y - bounds.y) / bounds.height
 				: 0;
 
 		return {
@@ -248,10 +187,7 @@ export class HandleCornerRadius
 	}
 
 	private _clamp01(value: number): number {
-		return Math.max(
-			0,
-			Math.min(1, value),
-		);
+		return Math.max(0, Math.min(1, value));
 	}
 
 	private _getCornerRadiusValue(): number {
@@ -261,8 +197,7 @@ export class HandleCornerRadius
 			return 0;
 		}
 
-		const values =
-			node.getCornerRadius();
+		const values = node.getCornerRadius();
 
 		if (values.length === 0) {
 			return 0;
@@ -272,11 +207,7 @@ export class HandleCornerRadius
 			return values[0] ?? 0;
 		}
 
-		return (
-			values[this._cornerIndex] ??
-			values[0] ??
-			0
-		);
+		return values[this._cornerIndex] ?? values[0] ?? 0;
 	}
 
 	private _createSection(
@@ -289,10 +220,7 @@ export class HandleCornerRadius
 			y: target.y - origin.y,
 		};
 
-		const targetDistance = Math.hypot(
-			targetVector.x,
-			targetVector.y,
-		);
+		const targetDistance = Math.hypot(targetVector.x, targetVector.y);
 
 		if (targetDistance <= EPSILON) {
 			return {
@@ -311,20 +239,12 @@ export class HandleCornerRadius
 			y: targetVector.y / targetDistance,
 		};
 
-		const inset = Math.min(
-			this._getInset(),
-			targetDistance,
-			maxRadius,
-		);
+		const inset = Math.min(this._getInset(), targetDistance, maxRadius);
 
 		const insetOrigin = {
-			x:
-				origin.x +
-				direction.x * inset,
+			x: origin.x + direction.x * inset,
 
-			y:
-				origin.y +
-				direction.y * inset,
+			y: origin.y + direction.y * inset,
 		};
 
 		const remainingVector = {
@@ -337,10 +257,7 @@ export class HandleCornerRadius
 			y: remainingVector.y * 0.5,
 		};
 
-		const availableRadius = Math.max(
-			0,
-			maxRadius - inset,
-		);
+		const availableRadius = Math.max(0, maxRadius - inset);
 
 		return {
 			index: this._cornerIndex,
@@ -364,76 +281,45 @@ export class HandleCornerRadius
 		};
 	}
 
-	private _toWorldPoint(
-		point: Point,
-	): Point {
+	private _toWorldPoint(point: Point): Point {
 		const node = this.getNode();
 
 		if (!node) {
 			return point;
 		}
 
-		const matrix =
-			node.getWorldMatrix();
+		const matrix = node.getWorldMatrix();
 
 		return {
-			x:
-				matrix.a * point.x +
-				matrix.c * point.y +
-				matrix.tx,
+			x: matrix.a * point.x + matrix.c * point.y + matrix.tx,
 
-			y:
-				matrix.b * point.x +
-				matrix.d * point.y +
-				matrix.ty,
+			y: matrix.b * point.x + matrix.d * point.y + matrix.ty,
 		};
 	}
 
-	private _getSectionDiagonalPoint(
-		section: CornerRadiusSection,
-	): Point {
+	private _getSectionDiagonalPoint(section: CornerRadiusSection): Point {
 		return {
-			x:
-				section.xAxisPoint.x +
-				section.yAxisPoint.x -
-				section.origin.x,
+			x: section.xAxisPoint.x + section.yAxisPoint.x - section.origin.x,
 
-			y:
-				section.xAxisPoint.y +
-				section.yAxisPoint.y -
-				section.origin.y,
+			y: section.xAxisPoint.y + section.yAxisPoint.y - section.origin.y,
 		};
 	}
 
-	private _getSectionMaxRadius(
-		section: CornerRadiusSection,
-	): number {
+	private _getSectionMaxRadius(section: CornerRadiusSection): number {
 		return Math.max(
 			0,
-			Math.min(
-				section.width,
-				section.height,
-			) + section.inset,
+			Math.min(section.width, section.height) + section.inset,
 		);
 	}
 
 	private _getInset(): number {
 		return Math.max(
 			0,
-			Math.max(
-				Math.abs(this.getOffsetX()),
-				Math.abs(this.getOffsetY()),
-			),
+			Math.max(Math.abs(this.getOffsetX()), Math.abs(this.getOffsetY())),
 		);
 	}
 
-	private _getDistance(
-		a: Point,
-		b: Point,
-	): number {
-		return Math.hypot(
-			b.x - a.x,
-			b.y - a.y,
-		);
+	private _getDistance(a: Point, b: Point): number {
+		return Math.hypot(b.x - a.x, b.y - a.y);
 	}
 }

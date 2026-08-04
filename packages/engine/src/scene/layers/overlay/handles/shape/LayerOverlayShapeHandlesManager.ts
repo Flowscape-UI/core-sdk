@@ -9,8 +9,7 @@ import { HandleHover } from "./hover";
 export class LayerOverlayShapeHandlesManager {
 	private readonly _handles = new Map<ID, IHandleBase>();
 
-	private readonly _registeredTargets =
-		new Set<LayerOverlayHandleManager>();
+	private readonly _registeredTargets = new Set<LayerOverlayHandleManager>();
 
 	private _cornerRadiusHandleCount = 0;
 
@@ -26,9 +25,7 @@ export class LayerOverlayShapeHandlesManager {
 		return [...this._handles.values()];
 	}
 
-	public registerTo(
-		target: LayerOverlayHandleManager,
-	): void {
+	public registerTo(target: LayerOverlayHandleManager): void {
 		this._registeredTargets.add(target);
 
 		for (const [id, handle] of this._handles) {
@@ -36,33 +33,19 @@ export class LayerOverlayShapeHandlesManager {
 		}
 	}
 
-	public ensureCornerRadiusHandleCount(
-		count: number,
-	): void {
-		const targetCount = Math.max(
-			0,
-			Math.floor(count),
-		);
+	public ensureCornerRadiusHandleCount(count: number): void {
+		const targetCount = Math.max(0, Math.floor(count));
 
-		while (
-			this._cornerRadiusHandleCount <
-			targetCount
-		) {
-			const index =
-				this._cornerRadiusHandleCount;
+		while (this._cornerRadiusHandleCount < targetCount) {
+			const index = this._cornerRadiusHandleCount;
 
-			const id =
-				`corner-radius-${index}`;
+			const id = `corner-radius-${index}`;
 
-			const handle =
-				new HandleCornerRadius(index);
+			const handle = new HandleCornerRadius(index);
 
 			this._add(id, handle);
 
-			for (
-				const target of
-					this._registeredTargets
-			) {
+			for (const target of this._registeredTargets) {
 				target.add(id, handle);
 			}
 
@@ -70,10 +53,7 @@ export class LayerOverlayShapeHandlesManager {
 		}
 	}
 
-	private _add(
-		id: ID,
-		handle: IHandleBase,
-	): void {
+	private _add(id: ID, handle: IHandleBase): void {
 		if (this._handles.has(id)) {
 			throw new Error(
 				`Overlay shape handler with id "${id}" is already added.`,
@@ -84,14 +64,8 @@ export class LayerOverlayShapeHandlesManager {
 	}
 
 	private _registerDefaults(): void {
-		this._add(
-			"hover",
-			new HandleHover(),
-		);
+		this._add("hover", new HandleHover());
 
-		this._add(
-			"focus",
-			new HandleFocus(),
-		);
+		this._add("focus", new HandleFocus());
 	}
 }

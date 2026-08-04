@@ -38,7 +38,6 @@ type GradientPaintCacheEntry = {
 	paint: KonvaGradientPaint;
 };
 
-
 export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	private readonly _gradientPaintCache = new WeakMap<
 		Konva.Shape,
@@ -50,11 +49,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			id: String(node.id),
 		});
 
-		const fillShape =
-			this._createFillShape();
+		const fillShape = this._createFillShape();
 
-		const strokeShape =
-			this._createStrokeShape();
+		const strokeShape = this._createStrokeShape();
 
 		group.add(fillShape);
 		group.add(strokeShape);
@@ -62,51 +59,40 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		return group;
 	}
 
-	protected override onUpdate(
-		node: IShapeBase,
-		view: Konva.Group,
-	): void {
-		const commands =
-			node.toPathCommands();
+	protected override onUpdate(node: IShapeBase, view: Konva.Group): void {
+		const commands = node.toPathCommands();
 
-		const fillShape =
-			this._findOneOrThrow<Konva.Shape>(
-				view,
-				FILL_SHAPE_SELECTOR,
-			);
+		const fillShape = this._findOneOrThrow<Konva.Shape>(
+			view,
+			FILL_SHAPE_SELECTOR,
+		);
 
-		const strokeShape =
-			this._findOneOrThrow<Konva.Shape>(
-				view,
-				STROKE_SHAPE_SELECTOR,
-			);
+		const strokeShape = this._findOneOrThrow<Konva.Shape>(
+			view,
+			STROKE_SHAPE_SELECTOR,
+		);
 
-		const strokeStyle =
-			node.getStrokeStyle();
+		const strokeStyle = node.getStrokeStyle();
 
-		let strokeStyleProperties:
-			StrokeStyleProperties | null = null;
+		let strokeStyleProperties: StrokeStyleProperties | null = null;
 
 		switch (strokeStyle) {
 			case StrokeStyle.Dashed:
-				strokeStyleProperties =
-					node.getStrokeStyleProperties(
-						StrokeStyle.Dashed,
-					);
+				strokeStyleProperties = node.getStrokeStyleProperties(
+					StrokeStyle.Dashed,
+				);
 				break;
 
 			case StrokeStyle.Dotted:
-				strokeStyleProperties =
-					node.getStrokeStyleProperties(
-						StrokeStyle.Dotted,
-					);
+				strokeStyleProperties = node.getStrokeStyleProperties(
+					StrokeStyle.Dotted,
+				);
 				break;
 
 			case StrokeStyle.Custom:
-				strokeStyleProperties =
-					node.getStrokeStyleProperties(
-						StrokeStyle.Custom,
-					);
+				strokeStyleProperties = node.getStrokeStyleProperties(
+					StrokeStyle.Custom,
+				);
 				break;
 
 			case StrokeStyle.Solid:
@@ -122,14 +108,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		fillShape.setAttrs({
 			pathCommands: commands,
 
-			paintBounds:
-				node.getLocalOBB(),
+			paintBounds: node.getLocalOBB(),
 
-			fillMode:
-				node.getFillMode(),
+			fillMode: node.getFillMode(),
 
-			fillValue:
-				node.getFill(),
+			fillValue: node.getFill(),
 		});
 
 		/*
@@ -146,23 +129,17 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		strokeShape.setAttrs({
 			pathCommands: commands,
 
-			strokePath:
-				node.getStrokePath(),
+			strokePath: node.getStrokePath(),
 
-			paintBounds:
-				node.getLocalViewOBB(),
+			paintBounds: node.getLocalViewOBB(),
 
-			strokeWidths:
-				node.getStrokeWidth(),
+			strokeWidths: node.getStrokeWidth(),
 
-			strokeAlign:
-				node.getStrokeAlign(),
+			strokeAlign: node.getStrokeAlign(),
 
-			strokeMode:
-				node.getStrokeMode(),
+			strokeMode: node.getStrokeMode(),
 
-			strokeValue:
-				node.getStrokeFill(),
+			strokeValue: node.getStrokeFill(),
 
 			strokeStyle,
 			strokeStyleProperties,
@@ -179,65 +156,32 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			listening: false,
 
 			sceneFunc: (ctx, shape) => {
-				const commands =
-					shape.getAttr(
-						"pathCommands",
-					) as
-					| readonly ShapePathCommand[]
-					| undefined;
+				const commands = shape.getAttr("pathCommands") as
+					readonly ShapePathCommand[] | undefined;
 
-				if (
-					!commands ||
-					commands.length === 0
-				) {
+				if (!commands || commands.length === 0) {
 					return;
 				}
 
-				const bounds =
-					shape.getAttr(
-						"paintBounds",
-					) as Rect | undefined;
+				const bounds = shape.getAttr("paintBounds") as Rect | undefined;
 
-				if (
-					!bounds ||
-					bounds.width <= 0 ||
-					bounds.height <= 0
-				) {
+				if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
 					return;
 				}
 
 				const fillMode =
-					(
-						shape.getAttr(
-							"fillMode",
-						) as
-						| FillMode
-						| undefined
-					) ??
+					(shape.getAttr("fillMode") as FillMode | undefined) ??
 					FillMode.Color;
 
-				const fillValue =
-					String(
-						shape.getAttr(
-							"fillValue",
-						) ??
-						"#000000",
-					);
+				const fillValue = String(
+					shape.getAttr("fillValue") ?? "#000000",
+				);
 
 				ctx.beginPath();
 
-				this._appendPath(
-					ctx,
-					commands,
-				);
+				this._appendPath(ctx, commands);
 
-				this._drawFill(
-					ctx,
-					shape,
-					bounds,
-					fillMode,
-					fillValue,
-				);
+				this._drawFill(ctx, shape, bounds, fillMode, fillValue);
 			},
 		});
 	}
@@ -253,69 +197,38 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 			sceneFunc: (ctx, shape) => {
 				const strokeMode =
-					(
-						shape.getAttr(
-							"strokeMode",
-						) as
-						| FillMode
-						| undefined
-					) ??
+					(shape.getAttr("strokeMode") as FillMode | undefined) ??
 					FillMode.Color;
 
-				const strokeValue =
-					String(
-						shape.getAttr(
-							"strokeValue",
-						) ??
-						"#000000",
-					);
+				const strokeValue = String(
+					shape.getAttr("strokeValue") ?? "#000000",
+				);
 
 				const strokeStyle =
-					(
-						shape.getAttr(
-							"strokeStyle",
-						) as
-						| StrokeStyle
-						| undefined
-					) ??
+					(shape.getAttr("strokeStyle") as StrokeStyle | undefined) ??
 					StrokeStyle.Solid;
 
 				if (
 					strokeStyle === StrokeStyle.Dashed ||
 					strokeStyle === StrokeStyle.Dotted
 				) {
-					const commands =
-						shape.getAttr(
-							"pathCommands",
-						) as
-						| readonly ShapePathCommand[]
-						| undefined;
+					const commands = shape.getAttr("pathCommands") as
+						readonly ShapePathCommand[] | undefined;
 
-					const strokeWidths =
-						shape.getAttr(
-							"strokeWidths",
-						) as
-						| readonly number[]
-						| undefined;
+					const strokeWidths = shape.getAttr("strokeWidths") as
+						readonly number[] | undefined;
 
-					const properties =
-						shape.getAttr(
-							"strokeStyleProperties",
-						) as
+					const properties = shape.getAttr(
+						"strokeStyleProperties",
+					) as
 						| StrokeDashedStyleProperties
 						| StrokeDottedStyleProperties
 						| null
 						| undefined;
 
 					const strokeAlign =
-						(
-							shape.getAttr(
-								"strokeAlign",
-							) as
-							| StrokeAlign
-							| undefined
-						) ??
-						StrokeAlign.Center;
+						(shape.getAttr("strokeAlign") as
+							StrokeAlign | undefined) ?? StrokeAlign.Center;
 
 					if (
 						!commands ||
@@ -327,50 +240,31 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 						return;
 					}
 
-					const width =
-						Math.max(
-							0,
-							strokeWidths[0] ?? 0,
-						);
+					const width = Math.max(0, strokeWidths[0] ?? 0);
 
 					if (width <= 0) {
 						return;
 					}
 
-					const isDotted =
-						strokeStyle ===
-						StrokeStyle.Dotted;
+					const isDotted = strokeStyle === StrokeStyle.Dotted;
 
-					const length =
-						isDotted
-							? EPSILON * 2
-							: properties.length;
+					const length = isDotted ? EPSILON * 2 : properties.length;
 
-					const cap =
-						isDotted
-							? StrokeDashCap.Round
-							: (
-								properties as
-								StrokeDashedStyleProperties
-							).cap;
+					const cap = isDotted
+						? StrokeDashCap.Round
+						: (properties as StrokeDashedStyleProperties).cap;
 
-					const paths =
-						resolveStrokePatternGeometry(
-							commands,
-							{
-								strokeWidth:
-									width,
+					const paths = resolveStrokePatternGeometry(commands, {
+						strokeWidth: width,
 
-								strokeAlign,
+						strokeAlign,
 
-								length,
+						length,
 
-								gap:
-									properties.gap,
+						gap: properties.gap,
 
-								cap,
-							},
-						);
+						cap,
+					});
 
 					if (paths.length === 0) {
 						return;
@@ -379,29 +273,16 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					ctx.beginPath();
 
 					for (const path of paths) {
-						this._appendPath(
-							ctx,
-							path.commands,
-						);
+						this._appendPath(ctx, path.commands);
 					}
 
-					this._drawStrokeArea(
-						ctx,
-						shape,
-						strokeMode,
-						strokeValue,
-					);
+					this._drawStrokeArea(ctx, shape, strokeMode, strokeValue);
 
 					return;
 				}
 
-				const strokePath =
-					shape.getAttr(
-						"strokePath",
-					) as
-					| ShapeStrokePath
-					| null
-					| undefined;
+				const strokePath = shape.getAttr("strokePath") as
+					ShapeStrokePath | null | undefined;
 
 				/*
 				 * Полноценный stroke-area.
@@ -409,34 +290,19 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				 * outer - inner
 				 */
 				if (strokePath) {
-					if (
-						strokePath.outer.length === 0
-					) {
+					if (strokePath.outer.length === 0) {
 						return;
 					}
 
 					ctx.beginPath();
 
-					this._appendPath(
-						ctx,
-						strokePath.outer,
-					);
+					this._appendPath(ctx, strokePath.outer);
 
-					if (
-						strokePath.inner.length > 0
-					) {
-						this._appendPath(
-							ctx,
-							strokePath.inner,
-						);
+					if (strokePath.inner.length > 0) {
+						this._appendPath(ctx, strokePath.inner);
 					}
 
-					this._drawStrokeArea(
-						ctx,
-						shape,
-						strokeMode,
-						strokeValue,
-					);
+					this._drawStrokeArea(ctx, shape, strokeMode, strokeValue);
 
 					return;
 				}
@@ -449,69 +315,41 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				 * невозможен корректно, потому что
 				 * у нас нет stroke-area для clipping.
 				 */
-				if (
-					strokeMode !==
-					FillMode.Color
-				) {
+				if (strokeMode !== FillMode.Color) {
 					return;
 				}
 
-				const strokeWidths =
-					shape.getAttr(
-						"strokeWidths",
-					) as
-					| readonly number[]
-					| undefined;
+				const strokeWidths = shape.getAttr("strokeWidths") as
+					readonly number[] | undefined;
 
-				if (
-					!strokeWidths ||
-					strokeWidths.length === 0
-				) {
+				if (!strokeWidths || strokeWidths.length === 0) {
 					return;
 				}
 
-				const width =
-					Math.max(
-						0,
-						strokeWidths[0] ?? 0,
-					);
+				const width = Math.max(0, strokeWidths[0] ?? 0);
 
 				if (width <= 0) {
 					return;
 				}
 
-				const commands =
-					shape.getAttr(
-						"pathCommands",
-					) as
-					| readonly ShapePathCommand[]
-					| undefined;
+				const commands = shape.getAttr("pathCommands") as
+					readonly ShapePathCommand[] | undefined;
 
-				if (
-					!commands ||
-					commands.length === 0
-				) {
+				if (!commands || commands.length === 0) {
 					return;
 				}
 
 				ctx.beginPath();
 
-				this._appendPath(
-					ctx,
-					commands,
-				);
+				this._appendPath(ctx, commands);
 
-				ctx.strokeStyle =
-					strokeValue;
+				ctx.strokeStyle = strokeValue;
 
-				ctx.lineWidth =
-					width;
+				ctx.lineWidth = width;
 
-				ctx.lineJoin =
-					"miter";
+				ctx.lineJoin = "miter";
 
-				ctx.lineCap =
-					"butt";
+				ctx.lineCap = "butt";
 
 				ctx.stroke();
 			},
@@ -526,12 +364,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	): void {
 		switch (strokeMode) {
 			case FillMode.Color:
-				ctx.fillStyle =
-					strokeValue;
+				ctx.fillStyle = strokeValue;
 
-				ctx.fill(
-					"evenodd",
-				);
+				ctx.fill("evenodd");
 
 				return;
 
@@ -540,18 +375,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			case FillMode.ConicGradient:
 			case FillMode.DiamondGradient:
 			case FillMode.MeshGradient: {
-				const bounds =
-					shape.getAttr(
-						"paintBounds",
-					) as
-					| Rect
-					| undefined;
+				const bounds = shape.getAttr("paintBounds") as Rect | undefined;
 
-				if (
-					!bounds ||
-					bounds.width <= 0 ||
-					bounds.height <= 0
-				) {
+				if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
 					return;
 				}
 
@@ -567,12 +393,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			}
 
 			default:
-				ctx.fillStyle =
-					"#000000";
+				ctx.fillStyle = "#000000";
 
-				ctx.fill(
-					"evenodd",
-				);
+				ctx.fill("evenodd");
 		}
 	}
 
@@ -587,17 +410,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		for (const command of commands) {
 			switch (command.type) {
 				case "moveTo":
-					ctx.moveTo(
-						command.point.x,
-						command.point.y,
-					);
+					ctx.moveTo(command.point.x, command.point.y);
 					break;
 
 				case "lineTo":
-					ctx.lineTo(
-						command.point.x,
-						command.point.y,
-					);
+					ctx.lineTo(command.point.x, command.point.y);
 					break;
 
 				case "quadraticCurveTo":
@@ -636,19 +453,17 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		strokeMode: FillMode,
 		strokeValue: string,
 	): void {
-		const gradientPaint =
-			this._getGradientPaint(
-				shape,
-				strokeMode,
-				strokeValue,
-			);
+		const gradientPaint = this._getGradientPaint(
+			shape,
+			strokeMode,
+			strokeValue,
+		);
 
-		const renderScale =
-			this._resolveGradientRenderScale(
-				strokeMode,
-				ctx,
-				shape,
-			);
+		const renderScale = this._resolveGradientRenderScale(
+			strokeMode,
+			ctx,
+			shape,
+		);
 
 		ctx.save();
 
@@ -661,25 +476,14 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		 * Поэтому clipping должен быть именно evenodd,
 		 * иначе внутренняя область может не стать дыркой.
 		 */
-		ctx.clip(
-			"evenodd",
-		);
+		ctx.clip("evenodd");
 
-		ctx.translate(
-			bounds.x,
-			bounds.y,
-		);
+		ctx.translate(bounds.x, bounds.y);
 
-		gradientPaint.draw(
-			ctx,
-			bounds.width,
-			bounds.height,
-			renderScale,
-		);
+		gradientPaint.draw(ctx, bounds.width, bounds.height, renderScale);
 
 		ctx.restore();
 	}
-
 
 	private _appendArc(
 		ctx: Konva.Context,
@@ -691,39 +495,21 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		endAngle: number,
 		clockwise: boolean,
 	): void {
-		if (
-			radiusX <= 0 ||
-			radiusY <= 0
-		) {
+		if (radiusX <= 0 || radiusY <= 0) {
 			return;
 		}
 
-		const startRadians =
-			(startAngle * Math.PI) / 180;
+		const startRadians = (startAngle * Math.PI) / 180;
 
-		const endRadians =
-			(endAngle * Math.PI) / 180;
+		const endRadians = (endAngle * Math.PI) / 180;
 
 		ctx.save();
 
-		ctx.translate(
-			centerX,
-			centerY,
-		);
+		ctx.translate(centerX, centerY);
 
-		ctx.scale(
-			radiusX,
-			radiusY,
-		);
+		ctx.scale(radiusX, radiusY);
 
-		ctx.arc(
-			0,
-			0,
-			1,
-			startRadians,
-			endRadians,
-			!clockwise,
-		);
+		ctx.arc(0, 0, 1, startRadians, endRadians, !clockwise);
 
 		ctx.restore();
 	}
@@ -741,8 +527,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	): void {
 		switch (fillMode) {
 			case FillMode.Color:
-				ctx.fillStyle =
-					fillValue;
+				ctx.fillStyle = fillValue;
 
 				ctx.fill();
 				return;
@@ -752,18 +537,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			case FillMode.ConicGradient:
 			case FillMode.DiamondGradient:
 			case FillMode.MeshGradient:
-				this._drawGradient(
-					ctx,
-					shape,
-					bounds,
-					fillMode,
-					fillValue,
-				);
+				this._drawGradient(ctx, shape, bounds, fillMode, fillValue);
 				return;
 
 			default:
-				ctx.fillStyle =
-					"#000000";
+				ctx.fillStyle = "#000000";
 
 				ctx.fill();
 		}
@@ -776,35 +554,25 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		fillMode: FillMode,
 		fillValue: string,
 	): void {
-		const gradientPaint =
-			this._getGradientPaint(
-				shape,
-				fillMode,
-				fillValue,
-			);
+		const gradientPaint = this._getGradientPaint(
+			shape,
+			fillMode,
+			fillValue,
+		);
 
-		const renderScale =
-			this._resolveGradientRenderScale(
-				fillMode,
-				ctx,
-				shape,
-			);
+		const renderScale = this._resolveGradientRenderScale(
+			fillMode,
+			ctx,
+			shape,
+		);
 
 		ctx.save();
 
 		ctx.clip();
 
-		ctx.translate(
-			bounds.x,
-			bounds.y,
-		);
+		ctx.translate(bounds.x, bounds.y);
 
-		gradientPaint.draw(
-			ctx,
-			bounds.width,
-			bounds.height,
-			renderScale,
-		);
+		gradientPaint.draw(ctx, bounds.width, bounds.height, renderScale);
 
 		ctx.restore();
 	}
@@ -814,10 +582,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		fillMode: FillMode,
 		fillValue: string,
 	): KonvaGradientPaint {
-		const cached =
-			this._gradientPaintCache.get(
-				shape,
-			);
+		const cached = this._gradientPaintCache.get(shape);
 
 		if (
 			cached &&
@@ -827,20 +592,13 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			return cached.paint;
 		}
 
-		const paint =
-			transformTo<KonvaGradientPaint>(
-				"konvajs",
-				fillValue,
-			);
+		const paint = transformTo<KonvaGradientPaint>("konvajs", fillValue);
 
-		this._gradientPaintCache.set(
-			shape,
-			{
-				fillMode,
-				fillValue,
-				paint,
-			},
-		);
+		this._gradientPaintCache.set(shape, {
+			fillMode,
+			fillValue,
+			paint,
+		});
 
 		return paint;
 	}
@@ -850,38 +608,21 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		ctx: Konva.Context,
 		shape: Konva.Shape,
 	): number {
-		const pixelRatio =
-			ctx
-				.getCanvas()
-				.getPixelRatio();
+		const pixelRatio = ctx.getCanvas().getPixelRatio();
 
-		const absoluteScale =
-			shape.getAbsoluteScale();
+		const absoluteScale = shape.getAbsoluteScale();
 
-		const nodeScale =
-			Math.max(
-				Math.abs(
-					absoluteScale.x,
-				),
-				Math.abs(
-					absoluteScale.y,
-				),
-			);
+		const nodeScale = Math.max(
+			Math.abs(absoluteScale.x),
+			Math.abs(absoluteScale.y),
+		);
 
-		const requestedScale =
-			Math.max(
-				1,
-				pixelRatio *
-				nodeScale,
-			);
+		const requestedScale = Math.max(1, pixelRatio * nodeScale);
 
 		switch (fillMode) {
 			case FillMode.LinearGradient:
 			case FillMode.RadialGradient:
-				return requestedScale >=
-					1.5
-					? 2
-					: 1;
+				return requestedScale >= 1.5 ? 2 : 1;
 
 			case FillMode.ConicGradient:
 			case FillMode.DiamondGradient:

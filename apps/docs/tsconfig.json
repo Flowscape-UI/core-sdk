@@ -3,19 +3,10 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {
-			"@site/*": [
-				"./*"
-			],
-			"@flowscape-ui/core-sdk": [
-				"../engine/src/index.ts"
-			],
-			"@flowscape-ui/core-sdk/*": [
-				"../engine/src/*"
-			]
+			"@site/*": ["./*"],
+			"@flowscape-ui/core-sdk": ["../engine/src/index.ts"],
+			"@flowscape-ui/core-sdk/*": ["../engine/src/*"]
 		}
 	},
-	"exclude": [
-		".docusaurus",
-		"build"
-	]
+	"exclude": [".docusaurus", "build"]
 }

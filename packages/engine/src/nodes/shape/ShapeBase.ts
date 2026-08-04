@@ -228,47 +228,39 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		switch (strokeStyle) {
 			case StrokeStyle.Dashed:
 				return {
-					length:
-						this._cloneStrokeStyleMetric(
-							this._strokeDashedStyleProperties.length,
-						),
+					length: this._cloneStrokeStyleMetric(
+						this._strokeDashedStyleProperties.length,
+					),
 
-					gap:
-						this._cloneStrokeStyleMetric(
-							this._strokeDashedStyleProperties.gap,
-						),
+					gap: this._cloneStrokeStyleMetric(
+						this._strokeDashedStyleProperties.gap,
+					),
 
-					cap:
-						this._strokeDashedStyleProperties.cap,
+					cap: this._strokeDashedStyleProperties.cap,
 				};
 
 			case StrokeStyle.Dotted:
 				return {
-					length:
-						this._cloneStrokeStyleMetric(
-							this._strokeDottedStyleProperties.length,
-						),
+					length: this._cloneStrokeStyleMetric(
+						this._strokeDottedStyleProperties.length,
+					),
 
-					gap:
-						this._cloneStrokeStyleMetric(
-							this._strokeDottedStyleProperties.gap,
-						),
+					gap: this._cloneStrokeStyleMetric(
+						this._strokeDottedStyleProperties.gap,
+					),
 				};
 
 			case StrokeStyle.Custom:
 				return {
-					length:
-						this._cloneStrokeStyleMetric(
-							this._strokeCustomStyleProperties.length,
-						),
+					length: this._cloneStrokeStyleMetric(
+						this._strokeCustomStyleProperties.length,
+					),
 
-					gap:
-						this._cloneStrokeStyleMetric(
-							this._strokeCustomStyleProperties.gap,
-						),
+					gap: this._cloneStrokeStyleMetric(
+						this._strokeCustomStyleProperties.gap,
+					),
 
-					shape:
-						this._strokeCustomStyleProperties.shape,
+					shape: this._strokeCustomStyleProperties.shape,
 				};
 		}
 	}
@@ -299,13 +291,8 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		gap: StrokeStyleGap,
 		option?: StrokeDashCap | StrokeStyleShape,
 	): void {
-		const {
-			length: normalizedLength,
-			gap: normalizedGap,
-		} = this._normalizeStrokeStylePattern(
-			length,
-			gap,
-		);
+		const { length: normalizedLength, gap: normalizedGap } =
+			this._normalizeStrokeStylePattern(length, gap);
 
 		switch (strokeStyle) {
 			case StrokeStyle.Dashed:
@@ -333,9 +320,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 					length: normalizedLength,
 					gap: normalizedGap,
 
-					...(typeof option === "string"
-						? { shape: option }
-						: {}),
+					...(typeof option === "string" ? { shape: option } : {}),
 				};
 
 				return;
@@ -415,14 +400,8 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		return {
 			x: MathF32.sub(bounds.x, outset),
 			y: MathF32.sub(bounds.y, outset),
-			width: MathF32.add(
-				bounds.width,
-				MathF32.mul(outset, 2),
-			),
-			height: MathF32.add(
-				bounds.height,
-				MathF32.mul(outset, 2),
-			),
+			width: MathF32.add(bounds.width, MathF32.mul(outset, 2)),
+			height: MathF32.add(bounds.height, MathF32.mul(outset, 2)),
 		};
 	}
 
@@ -496,10 +475,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			return new Array(count).fill(values[0]!);
 		}
 
-		return Array.from(
-			{ length: count },
-			(_, index) => values[index] ?? 0,
-		);
+		return Array.from({ length: count }, (_, index) => values[index] ?? 0);
 	}
 
 	protected _buildClosedPolygonStrokePath(
@@ -511,133 +487,91 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			return null;
 		}
 
-		const winding =
-			this._getCornerContourWinding(
-				anchors,
-			);
+		const winding = this._getCornerContourWinding(anchors);
 
 		if (Math.abs(winding) <= EPSILON) {
 			return null;
 		}
 
-		const strokeWidths =
-			this._resolveShapeValues(
-				this.getStrokeWidth(),
-				count,
-			).map((value) =>
-				MathF32.max(
-					0,
-					Number.isFinite(value)
-						? value
-						: 0,
-				),
-			);
+		const strokeWidths = this._resolveShapeValues(
+			this.getStrokeWidth(),
+			count,
+		).map((value) => MathF32.max(0, Number.isFinite(value) ? value : 0));
 
-		if (
-			strokeWidths.every(
-				(value) => value <= EPSILON,
-			)
-		) {
+		if (strokeWidths.every((value) => value <= EPSILON)) {
 			return null;
 		}
 
-		const cornerRadii =
-			this._resolveShapeValues(
-				this.getCornerRadius(),
-				count,
-			);
+		const cornerRadii = this._resolveShapeValues(
+			this.getCornerRadius(),
+			count,
+		);
 
-		const outerOffsets =
-			new Array<number>(count);
+		const outerOffsets = new Array<number>(count);
 
-		const innerOffsets =
-			new Array<number>(count);
+		const innerOffsets = new Array<number>(count);
 
-		for (
-			let index = 0;
-			index < count;
-			index += 1
-		) {
-			const width =
-				strokeWidths[index] ?? 0;
+		for (let index = 0; index < count; index += 1) {
+			const width = strokeWidths[index] ?? 0;
 
 			switch (this.getStrokeAlign()) {
 				case StrokeAlign.Inside:
 					outerOffsets[index] = 0;
-					innerOffsets[index] =
-						-width;
+					innerOffsets[index] = -width;
 					break;
 
 				case StrokeAlign.Center:
-					outerOffsets[index] =
-						width * 0.5;
+					outerOffsets[index] = width * 0.5;
 
-					innerOffsets[index] =
-						-width * 0.5;
+					innerOffsets[index] = -width * 0.5;
 					break;
 
 				case StrokeAlign.Outside:
-					outerOffsets[index] =
-						width;
+					outerOffsets[index] = width;
 
 					innerOffsets[index] = 0;
 					break;
 			}
 		}
 
-		const outerAnchors =
-			this._buildOffsetCornerAnchors(
-				anchors,
-				outerOffsets,
-				winding,
-			);
+		const outerAnchors = this._buildOffsetCornerAnchors(
+			anchors,
+			outerOffsets,
+			winding,
+		);
 
-		const innerAnchors =
-			this._buildOffsetCornerAnchors(
-				anchors,
-				innerOffsets,
-				winding,
-			);
+		const innerAnchors = this._buildOffsetCornerAnchors(
+			anchors,
+			innerOffsets,
+			winding,
+		);
 
-		if (
-			outerAnchors.length !== count ||
-			innerAnchors.length !== count
-		) {
+		if (outerAnchors.length !== count || innerAnchors.length !== count) {
 			return null;
 		}
 
-		const outerRadii =
-			this._buildOffsetCornerRadii(
-				cornerRadii,
-				outerOffsets,
-			);
+		const outerRadii = this._buildOffsetCornerRadii(
+			cornerRadii,
+			outerOffsets,
+		);
 
-		const innerRadii =
-			this._buildOffsetCornerRadii(
-				cornerRadii,
-				innerOffsets,
-			);
+		const innerRadii = this._buildOffsetCornerRadii(
+			cornerRadii,
+			innerOffsets,
+		);
 
-		const outer =
-			this._buildRoundedCornerPathWithRadii(
-				outerAnchors,
-				outerRadii,
-			);
+		const outer = this._buildRoundedCornerPathWithRadii(
+			outerAnchors,
+			outerRadii,
+		);
 
 		if (outer.length === 0) {
 			return null;
 		}
 
-		const inner =
-			this._isValidInnerStrokeContour(
-				innerAnchors,
-				winding,
-			)
-				? this._buildRoundedCornerPathWithRadii(
-					innerAnchors,
-					innerRadii,
-				)
-				: [];
+		const inner = this._isValidInnerStrokeContour(innerAnchors, winding)
+			? this._buildRoundedCornerPathWithRadii(innerAnchors, innerRadii)
+			: [];
 
 		return {
 			outer,
@@ -653,10 +587,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			anchors.length,
 		);
 
-		return this._buildRoundedCornerPathWithRadii(
-			anchors,
-			radii,
-		);
+		return this._buildRoundedCornerPathWithRadii(anchors, radii);
 	}
 
 	private _buildRoundedCornerPathWithRadii(
@@ -669,35 +600,20 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			return [];
 		}
 
-		const resolvedRadii =
-			this._resolveShapeValues(
-				radii,
-				count,
-			);
+		const resolvedRadii = this._resolveShapeValues(radii, count);
 
-		const winding =
-			this._getCornerContourWinding(
-				anchors,
-			);
+		const winding = this._getCornerContourWinding(anchors);
 
 		if (Math.abs(winding) <= EPSILON) {
-			return this._buildSharpCornerPath(
-				anchors,
-			);
+			return this._buildSharpCornerPath(anchors);
 		}
 
-		const windingSign =
-			winding > 0 ? 1 : -1;
+		const windingSign = winding > 0 ? 1 : -1;
 
 		const corners: RoundedCornerGeometry[] = [];
 
-		for (
-			let index = 0;
-			index < count;
-			index += 1
-		) {
-			const anchor =
-				anchors[index]!;
+		for (let index = 0; index < count; index += 1) {
+			const anchor = anchors[index]!;
 
 			corners.push(
 				this._resolveRoundedCornerGeometry(
@@ -717,13 +633,8 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			point: first.entry,
 		});
 
-		for (
-			let index = 0;
-			index < count;
-			index += 1
-		) {
-			const corner =
-				corners[index]!;
+		for (let index = 0; index < count; index += 1) {
+			const corner = corners[index]!;
 
 			if (index > 0) {
 				commands.push({
@@ -744,14 +655,11 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 				radiusX: corner.radius,
 				radiusY: corner.radius,
 
-				startAngle:
-					corner.startAngle,
+				startAngle: corner.startAngle,
 
-				endAngle:
-					corner.endAngle,
+				endAngle: corner.endAngle,
 
-				clockwise:
-					corner.clockwise,
+				clockwise: corner.clockwise,
 			});
 		}
 
@@ -773,23 +681,14 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			{
 				type: "moveTo",
 				point: {
-					x: MathF32.toF32(
-						anchors[0]!.point.x,
-					),
-					y: MathF32.toF32(
-						anchors[0]!.point.y,
-					),
+					x: MathF32.toF32(anchors[0]!.point.x),
+					y: MathF32.toF32(anchors[0]!.point.y),
 				},
 			},
 		];
 
-		for (
-			let index = 1;
-			index < anchors.length;
-			index += 1
-		) {
-			const point =
-				anchors[index]!.point;
+		for (let index = 1; index < anchors.length; index += 1) {
+			const point = anchors[index]!.point;
 
 			commands.push({
 				type: "lineTo",
@@ -818,126 +717,77 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			return [];
 		}
 
-		const points =
-			anchors.map(
-				(anchor) => anchor.point,
-			);
+		const points = anchors.map((anchor) => anchor.point);
 
 		const offsetPoints: Vector2[] = [];
 
-		for (
-			let index = 0;
-			index < count;
-			index += 1
-		) {
-			const previousIndex =
-				(index - 1 + count) %
-				count;
+		for (let index = 0; index < count; index += 1) {
+			const previousIndex = (index - 1 + count) % count;
 
-			const nextIndex =
-				(index + 1) % count;
+			const nextIndex = (index + 1) % count;
 
-			const previous =
-				points[previousIndex]!;
+			const previous = points[previousIndex]!;
 
-			const current =
-				points[index]!;
+			const current = points[index]!;
 
-			const next =
-				points[nextIndex]!;
+			const next = points[nextIndex]!;
 
-			const previousNormal =
-				this._getPolygonEdgeOutwardNormal(
-					previous,
-					current,
-					winding,
-				);
+			const previousNormal = this._getPolygonEdgeOutwardNormal(
+				previous,
+				current,
+				winding,
+			);
 
-			const nextNormal =
-				this._getPolygonEdgeOutwardNormal(
-					current,
-					next,
-					winding,
-				);
+			const nextNormal = this._getPolygonEdgeOutwardNormal(
+				current,
+				next,
+				winding,
+			);
 
-			if (
-				!previousNormal ||
-				!nextNormal
-			) {
-				offsetPoints.push(
-					this._toCornerF32Point(
-						current,
-					),
-				);
+			if (!previousNormal || !nextNormal) {
+				offsetPoints.push(this._toCornerF32Point(current));
 
 				continue;
 			}
 
-			const previousOffset =
-				offsets[previousIndex] ?? 0;
+			const previousOffset = offsets[previousIndex] ?? 0;
 
-			const nextOffset =
-				offsets[index] ?? 0;
+			const nextOffset = offsets[index] ?? 0;
 
 			const previousLinePoint = {
-				x:
-					current.x +
-					previousNormal.x *
-					previousOffset,
+				x: current.x + previousNormal.x * previousOffset,
 
-				y:
-					current.y +
-					previousNormal.y *
-					previousOffset,
+				y: current.y + previousNormal.y * previousOffset,
 			};
 
 			const nextLinePoint = {
-				x:
-					current.x +
-					nextNormal.x *
-					nextOffset,
+				x: current.x + nextNormal.x * nextOffset,
 
-				y:
-					current.y +
-					nextNormal.y *
-					nextOffset,
+				y: current.y + nextNormal.y * nextOffset,
 			};
 
 			const previousDirection = {
-				x:
-					current.x -
-					previous.x,
+				x: current.x - previous.x,
 
-				y:
-					current.y -
-					previous.y,
+				y: current.y - previous.y,
 			};
 
 			const nextDirection = {
-				x:
-					next.x -
-					current.x,
+				x: next.x - current.x,
 
-				y:
-					next.y -
-					current.y,
+				y: next.y - current.y,
 			};
 
-			const intersection =
-				this._intersectStrokeLines(
-					previousLinePoint,
-					previousDirection,
+			const intersection = this._intersectStrokeLines(
+				previousLinePoint,
+				previousDirection,
 
-					nextLinePoint,
-					nextDirection,
-				);
+				nextLinePoint,
+				nextDirection,
+			);
 
 			if (intersection) {
-				offsetPoints.push(
-					this._toCornerF32Point(
-						intersection,
-					),
-				);
+				offsetPoints.push(this._toCornerF32Point(intersection));
 
 				continue;
 			}
@@ -948,40 +798,20 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			 */
 			offsetPoints.push(
 				this._toCornerF32Point({
-					x:
-						(
-							previousLinePoint.x +
-							nextLinePoint.x
-						) *
-						0.5,
+					x: (previousLinePoint.x + nextLinePoint.x) * 0.5,
 
-					y:
-						(
-							previousLinePoint.y +
-							nextLinePoint.y
-						) *
-						0.5,
+					y: (previousLinePoint.y + nextLinePoint.y) * 0.5,
 				}),
 			);
 		}
 
-		return offsetPoints.map(
-			(point, index) => ({
-				point,
+		return offsetPoints.map((point, index) => ({
+			point,
 
-				previous:
-					offsetPoints[
-					(index - 1 + count) %
-					count
-					]!,
+			previous: offsetPoints[(index - 1 + count) % count]!,
 
-				next:
-					offsetPoints[
-					(index + 1) %
-					count
-					]!,
-			}),
-		);
+			next: offsetPoints[(index + 1) % count]!,
+		}));
 	}
 
 	private _getPolygonEdgeOutwardNormal(
@@ -989,24 +819,17 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		end: Vector2,
 		winding: number,
 	): Vector2 | null {
-		const dx =
-			end.x - start.x;
+		const dx = end.x - start.x;
 
-		const dy =
-			end.y - start.y;
+		const dy = end.y - start.y;
 
-		const length =
-			Math.hypot(
-				dx,
-				dy,
-			);
+		const length = Math.hypot(dx, dy);
 
 		if (length <= EPSILON) {
 			return null;
 		}
 
-		const windingSign =
-			winding > 0 ? 1 : -1;
+		const windingSign = winding > 0 ? 1 : -1;
 
 		/*
 		 * Для нашего contour winding:
@@ -1015,13 +838,9 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		 * negative -> left normal наружу
 		 */
 		return {
-			x:
-				(windingSign * dy) /
-				length,
+			x: (windingSign * dy) / length,
 
-			y:
-				(-windingSign * dx) /
-				length,
+			y: (-windingSign * dx) / length,
 		};
 	}
 
@@ -1033,35 +852,21 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		secondDirection: Vector2,
 	): Vector2 | null {
 		const denominator =
-			firstDirection.x *
-			secondDirection.y -
-			firstDirection.y *
-			secondDirection.x;
+			firstDirection.x * secondDirection.y -
+			firstDirection.y * secondDirection.x;
 
-		if (
-			Math.abs(denominator) <=
-			EPSILON
-		) {
+		if (Math.abs(denominator) <= EPSILON) {
 			return null;
 		}
 
 		const delta = {
-			x:
-				secondPoint.x -
-				firstPoint.x,
+			x: secondPoint.x - firstPoint.x,
 
-			y:
-				secondPoint.y -
-				firstPoint.y,
+			y: secondPoint.y - firstPoint.y,
 		};
 
 		const t =
-			(
-				delta.x *
-				secondDirection.y -
-				delta.y *
-				secondDirection.x
-			) /
+			(delta.x * secondDirection.y - delta.y * secondDirection.x) /
 			denominator;
 
 		if (!Number.isFinite(t)) {
@@ -1069,13 +874,9 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		}
 
 		return {
-			x:
-				firstPoint.x +
-				firstDirection.x * t,
+			x: firstPoint.x + firstDirection.x * t,
 
-			y:
-				firstPoint.y +
-				firstDirection.y * t,
+			y: firstPoint.y + firstDirection.y * t,
 		};
 	}
 
@@ -1085,51 +886,35 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	): number[] {
 		const count = radii.length;
 
-		return Array.from(
-			{ length: count },
-			(_, index) => {
-				const radius =
-					Math.max(
-						0,
-						radii[index] ?? 0,
-					);
+		return Array.from({ length: count }, (_, index) => {
+			const radius = Math.max(0, radii[index] ?? 0);
 
-				if (radius <= EPSILON) {
-					/*
-					 * Sharp corner должен оставаться sharp.
-					 */
-					return 0;
-				}
-
-				const previousOffset =
-					offsets[
-					(index - 1 + count) %
-					count
-					] ?? 0;
-
-				const currentOffset =
-					offsets[index] ?? 0;
-
+			if (radius <= EPSILON) {
 				/*
-				 * Corner принадлежит двум сторонам:
-				 *
-				 * previous edge + current edge.
-				 *
-				 * Берём offset большей по модулю стороны,
-				 * как мы уже делали для Rect.
+				 * Sharp corner должен оставаться sharp.
 				 */
-				const delta =
-					Math.abs(previousOffset) >=
-						Math.abs(currentOffset)
-						? previousOffset
-						: currentOffset;
+				return 0;
+			}
 
-				return MathF32.max(
-					0,
-					radius + delta,
-				);
-			},
-		);
+			const previousOffset = offsets[(index - 1 + count) % count] ?? 0;
+
+			const currentOffset = offsets[index] ?? 0;
+
+			/*
+			 * Corner принадлежит двум сторонам:
+			 *
+			 * previous edge + current edge.
+			 *
+			 * Берём offset большей по модулю стороны,
+			 * как мы уже делали для Rect.
+			 */
+			const delta =
+				Math.abs(previousOffset) >= Math.abs(currentOffset)
+					? previousOffset
+					: currentOffset;
+
+			return MathF32.max(0, radius + delta);
+		});
 	}
 
 	private _isValidInnerStrokeContour(
@@ -1140,10 +925,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			return false;
 		}
 
-		const winding =
-			this._getCornerContourWinding(
-				anchors,
-			);
+		const winding = this._getCornerContourWinding(anchors);
 
 		if (Math.abs(winding) <= EPSILON) {
 			return false;
@@ -1153,10 +935,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		 * Если inner contour схлопнулся и
 		 * перевернулся - отверстия больше нет.
 		 */
-		return (
-			Math.sign(winding) ===
-			Math.sign(originalWinding)
-		);
+		return Math.sign(winding) === Math.sign(originalWinding);
 	}
 
 	/***********************************************************/
@@ -1184,12 +963,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		value: StrokeStyleLength | StrokeStyleGap,
 	): StrokeStyleLength {
 		if (typeof value === "number") {
-			return MathF32.max(
-				0,
-				Number.isFinite(value)
-					? value
-					: 0,
-			);
+			return MathF32.max(0, Number.isFinite(value) ? value : 0);
 		}
 
 		if (value.length === 0) {
@@ -1197,12 +971,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		}
 
 		return value.map((item) =>
-			MathF32.max(
-				0,
-				Number.isFinite(item)
-					? item
-					: 0,
-			),
+			MathF32.max(0, Number.isFinite(item) ? item : 0),
 		);
 	}
 
@@ -1213,21 +982,14 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		length: StrokeStyleLength;
 		gap: StrokeStyleGap;
 	} {
-		const normalizedLength =
-			this._normalizeStrokeStyleMetric(
-				length,
-			);
+		const normalizedLength = this._normalizeStrokeStyleMetric(length);
 
-		const normalizedGap =
-			this._normalizeStrokeStyleMetric(
-				gap,
-			);
+		const normalizedGap = this._normalizeStrokeStyleMetric(gap);
 
 		if (
 			Array.isArray(normalizedLength) &&
 			Array.isArray(normalizedGap) &&
-			normalizedLength.length !==
-			normalizedGap.length
+			normalizedLength.length !== normalizedGap.length
 		) {
 			throw new RangeError(
 				"Stroke style length and gap patterns must have the same number of elements.",
@@ -1243,23 +1005,16 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	private _cloneStrokeStyleMetric(
 		value: StrokeStyleLength | StrokeStyleGap,
 	): StrokeStyleLength {
-		return typeof value === "number"
-			? value
-			: [...value];
+		return typeof value === "number" ? value : [...value];
 	}
 
-	private _normalizeAppearanceValues(
-		values: readonly number[],
-	): number[] {
+	private _normalizeAppearanceValues(values: readonly number[]): number[] {
 		if (values.length === 0) {
 			return [0];
 		}
 
 		return values.map((value) =>
-			MathF32.max(
-				0,
-				Number.isFinite(value) ? value : 0,
-			),
+			MathF32.max(0, Number.isFinite(value) ? value : 0),
 		);
 	}
 
@@ -1309,172 +1064,97 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			y: next.y - point.y,
 		};
 
-		const previousLength =
-			Math.hypot(
-				toPrevious.x,
-				toPrevious.y,
-			);
+		const previousLength = Math.hypot(toPrevious.x, toPrevious.y);
 
-		const nextLength =
-			Math.hypot(
-				toNext.x,
-				toNext.y,
-			);
+		const nextLength = Math.hypot(toNext.x, toNext.y);
 
-		if (
-			previousLength <= EPSILON ||
-			nextLength <= EPSILON
-		) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+		if (previousLength <= EPSILON || nextLength <= EPSILON) {
+			return this._createSharpCornerGeometry(point);
 		}
 
 		const previousDirection = {
-			x:
-				toPrevious.x /
-				previousLength,
+			x: toPrevious.x / previousLength,
 
-			y:
-				toPrevious.y /
-				previousLength,
+			y: toPrevious.y / previousLength,
 		};
 
 		const nextDirection = {
-			x:
-				toNext.x /
-				nextLength,
+			x: toNext.x / nextLength,
 
-			y:
-				toNext.y /
-				nextLength,
+			y: toNext.y / nextLength,
 		};
 
 		const dot = Math.max(
 			-1,
 			Math.min(
 				1,
-				previousDirection.x *
-				nextDirection.x +
-				previousDirection.y *
-				nextDirection.y,
+				previousDirection.x * nextDirection.x +
+					previousDirection.y * nextDirection.y,
 			),
 		);
 
 		const angle = Math.acos(dot);
 
-		if (
-			angle <= EPSILON ||
-			Math.abs(Math.PI - angle) <= EPSILON
-		) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+		if (angle <= EPSILON || Math.abs(Math.PI - angle) <= EPSILON) {
+			return this._createSharpCornerGeometry(point);
 		}
 
 		const halfAngle = angle * 0.5;
 
-		const tangentFactor =
-			Math.tan(halfAngle);
+		const tangentFactor = Math.tan(halfAngle);
 
 		if (
 			!Number.isFinite(tangentFactor) ||
 			Math.abs(tangentFactor) <= EPSILON
 		) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+			return this._createSharpCornerGeometry(point);
 		}
 
 		const maxRadius =
-			Math.min(
-				previousLength,
-				nextLength,
-			) *
-			0.5 *
-			tangentFactor;
+			Math.min(previousLength, nextLength) * 0.5 * tangentFactor;
 
-		const radius = Math.max(
-			0,
-			Math.min(
-				requestedRadius,
-				maxRadius,
-			),
-		);
+		const radius = Math.max(0, Math.min(requestedRadius, maxRadius));
 
 		if (radius <= EPSILON) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+			return this._createSharpCornerGeometry(point);
 		}
 
-		const tangentDistance =
-			radius / tangentFactor;
+		const tangentDistance = radius / tangentFactor;
 
 		const entry = {
-			x:
-				point.x +
-				previousDirection.x *
-				tangentDistance,
+			x: point.x + previousDirection.x * tangentDistance,
 
-			y:
-				point.y +
-				previousDirection.y *
-				tangentDistance,
+			y: point.y + previousDirection.y * tangentDistance,
 		};
 
 		const exit = {
-			x:
-				point.x +
-				nextDirection.x *
-				tangentDistance,
+			x: point.x + nextDirection.x * tangentDistance,
 
-			y:
-				point.y +
-				nextDirection.y *
-				tangentDistance,
+			y: point.y + nextDirection.y * tangentDistance,
 		};
 
 		const bisector = this._normalizeCornerVector({
-			x:
-				previousDirection.x +
-				nextDirection.x,
+			x: previousDirection.x + nextDirection.x,
 
-			y:
-				previousDirection.y +
-				nextDirection.y,
+			y: previousDirection.y + nextDirection.y,
 		});
 
 		if (!bisector) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+			return this._createSharpCornerGeometry(point);
 		}
 
-		const sinHalfAngle =
-			Math.sin(halfAngle);
+		const sinHalfAngle = Math.sin(halfAngle);
 
-		if (
-			Math.abs(sinHalfAngle) <= EPSILON
-		) {
-			return this._createSharpCornerGeometry(
-				point,
-			);
+		if (Math.abs(sinHalfAngle) <= EPSILON) {
+			return this._createSharpCornerGeometry(point);
 		}
 
-		const centerDistance =
-			radius / sinHalfAngle;
+		const centerDistance = radius / sinHalfAngle;
 
 		const center = {
-			x:
-				point.x +
-				bisector.x *
-				centerDistance,
+			x: point.x + bisector.x * centerDistance,
 
-			y:
-				point.y +
-				bisector.y *
-				centerDistance,
+			y: point.y + bisector.y * centerDistance,
 		};
 
 		const incomingDirection = {
@@ -1483,50 +1163,31 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		};
 
 		const turn =
-			incomingDirection.x *
-			nextDirection.y -
-			incomingDirection.y *
-			nextDirection.x;
+			incomingDirection.x * nextDirection.y -
+			incomingDirection.y * nextDirection.x;
 
-		const isConvex =
-			turn * windingSign >= 0;
+		const isConvex = turn * windingSign >= 0;
 
-		const clockwise =
-			isConvex
-				? windingSign > 0
-				: windingSign < 0;
+		const clockwise = isConvex ? windingSign > 0 : windingSign < 0;
 
 		return {
 			entry: this._toCornerF32Point(entry),
 			exit: this._toCornerF32Point(exit),
 
-			center:
-				this._toCornerF32Point(center),
+			center: this._toCornerF32Point(center),
 
-			radius:
-				MathF32.toF32(radius),
+			radius: MathF32.toF32(radius),
 
-			startAngle:
-				this._getCornerAngleDegrees(
-					center,
-					entry,
-				),
+			startAngle: this._getCornerAngleDegrees(center, entry),
 
-			endAngle:
-				this._getCornerAngleDegrees(
-					center,
-					exit,
-				),
+			endAngle: this._getCornerAngleDegrees(center, exit),
 
 			clockwise,
 		};
 	}
 
-	private _createSharpCornerGeometry(
-		point: Vector2,
-	): RoundedCornerGeometry {
-		const value =
-			this._toCornerF32Point(point);
+	private _createSharpCornerGeometry(point: Vector2): RoundedCornerGeometry {
+		const value = this._toCornerF32Point(point);
 
 		return {
 			entry: value,
@@ -1548,35 +1209,19 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 	): number {
 		let area = 0;
 
-		for (
-			let index = 0;
-			index < anchors.length;
-			index += 1
-		) {
-			const current =
-				anchors[index]!.point;
+		for (let index = 0; index < anchors.length; index += 1) {
+			const current = anchors[index]!.point;
 
-			const next =
-				anchors[
-					(index + 1) %
-					anchors.length
-				]!.point;
+			const next = anchors[(index + 1) % anchors.length]!.point;
 
-			area +=
-				current.x * next.y -
-				next.x * current.y;
+			area += current.x * next.y - next.x * current.y;
 		}
 
 		return area;
 	}
 
-	private _normalizeCornerVector(
-		value: Vector2,
-	): Vector2 | null {
-		const length = Math.hypot(
-			value.x,
-			value.y,
-		);
+	private _normalizeCornerVector(value: Vector2): Vector2 | null {
+		const length = Math.hypot(value.x, value.y);
 
 		if (length <= EPSILON) {
 			return null;
@@ -1588,22 +1233,14 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 		};
 	}
 
-	private _getCornerAngleDegrees(
-		center: Vector2,
-		point: Vector2,
-	): number {
+	private _getCornerAngleDegrees(center: Vector2, point: Vector2): number {
 		return MathF32.toF32(
-			Math.atan2(
-				point.y - center.y,
-				point.x - center.x,
-			) *
-			(180 / Math.PI),
+			Math.atan2(point.y - center.y, point.x - center.x) *
+				(180 / Math.PI),
 		);
 	}
 
-	private _toCornerF32Point(
-		point: Vector2,
-	): Vector2 {
+	private _toCornerF32Point(point: Vector2): Vector2 {
 		return {
 			x: MathF32.toF32(point.x),
 			y: MathF32.toF32(point.y),

@@ -14,7 +14,6 @@ export type ShapeCornerRadiusAnchor = {
 	handleTarget?: Vector2;
 };
 
-
 export enum StrokeAlign {
 	Inside = 0,
 	Center = 1,
@@ -28,16 +27,11 @@ export enum StrokeStyle {
 	Custom = "custom",
 }
 
-export type StrokeStyleLength =
-	number |
-	readonly number[];
+export type StrokeStyleLength = number | readonly number[];
 
-export type StrokeStyleGap =
-	number |
-	readonly number[];
+export type StrokeStyleGap = number | readonly number[];
 
-export type StrokeStyleShape =
-	string;
+export type StrokeStyleShape = string;
 
 export enum StrokeDashCap {
 	Flat = "flat",
@@ -67,9 +61,7 @@ export type StrokeStyleProperties =
 	| StrokeCustomStyleProperties;
 
 export type ConfigurableStrokeStyle =
-	| StrokeStyle.Dashed
-	| StrokeStyle.Dotted
-	| StrokeStyle.Custom;
+	StrokeStyle.Dashed | StrokeStyle.Dotted | StrokeStyle.Custom;
 
 export type ResolvedStrokeStylePatternItem = Readonly<{
 	length: number;
@@ -206,30 +198,30 @@ export type RoundedCornerGeometry = {
 
 export type ShapePathCommand =
 	| {
-		type: "moveTo";
-		point: Vector2;
-	}
+			type: "moveTo";
+			point: Vector2;
+	  }
 	| {
-		type: "lineTo";
-		point: Vector2;
-	}
+			type: "lineTo";
+			point: Vector2;
+	  }
 	| {
-		type: "arcTo";
-		center: Vector2;
-		radiusX: number;
-		radiusY: number;
-		startAngle: number;
-		endAngle: number;
-		clockwise: boolean;
-	}
+			type: "arcTo";
+			center: Vector2;
+			radiusX: number;
+			radiusY: number;
+			startAngle: number;
+			endAngle: number;
+			clockwise: boolean;
+	  }
 	| {
-		type: "closePath";
-	}
+			type: "closePath";
+	  }
 	| {
-		type: "quadraticCurveTo";
-		control: Vector2;
-		point: Vector2;
-	};
+			type: "quadraticCurveTo";
+			control: Vector2;
+			point: Vector2;
+	  };
 
 export type ShapeStrokePath = {
 	outer: readonly ShapePathCommand[];

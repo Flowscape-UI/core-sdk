@@ -1,7 +1,12 @@
 import type { Vector2 } from "../../core/transform/types";
 import type { ID } from "../../core/types";
 import { NodeType } from "../base";
-import { ShapeBase, type ShapeCornerRadiusAnchor, type ShapePathCommand, type ShapeStrokePath } from "../shape";
+import {
+	ShapeBase,
+	type ShapeCornerRadiusAnchor,
+	type ShapePathCommand,
+	type ShapeStrokePath,
+} from "../shape";
 import { matrixInvert } from "../utils/matrix-invert";
 import type { INodePolygon } from "./types";
 
@@ -48,10 +53,8 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 
 		return vertices.map((point, index) => ({
 			point,
-			previous:
-				vertices[(index - 1 + count) % count]!,
-			next:
-				vertices[(index + 1) % count]!,
+			previous: vertices[(index - 1 + count) % count]!,
+			next: vertices[(index + 1) % count]!,
 		}));
 	}
 
@@ -59,9 +62,7 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 	/*                       Overrides                       */
 	/*********************************************************/
 	public override toPathCommands(): readonly ShapePathCommand[] {
-		return this._buildRoundedCornerPath(
-			this.getCornerRadiusAnchors(),
-		);
+		return this._buildRoundedCornerPath(this.getCornerRadiusAnchors());
 	}
 
 	public override getStrokePath(): ShapeStrokePath | null {
@@ -104,7 +105,7 @@ export class NodePolygon extends ShapeBase implements INodePolygon {
 				const intersect =
 					yi > localPoint.y !== yj > localPoint.y &&
 					localPoint.x <
-					((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
+						((xj - xi) * (localPoint.y - yi)) / (yj - yi) + xi;
 
 				if (intersect) {
 					inside = !inside;

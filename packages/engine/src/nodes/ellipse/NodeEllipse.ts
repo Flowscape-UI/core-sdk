@@ -89,19 +89,13 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			y: cy,
 		};
 
-		const start =
-			this._normalizeAngle(this._startAngle);
+		const start = this._normalizeAngle(this._startAngle);
 
-		const sweep =
-			this._normalizeAngle(
-				this._endAngle - this._startAngle,
-			);
+		const sweep = this._normalizeAngle(this._endAngle - this._startAngle);
 
 		const isFullEllipse =
 			Math.abs(sweep) <= EPSILON ||
-			Math.abs(
-				sweep - Math.PI * 2,
-			) <= EPSILON;
+			Math.abs(sweep - Math.PI * 2) <= EPSILON;
 
 		const commands: ShapePathCommand[] = [];
 
@@ -133,11 +127,9 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			});
 
 			if (this._innerRatio > EPSILON) {
-				const innerRx =
-					rx * this._innerRatio;
+				const innerRx = rx * this._innerRatio;
 
-				const innerRy =
-					ry * this._innerRatio;
+				const innerRy = ry * this._innerRatio;
 
 				commands.push({
 					type: "moveTo",
@@ -182,140 +174,86 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 		/*********************************************************/
 
 		if (this._innerRatio <= EPSILON) {
-			let [startRadius, endRadius] =
-				this._resolveCornerRadiusValues(2);
+			let [startRadius, endRadius] = this._resolveCornerRadiusValues(2);
 
-			startRadius = Math.max(
-				0,
-				startRadius ?? 0,
+			startRadius = Math.max(0, startRadius ?? 0);
+
+			endRadius = Math.max(0, endRadius ?? 0);
+
+			const originalStart = this._getEllipsePoint(cx, cy, rx, ry, start);
+
+			const originalEnd = this._getEllipsePoint(cx, cy, rx, ry, end);
+
+			const startEdgeLength = Math.hypot(
+				originalStart.x - cx,
+				originalStart.y - cy,
 			);
 
-			endRadius = Math.max(
-				0,
-				endRadius ?? 0,
+			const endEdgeLength = Math.hypot(
+				originalEnd.x - cx,
+				originalEnd.y - cy,
 			);
 
-			const originalStart =
-				this._getEllipsePoint(
-					cx,
-					cy,
-					rx,
-					ry,
-					start,
-				);
+			startRadius = Math.min(startRadius, startEdgeLength * 0.999);
 
-			const originalEnd =
-				this._getEllipsePoint(
-					cx,
-					cy,
-					rx,
-					ry,
-					end,
-				);
-
-			const startEdgeLength =
-				Math.hypot(
-					originalStart.x - cx,
-					originalStart.y - cy,
-				);
-
-			const endEdgeLength =
-				Math.hypot(
-					originalEnd.x - cx,
-					originalEnd.y - cy,
-				);
-
-			startRadius = Math.min(
-				startRadius,
-				startEdgeLength * 0.999,
-			);
-
-			endRadius = Math.min(
-				endRadius,
-				endEdgeLength * 0.999,
-			);
+			endRadius = Math.min(endRadius, endEdgeLength * 0.999);
 
 			/*
 			 * Проверяем, чтобы два corner radius
 			 * не съели всю outer arc.
 			 */
-			let startTrim =
-				this._getEllipseArcTrimAngle(
+			let startTrim = this._getEllipseArcTrimAngle(
+				rx,
+				ry,
+				start,
+				startRadius,
+			);
+
+			let endTrim = this._getEllipseArcTrimAngle(rx, ry, end, endRadius);
+
+			const trimTotal = startTrim + endTrim;
+
+			const maxTrim = sweep * 0.999;
+
+			if (trimTotal > maxTrim && trimTotal > EPSILON) {
+				const scale = maxTrim / trimTotal;
+
+				startRadius *= scale;
+				endRadius *= scale;
+
+				startTrim = this._getEllipseArcTrimAngle(
 					rx,
 					ry,
 					start,
 					startRadius,
 				);
 
-			let endTrim =
-				this._getEllipseArcTrimAngle(
-					rx,
-					ry,
-					end,
-					endRadius,
-				);
-
-			const trimTotal =
-				startTrim + endTrim;
-
-			const maxTrim =
-				sweep * 0.999;
-
-			if (
-				trimTotal > maxTrim &&
-				trimTotal > EPSILON
-			) {
-				const scale =
-					maxTrim / trimTotal;
-
-				startRadius *= scale;
-				endRadius *= scale;
-
-				startTrim =
-					this._getEllipseArcTrimAngle(
-						rx,
-						ry,
-						start,
-						startRadius,
-					);
-
-				endTrim =
-					this._getEllipseArcTrimAngle(
-						rx,
-						ry,
-						end,
-						endRadius,
-					);
+				endTrim = this._getEllipseArcTrimAngle(rx, ry, end, endRadius);
 			}
 
-			const trimmedStart =
-				start + startTrim;
+			const trimmedStart = start + startTrim;
 
-			const trimmedEnd =
-				end - endTrim;
+			const trimmedEnd = end - endTrim;
 
-			const arcStart =
-				this._getEllipsePoint(
-					cx,
-					cy,
-					rx,
-					ry,
-					trimmedStart,
-				);
+			const arcStart = this._getEllipsePoint(
+				cx,
+				cy,
+				rx,
+				ry,
+				trimmedStart,
+			);
 
-			const startEdgePoint =
-				this._moveToward(
-					originalStart,
-					center,
-					startRadius,
-				);
+			const startEdgePoint = this._moveToward(
+				originalStart,
+				center,
+				startRadius,
+			);
 
-			const endEdgePoint =
-				this._moveToward(
-					originalEnd,
-					center,
-					endRadius,
-				);
+			const endEdgePoint = this._moveToward(
+				originalEnd,
+				center,
+				endRadius,
+			);
 
 			commands.push({
 				type: "moveTo",
@@ -327,14 +265,8 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 				center,
 				radiusX: rx,
 				radiusY: ry,
-				startAngle:
-					this._radToDeg(
-						trimmedStart,
-					),
-				endAngle:
-					this._radToDeg(
-						trimmedEnd,
-					),
+				startAngle: this._radToDeg(trimmedStart),
+				endAngle: this._radToDeg(trimmedEnd),
 				clockwise: true,
 			});
 
@@ -381,11 +313,9 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 		/*                     Partial ring                      */
 		/*********************************************************/
 
-		const innerRx =
-			rx * this._innerRatio;
+		const innerRx = rx * this._innerRatio;
 
-		const innerRy =
-			ry * this._innerRatio;
+		const innerRy = ry * this._innerRatio;
 
 		let [
 			outerStartRadius,
@@ -394,61 +324,27 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			innerStartRadius,
 		] = this._resolveCornerRadiusValues(4);
 
-		outerStartRadius = Math.max(
-			0,
-			outerStartRadius ?? 0,
+		outerStartRadius = Math.max(0, outerStartRadius ?? 0);
+
+		outerEndRadius = Math.max(0, outerEndRadius ?? 0);
+
+		innerEndRadius = Math.max(0, innerEndRadius ?? 0);
+
+		innerStartRadius = Math.max(0, innerStartRadius ?? 0);
+
+		const outerStart = this._getEllipsePoint(cx, cy, rx, ry, start);
+
+		const outerEnd = this._getEllipsePoint(cx, cy, rx, ry, end);
+
+		const innerStart = this._getEllipsePoint(
+			cx,
+			cy,
+			innerRx,
+			innerRy,
+			start,
 		);
 
-		outerEndRadius = Math.max(
-			0,
-			outerEndRadius ?? 0,
-		);
-
-		innerEndRadius = Math.max(
-			0,
-			innerEndRadius ?? 0,
-		);
-
-		innerStartRadius = Math.max(
-			0,
-			innerStartRadius ?? 0,
-		);
-
-		const outerStart =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				rx,
-				ry,
-				start,
-			);
-
-		const outerEnd =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				rx,
-				ry,
-				end,
-			);
-
-		const innerStart =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				innerRx,
-				innerRy,
-				start,
-			);
-
-		const innerEnd =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				innerRx,
-				innerRy,
-				end,
-			);
+		const innerEnd = this._getEllipsePoint(cx, cy, innerRx, innerRy, end);
 
 		/*
 		 * На каждом radial cut два corner radius
@@ -456,191 +352,150 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 		 *
 		 * Не позволяем им пересечься.
 		 */
-		[
+		[outerStartRadius, innerStartRadius] = this._fitCornerDistances(
 			outerStartRadius,
 			innerStartRadius,
-		] = this._fitCornerDistances(
-			outerStartRadius,
-			innerStartRadius,
-			this._getDistance(
-				outerStart,
-				innerStart,
-			),
+			this._getDistance(outerStart, innerStart),
 		);
 
-		[
+		[outerEndRadius, innerEndRadius] = this._fitCornerDistances(
 			outerEndRadius,
 			innerEndRadius,
-		] = this._fitCornerDistances(
-			outerEndRadius,
-			innerEndRadius,
-			this._getDistance(
-				outerEnd,
-				innerEnd,
-			),
+			this._getDistance(outerEnd, innerEnd),
 		);
 
 		/*
 		 * Теперь ограничиваем outer arc.
 		 */
-		let outerStartTrim =
-			this._getEllipseArcTrimAngle(
+		let outerStartTrim = this._getEllipseArcTrimAngle(
+			rx,
+			ry,
+			start,
+			outerStartRadius,
+		);
+
+		let outerEndTrim = this._getEllipseArcTrimAngle(
+			rx,
+			ry,
+			end,
+			outerEndRadius,
+		);
+
+		const outerTrimTotal = outerStartTrim + outerEndTrim;
+
+		const maxArcTrim = sweep * 0.999;
+
+		if (outerTrimTotal > maxArcTrim && outerTrimTotal > EPSILON) {
+			const scale = maxArcTrim / outerTrimTotal;
+
+			outerStartRadius *= scale;
+			outerEndRadius *= scale;
+
+			outerStartTrim = this._getEllipseArcTrimAngle(
 				rx,
 				ry,
 				start,
 				outerStartRadius,
 			);
 
-		let outerEndTrim =
-			this._getEllipseArcTrimAngle(
+			outerEndTrim = this._getEllipseArcTrimAngle(
 				rx,
 				ry,
 				end,
 				outerEndRadius,
 			);
-
-		const outerTrimTotal =
-			outerStartTrim +
-			outerEndTrim;
-
-		const maxArcTrim =
-			sweep * 0.999;
-
-		if (
-			outerTrimTotal > maxArcTrim &&
-			outerTrimTotal > EPSILON
-		) {
-			const scale =
-				maxArcTrim /
-				outerTrimTotal;
-
-			outerStartRadius *= scale;
-			outerEndRadius *= scale;
-
-			outerStartTrim =
-				this._getEllipseArcTrimAngle(
-					rx,
-					ry,
-					start,
-					outerStartRadius,
-				);
-
-			outerEndTrim =
-				this._getEllipseArcTrimAngle(
-					rx,
-					ry,
-					end,
-					outerEndRadius,
-				);
 		}
 
 		/*
 		 * И отдельно inner arc.
 		 */
-		let innerStartTrim =
-			this._getEllipseArcTrimAngle(
+		let innerStartTrim = this._getEllipseArcTrimAngle(
+			innerRx,
+			innerRy,
+			start,
+			innerStartRadius,
+		);
+
+		let innerEndTrim = this._getEllipseArcTrimAngle(
+			innerRx,
+			innerRy,
+			end,
+			innerEndRadius,
+		);
+
+		const innerTrimTotal = innerStartTrim + innerEndTrim;
+
+		if (innerTrimTotal > maxArcTrim && innerTrimTotal > EPSILON) {
+			const scale = maxArcTrim / innerTrimTotal;
+
+			innerStartRadius *= scale;
+			innerEndRadius *= scale;
+
+			innerStartTrim = this._getEllipseArcTrimAngle(
 				innerRx,
 				innerRy,
 				start,
 				innerStartRadius,
 			);
 
-		let innerEndTrim =
-			this._getEllipseArcTrimAngle(
+			innerEndTrim = this._getEllipseArcTrimAngle(
 				innerRx,
 				innerRy,
 				end,
 				innerEndRadius,
 			);
-
-		const innerTrimTotal =
-			innerStartTrim +
-			innerEndTrim;
-
-		if (
-			innerTrimTotal > maxArcTrim &&
-			innerTrimTotal > EPSILON
-		) {
-			const scale =
-				maxArcTrim /
-				innerTrimTotal;
-
-			innerStartRadius *= scale;
-			innerEndRadius *= scale;
-
-			innerStartTrim =
-				this._getEllipseArcTrimAngle(
-					innerRx,
-					innerRy,
-					start,
-					innerStartRadius,
-				);
-
-			innerEndTrim =
-				this._getEllipseArcTrimAngle(
-					innerRx,
-					innerRy,
-					end,
-					innerEndRadius,
-				);
 		}
 
-		const outerArcStart =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				rx,
-				ry,
-				start + outerStartTrim,
-			);
+		const outerArcStart = this._getEllipsePoint(
+			cx,
+			cy,
+			rx,
+			ry,
+			start + outerStartTrim,
+		);
 
 		/*
 		 * Inner arc идёт в обратную сторону:
 		 *
 		 * end → start
 		 */
-		const innerArcEndSide =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				innerRx,
-				innerRy,
-				end - innerEndTrim,
-			);
+		const innerArcEndSide = this._getEllipsePoint(
+			cx,
+			cy,
+			innerRx,
+			innerRy,
+			end - innerEndTrim,
+		);
 
 		/*
 		 * Radial cut справа/end.
 		 */
-		const outerEndEdge =
-			this._moveToward(
-				outerEnd,
-				innerEnd,
-				outerEndRadius,
-			);
+		const outerEndEdge = this._moveToward(
+			outerEnd,
+			innerEnd,
+			outerEndRadius,
+		);
 
-		const innerEndEdge =
-			this._moveToward(
-				innerEnd,
-				outerEnd,
-				innerEndRadius,
-			);
+		const innerEndEdge = this._moveToward(
+			innerEnd,
+			outerEnd,
+			innerEndRadius,
+		);
 
 		/*
 		 * Radial cut слева/start.
 		 */
-		const outerStartEdge =
-			this._moveToward(
-				outerStart,
-				innerStart,
-				outerStartRadius,
-			);
+		const outerStartEdge = this._moveToward(
+			outerStart,
+			innerStart,
+			outerStartRadius,
+		);
 
-		const innerStartEdge =
-			this._moveToward(
-				innerStart,
-				outerStart,
-				innerStartRadius,
-			);
+		const innerStartEdge = this._moveToward(
+			innerStart,
+			outerStart,
+			innerStartRadius,
+		);
 
 		/*********************************************************/
 		/*                    Build the path                     */
@@ -659,16 +514,8 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			center,
 			radiusX: rx,
 			radiusY: ry,
-			startAngle:
-				this._radToDeg(
-					start +
-					outerStartTrim,
-				),
-			endAngle:
-				this._radToDeg(
-					end -
-					outerEndTrim,
-				),
+			startAngle: this._radToDeg(start + outerStartTrim),
+			endAngle: this._radToDeg(end - outerEndTrim),
 			clockwise: true,
 		});
 
@@ -706,16 +553,8 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			center,
 			radiusX: innerRx,
 			radiusY: innerRy,
-			startAngle:
-				this._radToDeg(
-					end -
-					innerEndTrim,
-				),
-			endAngle:
-				this._radToDeg(
-					start +
-					innerStartTrim,
-				),
+			startAngle: this._radToDeg(end - innerEndTrim),
+			endAngle: this._radToDeg(start + innerStartTrim),
 			clockwise: false,
 		});
 
@@ -1036,29 +875,19 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 		return distance / speed;
 	}
 
-	private _getMidPoint(
-		a: Vector2,
-		b: Vector2,
-	): Vector2 {
+	private _getMidPoint(a: Vector2, b: Vector2): Vector2 {
 		return {
-			x:
-				(a.x + b.x) * 0.5,
+			x: (a.x + b.x) * 0.5,
 
-			y:
-				(a.y + b.y) * 0.5,
+			y: (a.y + b.y) * 0.5,
 		};
 	}
 
-	private _moveToward(
-		from: Vector2,
-		to: Vector2,
-		distance: number,
-	): Vector2 {
+	private _moveToward(from: Vector2, to: Vector2, distance: number): Vector2 {
 		const dx = to.x - from.x;
 		const dy = to.y - from.y;
 
-		const length =
-			Math.hypot(dx, dy);
+		const length = Math.hypot(dx, dy);
 
 		if (length <= EPSILON) {
 			return {
@@ -1067,37 +896,19 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 			};
 		}
 
-		const clamped =
-			Math.max(
-				0,
-				Math.min(
-					distance,
-					length,
-				),
-			);
+		const clamped = Math.max(0, Math.min(distance, length));
 
-		const progress =
-			clamped / length;
+		const progress = clamped / length;
 
 		return {
-			x:
-				from.x +
-				dx * progress,
+			x: from.x + dx * progress,
 
-			y:
-				from.y +
-				dy * progress,
+			y: from.y + dy * progress,
 		};
 	}
 
-	private _getDistance(
-		a: Vector2,
-		b: Vector2,
-	): number {
-		return Math.hypot(
-			b.x - a.x,
-			b.y - a.y,
-		);
+	private _getDistance(a: Vector2, b: Vector2): number {
+		return Math.hypot(b.x - a.x, b.y - a.y);
 	}
 
 	private _fitCornerDistances(
@@ -1105,31 +916,16 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 		second: number,
 		length: number,
 	): [number, number] {
-		const safeLength =
-			Math.max(
-				0,
-				length * 0.999,
-			);
+		const safeLength = Math.max(0, length * 0.999);
 
-		const total =
-			first + second;
+		const total = first + second;
 
-		if (
-			total <= safeLength ||
-			total <= EPSILON
-		) {
-			return [
-				first,
-				second,
-			];
+		if (total <= safeLength || total <= EPSILON) {
+			return [first, second];
 		}
 
-		const scale =
-			safeLength / total;
+		const scale = safeLength / total;
 
-		return [
-			first * scale,
-			second * scale,
-		];
+		return [first * scale, second * scale];
 	}
 }

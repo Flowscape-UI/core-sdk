@@ -1,11 +1,11 @@
 import { MathF32, type Vector2, EPSILON } from "../../../core";
 import type {
-    ResolvedStrokeStylePattern,
-    ShapePathCommand,
-    StrokePathMetricPoint,
-    StrokePathMetrics,
-    StrokeStyleGap,
-    StrokeStyleLength,
+	ResolvedStrokeStylePattern,
+	ShapePathCommand,
+	StrokePathMetricPoint,
+	StrokePathMetrics,
+	StrokeStyleGap,
+	StrokeStyleLength,
 } from "../types";
 
 export * from "./resolveStrokePatternContours";
@@ -17,353 +17,262 @@ export * from "./resolveStrokePatternSegments";
 export * from "./resolveStrokePatternGeometry";
 
 export function resolveStrokeStylePattern(
-    length: StrokeStyleLength,
-    gap: StrokeStyleGap,
+	length: StrokeStyleLength,
+	gap: StrokeStyleGap,
 ): ResolvedStrokeStylePattern {
-    const lengths =
-        typeof length === "number"
-            ? [length]
-            : [...length];
+	const lengths = typeof length === "number" ? [length] : [...length];
 
-    const gaps =
-        typeof gap === "number"
-            ? [gap]
-            : [...gap];
+	const gaps = typeof gap === "number" ? [gap] : [...gap];
 
-    if (
-        lengths.length === 0 ||
-        gaps.length === 0
-    ) {
-        return [];
-    }
+	if (lengths.length === 0 || gaps.length === 0) {
+		return [];
+	}
 
-    if (
-        lengths.length > 1 &&
-        gaps.length > 1 &&
-        lengths.length !== gaps.length
-    ) {
-        throw new RangeError(
-            "Stroke style length and gap patterns must have the same number of elements.",
-        );
-    }
+	if (
+		lengths.length > 1 &&
+		gaps.length > 1 &&
+		lengths.length !== gaps.length
+	) {
+		throw new RangeError(
+			"Stroke style length and gap patterns must have the same number of elements.",
+		);
+	}
 
-    const count =
-        Math.max(
-            lengths.length,
-            gaps.length,
-        );
+	const count = Math.max(lengths.length, gaps.length);
 
-    return Array.from(
-        { length: count },
-        (_, index) => ({
-            length:
-                lengths.length === 1
-                    ? lengths[0]!
-                    : lengths[index]!,
+	return Array.from({ length: count }, (_, index) => ({
+		length: lengths.length === 1 ? lengths[0]! : lengths[index]!,
 
-            gap:
-                gaps.length === 1
-                    ? gaps[0]!
-                    : gaps[index]!,
-        }),
-    );
+		gap: gaps.length === 1 ? gaps[0]! : gaps[index]!,
+	}));
 }
-
 
 export function resolveStrokePathMetrics(
-    commands: readonly ShapePathCommand[],
+	commands: readonly ShapePathCommand[],
 ): StrokePathMetrics {
-    const points: StrokePathMetricPoint[] = [];
+	const points: StrokePathMetricPoint[] = [];
 
-    let currentPoint: Vector2 | null = null;
-    let subpathStartPoint: Vector2 | null = null;
-    let totalLength = 0;
-    let closed = false;
+	let currentPoint: Vector2 | null = null;
+	let subpathStartPoint: Vector2 | null = null;
+	let totalLength = 0;
+	let closed = false;
 
-    const appendPoint = (
-        point: Vector2,
-    ): void => {
-        if (!currentPoint) {
-            currentPoint = clonePoint(point);
-            subpathStartPoint = clonePoint(point);
+	const appendPoint = (point: Vector2): void => {
+		if (!currentPoint) {
+			currentPoint = clonePoint(point);
+			subpathStartPoint = clonePoint(point);
 
-            points.push({
-                point: clonePoint(point),
-                distance: 0,
-            });
+			points.push({
+				point: clonePoint(point),
+				distance: 0,
+			});
 
-            return;
-        }
+			return;
+		}
 
-        const segmentLength = Math.hypot(
-            point.x - currentPoint.x,
-            point.y - currentPoint.y,
-        );
+		const segmentLength = Math.hypot(
+			point.x - currentPoint.x,
+			point.y - currentPoint.y,
+		);
 
-        if (segmentLength <= 0) {
-            currentPoint = clonePoint(point);
-            return;
-        }
+		if (segmentLength <= 0) {
+			currentPoint = clonePoint(point);
+			return;
+		}
 
-        totalLength = MathF32.add(
-            totalLength,
-            segmentLength,
-        );
+		totalLength = MathF32.add(totalLength, segmentLength);
 
-        currentPoint = clonePoint(point);
+		currentPoint = clonePoint(point);
 
-        points.push({
-            point: clonePoint(point),
-            distance: totalLength,
-        });
-    };
+		points.push({
+			point: clonePoint(point),
+			distance: totalLength,
+		});
+	};
 
-    for (const command of commands) {
-        switch (command.type) {
-            case "moveTo":
-                currentPoint =
-                    clonePoint(command.point);
+	for (const command of commands) {
+		switch (command.type) {
+			case "moveTo":
+				currentPoint = clonePoint(command.point);
 
-                subpathStartPoint =
-                    clonePoint(command.point);
+				subpathStartPoint = clonePoint(command.point);
 
-                if (points.length === 0) {
-                    points.push({
-                        point:
-                            clonePoint(command.point),
-                        distance: totalLength,
-                    });
-                }
+				if (points.length === 0) {
+					points.push({
+						point: clonePoint(command.point),
+						distance: totalLength,
+					});
+				}
 
-                break;
+				break;
 
-            case "lineTo":
-                appendPoint(command.point);
-                break;
+			case "lineTo":
+				appendPoint(command.point);
+				break;
 
-            case "closePath":
-                if (
-                    !currentPoint ||
-                    !subpathStartPoint
-                ) {
-                    break;
-                }
+			case "closePath":
+				if (!currentPoint || !subpathStartPoint) {
+					break;
+				}
 
-                appendPoint(subpathStartPoint);
-                closed = true;
-                break;
+				appendPoint(subpathStartPoint);
+				closed = true;
+				break;
 
-            case "quadraticCurveTo": {
-                if (!currentPoint) {
-                    break;
-                }
+			case "quadraticCurveTo": {
+				if (!currentPoint) {
+					break;
+				}
 
-                const startPoint =
-                    clonePoint(currentPoint);
+				const startPoint = clonePoint(currentPoint);
 
-                const controlPoint =
-                    command.control;
+				const controlPoint = command.control;
 
-                const endPoint =
-                    command.point;
+				const endPoint = command.point;
 
-                const estimatedLength =
-                    Math.hypot(
-                        controlPoint.x - startPoint.x,
-                        controlPoint.y - startPoint.y,
-                    ) +
-                    Math.hypot(
-                        endPoint.x - controlPoint.x,
-                        endPoint.y - controlPoint.y,
-                    );
+				const estimatedLength =
+					Math.hypot(
+						controlPoint.x - startPoint.x,
+						controlPoint.y - startPoint.y,
+					) +
+					Math.hypot(
+						endPoint.x - controlPoint.x,
+						endPoint.y - controlPoint.y,
+					);
 
-                const segmentCount =
-                    Math.max(
-                        4,
-                        Math.min(
-                            64,
-                            Math.ceil(
-                                estimatedLength / 8,
-                            ),
-                        ),
-                    );
+				const segmentCount = Math.max(
+					4,
+					Math.min(64, Math.ceil(estimatedLength / 8)),
+				);
 
-                for (
-                    let index = 1;
-                    index <= segmentCount;
-                    index += 1
-                ) {
-                    const t =
-                        index / segmentCount;
+				for (let index = 1; index <= segmentCount; index += 1) {
+					const t = index / segmentCount;
 
-                    appendPoint(
-                        resolveQuadraticPoint(
-                            startPoint,
-                            controlPoint,
-                            endPoint,
-                            t,
-                        ),
-                    );
-                }
+					appendPoint(
+						resolveQuadraticPoint(
+							startPoint,
+							controlPoint,
+							endPoint,
+							t,
+						),
+					);
+				}
 
-                break;
-            }
+				break;
+			}
 
-            case "arcTo": {
-                if (
-                    command.radiusX <= 0 ||
-                    command.radiusY <= 0
-                ) {
-                    break;
-                }
+			case "arcTo": {
+				if (command.radiusX <= 0 || command.radiusY <= 0) {
+					break;
+				}
 
-                const startRadians =
-                    (command.startAngle * Math.PI) /
-                    180;
+				const startRadians = (command.startAngle * Math.PI) / 180;
 
-                const sweepRadians =
-                    resolveArcSweepRadians(
-                        command.startAngle,
-                        command.endAngle,
-                        command.clockwise,
-                    );
+				const sweepRadians = resolveArcSweepRadians(
+					command.startAngle,
+					command.endAngle,
+					command.clockwise,
+				);
 
-                const arcStartPoint =
-                    resolveArcPoint(
-                        command.center,
-                        command.radiusX,
-                        command.radiusY,
-                        startRadians,
-                    );
+				const arcStartPoint = resolveArcPoint(
+					command.center,
+					command.radiusX,
+					command.radiusY,
+					startRadians,
+				);
 
-                /*
-                 * Canvas соединяет текущую точку
-                 * с началом arc прямой линией,
-                 * если они не совпадают.
-                 */
-                if (!currentPoint) {
-                    appendPoint(arcStartPoint);
-                } else {
-                    const distanceToArcStart =
-                        Math.hypot(
-                            arcStartPoint.x -
-                            currentPoint.x,
-                            arcStartPoint.y -
-                            currentPoint.y,
-                        );
+				/*
+				 * Canvas соединяет текущую точку
+				 * с началом arc прямой линией,
+				 * если они не совпадают.
+				 */
+				if (!currentPoint) {
+					appendPoint(arcStartPoint);
+				} else {
+					const distanceToArcStart = Math.hypot(
+						arcStartPoint.x - currentPoint.x,
+						arcStartPoint.y - currentPoint.y,
+					);
 
-                    if (
-                        distanceToArcStart >
-                        EPSILON
-                    ) {
-                        appendPoint(
-                            arcStartPoint,
-                        );
-                    }
-                }
+					if (distanceToArcStart > EPSILON) {
+						appendPoint(arcStartPoint);
+					}
+				}
 
-                if (
-                    Math.abs(sweepRadians) <=
-                    EPSILON
-                ) {
-                    break;
-                }
+				if (Math.abs(sweepRadians) <= EPSILON) {
+					break;
+				}
 
-                const estimatedLength =
-                    Math.max(
-                        command.radiusX,
-                        command.radiusY,
-                    ) *
-                    Math.abs(sweepRadians);
+				const estimatedLength =
+					Math.max(command.radiusX, command.radiusY) *
+					Math.abs(sweepRadians);
 
-                const segmentCount =
-                    Math.max(
-                        4,
-                        Math.min(
-                            128,
-                            Math.ceil(
-                                estimatedLength / 8,
-                            ),
-                        ),
-                    );
+				const segmentCount = Math.max(
+					4,
+					Math.min(128, Math.ceil(estimatedLength / 8)),
+				);
 
-                for (
-                    let index = 1;
-                    index <= segmentCount;
-                    index += 1
-                ) {
-                    const progress =
-                        index / segmentCount;
+				for (let index = 1; index <= segmentCount; index += 1) {
+					const progress = index / segmentCount;
 
-                    const angle =
-                        startRadians +
-                        sweepRadians *
-                        progress;
+					const angle = startRadians + sweepRadians * progress;
 
-                    appendPoint(
-                        resolveArcPoint(
-                            command.center,
-                            command.radiusX,
-                            command.radiusY,
-                            angle,
-                        ),
-                    );
-                }
+					appendPoint(
+						resolveArcPoint(
+							command.center,
+							command.radiusX,
+							command.radiusY,
+							angle,
+						),
+					);
+				}
 
-                break;
-            }
-        }
-    }
+				break;
+			}
+		}
+	}
 
-    return {
-        points,
-        length: totalLength,
-        closed,
+	return {
+		points,
+		length: totalLength,
+		closed,
 
-        winding:
-            closed
-                ? resolveStrokePathWinding(points)
-                : 0,
-    };
+		winding: closed ? resolveStrokePathWinding(points) : 0,
+	};
 }
 
-function clonePoint(
-    point: Vector2,
-): Vector2 {
-    return {
-        x: MathF32.toF32(point.x),
-        y: MathF32.toF32(point.y),
-    };
+function clonePoint(point: Vector2): Vector2 {
+	return {
+		x: MathF32.toF32(point.x),
+		y: MathF32.toF32(point.y),
+	};
 }
 
 function resolveQuadraticPoint(
-    start: Vector2,
-    control: Vector2,
-    end: Vector2,
-    t: number,
+	start: Vector2,
+	control: Vector2,
+	end: Vector2,
+	t: number,
 ): Vector2 {
-    const inverseT =
-        1 - t;
+	const inverseT = 1 - t;
 
-    const inverseTSquared =
-        inverseT * inverseT;
+	const inverseTSquared = inverseT * inverseT;
 
-    const tSquared =
-        t * t;
+	const tSquared = t * t;
 
-    return {
-        x: MathF32.toF32(
-            inverseTSquared * start.x +
-            2 * inverseT * t * control.x +
-            tSquared * end.x,
-        ),
+	return {
+		x: MathF32.toF32(
+			inverseTSquared * start.x +
+				2 * inverseT * t * control.x +
+				tSquared * end.x,
+		),
 
-        y: MathF32.toF32(
-            inverseTSquared * start.y +
-            2 * inverseT * t * control.y +
-            tSquared * end.y,
-        ),
-    };
+		y: MathF32.toF32(
+			inverseTSquared * start.y +
+				2 * inverseT * t * control.y +
+				tSquared * end.y,
+		),
+	};
 }
 
 function resolveStrokePathWinding(
@@ -375,68 +284,48 @@ function resolveStrokePathWinding(
 
 	let area = 0;
 
-	for (
-		let index = 0;
-		index < points.length - 1;
-		index += 1
-	) {
-		const current =
-			points[index]!.point;
+	for (let index = 0; index < points.length - 1; index += 1) {
+		const current = points[index]!.point;
 
-		const next =
-			points[index + 1]!.point;
+		const next = points[index + 1]!.point;
 
-		area +=
-			current.x * next.y -
-			next.x * current.y;
+		area += current.x * next.y - next.x * current.y;
 	}
 
 	return MathF32.toF32(area);
 }
 
 function resolveArcSweepRadians(
-    startAngle: number,
-    endAngle: number,
-    clockwise: boolean,
+	startAngle: number,
+	endAngle: number,
+	clockwise: boolean,
 ): number {
-    const fullCircle =
-        Math.PI * 2;
+	const fullCircle = Math.PI * 2;
 
-    let sweep =
-        ((endAngle - startAngle) *
-            Math.PI) /
-        180;
+	let sweep = ((endAngle - startAngle) * Math.PI) / 180;
 
-    if (clockwise) {
-        while (sweep < 0) {
-            sweep += fullCircle;
-        }
-    } else {
-        while (sweep > 0) {
-            sweep -= fullCircle;
-        }
-    }
+	if (clockwise) {
+		while (sweep < 0) {
+			sweep += fullCircle;
+		}
+	} else {
+		while (sweep > 0) {
+			sweep -= fullCircle;
+		}
+	}
 
-    return sweep;
+	return sweep;
 }
 
 function resolveArcPoint(
-    center: Vector2,
-    radiusX: number,
-    radiusY: number,
-    angle: number,
+	center: Vector2,
+	radiusX: number,
+	radiusY: number,
+	angle: number,
 ): Vector2 {
-    return {
-        x: MathF32.toF32(
-            center.x +
-            Math.cos(angle) *
-            radiusX,
-        ),
+	return {
+		x: MathF32.toF32(center.x + Math.cos(angle) * radiusX),
 
-        y: MathF32.toF32(
-            center.y +
-            Math.sin(angle) *
-            radiusY,
-        ),
-    };
+		y: MathF32.toF32(center.y + Math.sin(angle) * radiusY),
+	};
 }

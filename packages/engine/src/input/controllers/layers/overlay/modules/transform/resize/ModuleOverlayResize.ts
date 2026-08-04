@@ -533,26 +533,16 @@ export class ModuleOverlayTransformResize implements IOverlayTransformSubModule 
 	): Point {
 		const localObb = node.getLocalOBB();
 
-		const localX =
-			localObb.x +
-			localObb.width * handle.getX();
+		const localX = localObb.x + localObb.width * handle.getX();
 
-		const localY =
-			localObb.y +
-			localObb.height * handle.getY();
+		const localY = localObb.y + localObb.height * handle.getY();
 
 		const matrix = node.getWorldMatrix();
 
 		return {
-			x:
-				matrix.a * localX +
-				matrix.c * localY +
-				matrix.tx,
+			x: matrix.a * localX + matrix.c * localY + matrix.tx,
 
-			y:
-				matrix.b * localX +
-				matrix.d * localY +
-				matrix.ty,
+			y: matrix.b * localX + matrix.d * localY + matrix.ty,
 		};
 	}
 

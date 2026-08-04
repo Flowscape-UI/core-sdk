@@ -2,8 +2,7 @@ import Konva from "konva";
 import { EffectShadow } from "../../../effect";
 import { EffectType } from "../../../../nodes/shape/effect";
 
-const INNER_SHADOW_GROUP_NAME =
-	"effect-inner-shadow-group";
+const INNER_SHADOW_GROUP_NAME = "effect-inner-shadow-group";
 
 export class RendererEffectInnerShadow {
 	public readonly type: EffectType;
@@ -12,10 +11,7 @@ export class RendererEffectInnerShadow {
 	private readonly _view: Konva.Group;
 	private readonly _holeShape: Konva.Shape;
 
-	constructor(
-		effect: EffectShadow,
-		holeShape: Konva.Shape,
-	) {
+	constructor(effect: EffectShadow, holeShape: Konva.Shape) {
 		this.type = EffectType.InnerShadow;
 		this._effect = effect;
 
@@ -25,8 +21,7 @@ export class RendererEffectInnerShadow {
 			visible: false,
 		});
 
-		this._holeShape =
-			holeShape.clone() as Konva.Shape;
+		this._holeShape = holeShape.clone() as Konva.Shape;
 
 		this._holeShape.listening(false);
 	}
@@ -39,9 +34,7 @@ export class RendererEffectInnerShadow {
 		return this._view;
 	}
 
-	public mount(
-		parent: Konva.Group,
-	): void {
+	public mount(parent: Konva.Group): void {
 		parent.add(this._view);
 	}
 

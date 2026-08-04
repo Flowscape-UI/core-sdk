@@ -1,5 +1,9 @@
 import Konva from "konva";
-import type { IShapeBase, NodeText, ShapePathCommand } from "../../../../../../../../nodes";
+import type {
+	IShapeBase,
+	NodeText,
+	ShapePathCommand,
+} from "../../../../../../../../nodes";
 import { HandleDebugDrawType } from "../../../../../../../../scene/layers";
 import type { IHandleHover } from "../../../../../../../../scene/layers";
 import { RendererHandleBase } from "../../base";
@@ -56,11 +60,10 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 			return;
 		}
 
-		const screenContours =
-			this._resolveScreenContours(
-				node.toPathCommands(),
-				node.getWorldMatrix(),
-			);
+		const screenContours = this._resolveScreenContours(
+			node.toPathCommands(),
+			node.getWorldMatrix(),
+		);
 
 		if (screenContours.length === 0) {
 			this._view.visible(false);
@@ -80,19 +83,13 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 			visible: handle.isVisible(),
 		});
 
-		const debugContour =
-			screenContours.reduce(
-				(longest, contour) =>
-					contour.length > longest.length
-						? contour
-						: longest,
-				screenContours[0]!,
-			);
-
-		this._updateShapeDebug(
-			handle,
-			debugContour,
+		const debugContour = screenContours.reduce(
+			(longest, contour) =>
+				contour.length > longest.length ? contour : longest,
+			screenContours[0]!,
 		);
+
+		this._updateShapeDebug(handle, debugContour);
 	}
 
 	protected override _onClearView(): void {
@@ -103,88 +100,51 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 		this._nodeId = null;
 	}
 
-	private _recreateView(
-		nodeId: string,
-	): void {
-		this._clearGroup(
-			this._contentGroup,
-		);
+	private _recreateView(nodeId: string): void {
+		this._clearGroup(this._contentGroup);
 
-		const view =
-			new Konva.Shape({
-				listening: false,
-				visible: true,
-				fillEnabled: false,
+		const view = new Konva.Shape({
+			listening: false,
+			visible: true,
+			fillEnabled: false,
 
-				lineJoin: "round",
-				lineCap: "round",
+			lineJoin: "round",
+			lineCap: "round",
 
-				sceneFunc: (
-					ctx,
-					shape,
-				) => {
-					const contours =
-						(
-							shape.getAttr(
-								"screenContours",
-							) ?? []
-						) as readonly (
-							readonly {
-								x: number;
-								y: number;
-							}[]
-						)[];
+			sceneFunc: (ctx, shape) => {
+				const contours = (shape.getAttr("screenContours") ??
+					[]) as readonly (readonly {
+					x: number;
+					y: number;
+				}[])[];
 
-					if (
-						contours.length === 0
-					) {
-						return;
+				if (contours.length === 0) {
+					return;
+				}
+
+				ctx.beginPath();
+
+				for (const contour of contours) {
+					if (contour.length < 2) {
+						continue;
 					}
 
-					ctx.beginPath();
+					ctx.moveTo(contour[0]!.x, contour[0]!.y);
 
-					for (
-						const contour
-						of contours
-					) {
-						if (
-							contour.length < 2
-						) {
-							continue;
-						}
+					for (let index = 1; index < contour.length; index += 1) {
+						const point = contour[index]!;
 
-						ctx.moveTo(
-							contour[0]!.x,
-							contour[0]!.y,
-						);
-
-						for (
-							let index = 1;
-							index <
-							contour.length;
-							index += 1
-						) {
-							const point =
-								contour[index]!;
-
-							ctx.lineTo(
-								point.x,
-								point.y,
-							);
-						}
-
-						ctx.closePath();
+						ctx.lineTo(point.x, point.y);
 					}
 
-					ctx.strokeShape(
-						shape,
-					);
-				},
-			});
+					ctx.closePath();
+				}
 
-		this._contentGroup.add(
-			view,
-		);
+				ctx.strokeShape(shape);
+			},
+		});
+
+		this._contentGroup.add(view);
 
 		this._view = view;
 		this._nodeId = nodeId;
@@ -192,9 +152,7 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 
 	private _resolveScreenContours(
 		commands: readonly ShapePathCommand[],
-		matrix: ReturnType<
-			IShapeBase["getWorldMatrix"]
-		>,
+		matrix: ReturnType<IShapeBase["getWorldMatrix"]>,
 	): {
 		x: number;
 		y: number;
@@ -219,63 +177,40 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 			y: number;
 		} | null = null;
 
-		const appendPoint = (
-			point: {
-				x: number;
-				y: number;
-			},
-		): void => {
-			const screenPoint =
-				this._toScreenPoint(
-					this._applyMatrix(
-						point,
-						matrix,
-					),
-				);
+		const appendPoint = (point: { x: number; y: number }): void => {
+			const screenPoint = this._toScreenPoint(
+				this._applyMatrix(point, matrix),
+			);
 
-			const previous =
-				contour[
-				contour.length - 1
-				];
+			const previous = contour[contour.length - 1];
 
 			if (
 				previous &&
 				Math.hypot(
-					screenPoint.x -
-					previous.x,
-					screenPoint.y -
-					previous.y,
+					screenPoint.x - previous.x,
+					screenPoint.y - previous.y,
 				) <= 0.001
 			) {
 				return;
 			}
 
-			contour.push(
-				screenPoint,
-			);
+			contour.push(screenPoint);
 		};
 
-		const finishContour =
-			(): void => {
-				if (
-					contour.length >= 2
-				) {
-					contours.push(
-						contour,
-					);
-				}
+		const finishContour = (): void => {
+			if (contour.length >= 2) {
+				contours.push(contour);
+			}
 
-				contour = [];
-				cursor = null;
-				subpathStart = null;
-			};
+			contour = [];
+			cursor = null;
+			subpathStart = null;
+		};
 
 		for (const command of commands) {
 			switch (command.type) {
 				case "moveTo": {
-					if (
-						contour.length > 0
-					) {
+					if (contour.length > 0) {
 						finishContour();
 					}
 
@@ -287,17 +222,13 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 						...command.point,
 					};
 
-					appendPoint(
-						command.point,
-					);
+					appendPoint(command.point);
 
 					break;
 				}
 
 				case "lineTo": {
-					appendPoint(
-						command.point,
-					);
+					appendPoint(command.point);
 
 					cursor = {
 						...command.point,
@@ -312,9 +243,7 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 							...command.point,
 						};
 
-						appendPoint(
-							command.point,
-						);
+						appendPoint(command.point);
 
 						break;
 					}
@@ -322,41 +251,21 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 					const start = cursor;
 					const steps = 20;
 
-					for (
-						let index = 1;
-						index <= steps;
-						index += 1
-					) {
-						const progress =
-							index / steps;
+					for (let index = 1; index <= steps; index += 1) {
+						const progress = index / steps;
 
-						const inverse =
-							1 - progress;
+						const inverse = 1 - progress;
 
 						appendPoint({
 							x:
-								inverse *
-								inverse *
-								start.x +
-								2 *
-								inverse *
-								progress *
-								command.control.x +
-								progress *
-								progress *
-								command.point.x,
+								inverse * inverse * start.x +
+								2 * inverse * progress * command.control.x +
+								progress * progress * command.point.x,
 
 							y:
-								inverse *
-								inverse *
-								start.y +
-								2 *
-								inverse *
-								progress *
-								command.control.y +
-								progress *
-								progress *
-								command.point.y,
+								inverse * inverse * start.y +
+								2 * inverse * progress * command.control.y +
+								progress * progress * command.point.y,
 						});
 					}
 
@@ -368,79 +277,43 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 				}
 
 				case "arcTo": {
-					let start =
-						(
-							command.startAngle *
-							Math.PI
-						) /
-						180;
+					let start = (command.startAngle * Math.PI) / 180;
 
-					let end =
-						(
-							command.endAngle *
-							Math.PI
-						) /
-						180;
+					let end = (command.endAngle * Math.PI) / 180;
 
 					if (command.clockwise) {
 						while (end < start) {
-							end +=
-								Math.PI * 2;
+							end += Math.PI * 2;
 						}
 					} else {
 						while (end > start) {
-							end -=
-								Math.PI * 2;
+							end -= Math.PI * 2;
 						}
 					}
 
-					const sweep =
-						end - start;
+					const sweep = end - start;
 
-					const steps =
-						Math.max(
-							8,
-							Math.ceil(
-								Math.abs(sweep) /
-								(
-									Math.PI /
-									16
-								),
-							),
-						);
+					const steps = Math.max(
+						8,
+						Math.ceil(Math.abs(sweep) / (Math.PI / 16)),
+					);
 
-					for (
-						let index = 0;
-						index <= steps;
-						index += 1
-					) {
-						const progress =
-							index / steps;
+					for (let index = 0; index <= steps; index += 1) {
+						const progress = index / steps;
 
-						const angle =
-							start +
-							sweep *
-							progress;
+						const angle = start + sweep * progress;
 
 						const point = {
 							x:
 								command.center.x +
-								Math.cos(
-									angle,
-								) *
-								command.radiusX,
+								Math.cos(angle) * command.radiusX,
 
 							y:
 								command.center.y +
-								Math.sin(
-									angle,
-								) *
-								command.radiusY,
+								Math.sin(angle) * command.radiusY,
 						};
 
-						appendPoint(
-							point,
-						);
+						appendPoint(point);
 
 						cursor = point;
 					}
@@ -450,9 +323,7 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 
 				case "closePath": {
 					if (subpathStart) {
-						appendPoint(
-							subpathStart,
-						);
+						appendPoint(subpathStart);
 					}
 
 					finishContour();

@@ -12,7 +12,6 @@ type CornerHandleEntry = {
 	handle: IHandleCornerRadius;
 };
 
-
 export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputContext> {
 	public readonly id = "overlay-corner-radius";
 
@@ -92,13 +91,9 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 			}
 		}
 
-		const hoveredNode =
-			this._context.overlay.getHoveredNode();
+		const hoveredNode = this._context.overlay.getHoveredNode();
 
-		if (
-			hoveredNode &&
-			this._isCornerRadiusSupported(hoveredNode)
-		) {
+		if (hoveredNode && this._isCornerRadiusSupported(hoveredNode)) {
 			if (this._setActiveNode(hoveredNode)) {
 				this._context.emitChange();
 			}
@@ -134,9 +129,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		this._candidateCornerIndices = hitIndices;
 
 		this._activeCornerIndex =
-			hitIndices.length === 1
-				? hitIndices[0] ?? null
-				: null;
+			hitIndices.length === 1 ? (hitIndices[0] ?? null) : null;
 
 		Input.setCursor("pointer");
 
@@ -147,8 +140,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		if (this._activeCornerIndex === null) {
 			const screenPoint = this._getStagePointerFromInput();
 
-			const resolvedIndex =
-				this._resolveCornerFromDirection(screenPoint);
+			const resolvedIndex = this._resolveCornerFromDirection(screenPoint);
 
 			if (resolvedIndex === null) {
 				return;
@@ -167,9 +159,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 
 		this._singleMode = Input.altPressed ?? false;
 
-		const handle = this._getHandleByIndex(
-			this._activeCornerIndex,
-		);
+		const handle = this._getHandleByIndex(this._activeCornerIndex);
 
 		if (!handle) {
 			return;
@@ -184,9 +174,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		const screenPoint = this._getStagePointerFromInput();
 
 		const worldPoint =
-			this._context.world.camera.screenToWorld(
-				screenPoint,
-			);
+			this._context.world.camera.screenToWorld(screenPoint);
 
 		const section = handle.getSection();
 
@@ -195,14 +183,8 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		}
 
 		const diagonalEnd = {
-			x:
-				section.xAxisPoint.x +
-				section.yAxisPoint.x -
-				section.origin.x,
-			y:
-				section.xAxisPoint.y +
-				section.yAxisPoint.y -
-				section.origin.y,
+			x: section.xAxisPoint.x + section.yAxisPoint.x - section.origin.x,
+			y: section.xAxisPoint.y + section.yAxisPoint.y - section.origin.y,
 		};
 
 		const diagonalVector = {
@@ -210,10 +192,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 			y: diagonalEnd.y - section.origin.y,
 		};
 
-		const diagonalLength = Math.hypot(
-			diagonalVector.x,
-			diagonalVector.y,
-		);
+		const diagonalLength = Math.hypot(diagonalVector.x, diagonalVector.y);
 
 		if (diagonalLength <= 0.000001) {
 			return;
@@ -235,26 +214,17 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 
 		const clampedDistance = Math.max(
 			0,
-			Math.min(
-				projectedDistance,
-				diagonalLength,
-			),
+			Math.min(projectedDistance, diagonalLength),
 		);
 
-		const progress =
-			clampedDistance / diagonalLength;
+		const progress = clampedDistance / diagonalLength;
 
 		const maxRadius = Math.max(
 			0,
-			Math.min(
-				section.width,
-				section.height,
-			) + section.inset,
+			Math.min(section.width, section.height) + section.inset,
 		);
 
-		const nextValue = MathF32.toF32(
-			progress * maxRadius,
-		);
+		const nextValue = MathF32.toF32(progress * maxRadius);
 
 		if (this._singleMode) {
 			const current = this._resolveCornerRadii(
@@ -262,8 +232,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 				this._activeHandleCount,
 			);
 
-			current[this._activeCornerIndex] =
-				nextValue;
+			current[this._activeCornerIndex] = nextValue;
 
 			node.setCornerRadius(current);
 		} else {
@@ -282,9 +251,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		}
 	}
 
-	private _getHitCornerIndices(
-		screenPoint: Point,
-	): number[] {
+	private _getHitCornerIndices(screenPoint: Point): number[] {
 		const result: number[] = [];
 
 		for (const entry of this._getCornerHandles()) {
@@ -298,12 +265,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 				continue;
 			}
 
-			if (
-				this._isPointOnHandle(
-					handle,
-					screenPoint,
-				)
-			) {
+			if (this._isPointOnHandle(handle, screenPoint)) {
 				result.push(entry.index);
 			}
 		}
@@ -311,29 +273,17 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		return result;
 	}
 
-	private _resolveCornerFromDirection(
-		screenPoint: Point,
-	): number | null {
-		if (
-			!this._context ||
-			!this._dragStartScreenPoint
-		) {
+	private _resolveCornerFromDirection(screenPoint: Point): number | null {
+		if (!this._context || !this._dragStartScreenPoint) {
 			return null;
 		}
 
 		const move = {
-			x:
-				screenPoint.x -
-				this._dragStartScreenPoint.x,
-			y:
-				screenPoint.y -
-				this._dragStartScreenPoint.y,
+			x: screenPoint.x - this._dragStartScreenPoint.x,
+			y: screenPoint.y - this._dragStartScreenPoint.y,
 		};
 
-		const moveLength = Math.hypot(
-			move.x,
-			move.y,
-		);
+		const moveLength = Math.hypot(move.x, move.y);
 
 		if (moveLength < 5) {
 			return null;
@@ -347,43 +297,29 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		let bestIndex: number | null = null;
 		let bestScore = -Infinity;
 
-		for (
-			const index of this._candidateCornerIndices
-		) {
-			const handle =
-				this._getHandleByIndex(index);
+		for (const index of this._candidateCornerIndices) {
+			const handle = this._getHandleByIndex(index);
 
 			const section = handle?.getSection();
-			const handlePoint =
-				handle?.getHandleWorldPoint();
+			const handlePoint = handle?.getHandleWorldPoint();
 
 			if (!section || !handlePoint) {
 				continue;
 			}
 
 			const handleScreenPoint =
-				this._context.world.camera.worldToScreen(
-					handlePoint,
-				);
+				this._context.world.camera.worldToScreen(handlePoint);
 
-			const originScreenPoint =
-				this._context.world.camera.worldToScreen(
-					section.origin,
-				);
+			const originScreenPoint = this._context.world.camera.worldToScreen(
+				section.origin,
+			);
 
 			const dir = {
-				x:
-					originScreenPoint.x -
-					handleScreenPoint.x,
-				y:
-					originScreenPoint.y -
-					handleScreenPoint.y,
+				x: originScreenPoint.x - handleScreenPoint.x,
+				y: originScreenPoint.y - handleScreenPoint.y,
 			};
 
-			const dirLength = Math.hypot(
-				dir.x,
-				dir.y,
-			);
+			const dirLength = Math.hypot(dir.x, dir.y);
 
 			if (dirLength <= 0.000001) {
 				continue;
@@ -395,10 +331,8 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 			};
 
 			const score =
-				normalizedMove.x *
-				normalizedDir.x +
-				normalizedMove.y *
-				normalizedDir.y;
+				normalizedMove.x * normalizedDir.x +
+				normalizedMove.y * normalizedDir.y;
 
 			if (score > bestScore) {
 				bestScore = score;
@@ -421,17 +355,14 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		);
 	}
 
-	private _getHandleByIndex(
-		index: number,
-	): IHandleCornerRadius | null {
+	private _getHandleByIndex(index: number): IHandleCornerRadius | null {
 		if (!this._context) {
 			return null;
 		}
 
-		const handle =
-			this._context.overlay.shapeHandleManager.getById(
-				`corner-radius-${index}`,
-			);
+		const handle = this._context.overlay.shapeHandleManager.getById(
+			`corner-radius-${index}`,
+		);
 
 		if (!this._isCornerRadiusHandle(handle)) {
 			return null;
@@ -454,23 +385,18 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		}
 	}
 
-	private _setActiveNode(
-		node: IShapeBase,
-	): boolean {
+	private _setActiveNode(node: IShapeBase): boolean {
 		if (!this._context) {
 			return false;
 		}
 
-		const anchors =
-			node.getCornerRadiusAnchors();
+		const anchors = node.getCornerRadiusAnchors();
 
 		const nextCount = anchors.length;
 
-		const sameNode =
-			this._activeNode === node;
+		const sameNode = this._activeNode === node;
 
-		const sameCount =
-			this._activeHandleCount === nextCount;
+		const sameCount = this._activeHandleCount === nextCount;
 
 		if (sameNode && sameCount) {
 			return false;
@@ -478,19 +404,15 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 
 		this._clearHandleNodes();
 
-		this._context.overlay.shapeHandleManager
-			.ensureCornerRadiusHandleCount(nextCount);
+		this._context.overlay.shapeHandleManager.ensureCornerRadiusHandleCount(
+			nextCount,
+		);
 
 		this._activeNode = node;
 		this._activeHandleCount = nextCount;
 
-		for (
-			let index = 0;
-			index < nextCount;
-			index += 1
-		) {
-			const handle =
-				this._getHandleByIndex(index);
+		for (let index = 0; index < nextCount; index += 1) {
+			const handle = this._getHandleByIndex(index);
 
 			if (!handle) {
 				continue;
@@ -503,18 +425,10 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 	}
 
 	private _clearHandleNodes(): void {
-		for (
-			let index = 0;
-			index < this._activeHandleCount;
-			index += 1
-		) {
-			const handle =
-				this._getHandleByIndex(index);
+		for (let index = 0; index < this._activeHandleCount; index += 1) {
+			const handle = this._getHandleByIndex(index);
 
-			if (
-				!handle ||
-				!handle.hasNode()
-			) {
+			if (!handle || !handle.hasNode()) {
 				continue;
 			}
 
@@ -548,8 +462,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 			const zIndex = handle.getZIndex();
 
 			const isAbove =
-				zIndex > topZIndex ||
-				(zIndex === topZIndex && i > topOrder);
+				zIndex > topZIndex || (zIndex === topZIndex && i > topOrder);
 
 			if (!isAbove) {
 				continue;
@@ -563,9 +476,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 		return topIndex;
 	}
 
-	private _isCornerRadiusSupported(
-		node: IShapeBase,
-	): boolean {
+	private _isCornerRadiusSupported(node: IShapeBase): boolean {
 		return (
 			typeof node.getCornerRadius === "function" &&
 			typeof node.setCornerRadius === "function" &&
@@ -586,11 +497,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 	private _getCornerHandles(): CornerHandleEntry[] {
 		const entries: CornerHandleEntry[] = [];
 
-		for (
-			let index = 0;
-			index < this._activeHandleCount;
-			index += 1
-		) {
+		for (let index = 0; index < this._activeHandleCount; index += 1) {
 			const handle = this._getHandleByIndex(index);
 
 			if (!handle) {
@@ -607,10 +514,7 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 	}
 
 	private _clearActiveNode(): boolean {
-		if (
-			!this._activeNode &&
-			this._activeHandleCount === 0
-		) {
+		if (!this._activeNode && this._activeHandleCount === 0) {
 			return false;
 		}
 
@@ -621,7 +525,6 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 
 		return true;
 	}
-
 
 	private _isCornerRadiusHandle(
 		value: unknown,
@@ -641,7 +544,6 @@ export class ModuleOverlayCornerRadius implements IInputModule<OverlayInputConte
 			typeof handle.getSection === "function"
 		);
 	}
-
 
 	private _isPointOnHandle(
 		handle: IHandleCornerRadius,

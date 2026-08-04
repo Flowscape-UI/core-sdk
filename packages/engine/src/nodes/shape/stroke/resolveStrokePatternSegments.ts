@@ -1,7 +1,4 @@
-import {
-	EPSILON,
-	MathF32,
-} from "../../../core/math";
+import { EPSILON, MathF32 } from "../../../core/math";
 
 import type { Vector2 } from "../../../core/transform/types";
 
@@ -27,39 +24,17 @@ export function resolveStrokePatternSegments(
 	const segments: ResolvedStrokePatternSegment[] = [];
 
 	for (const interval of intervals) {
-		const start =
-			Math.max(
-				0,
-				Math.min(
-					metrics.length,
-					interval.start,
-				),
-			);
+		const start = Math.max(0, Math.min(metrics.length, interval.start));
 
-		const end =
-			Math.max(
-				start,
-				Math.min(
-					metrics.length,
-					interval.end,
-				),
-			);
+		const end = Math.max(start, Math.min(metrics.length, interval.end));
 
 		if (end - start <= EPSILON) {
 			continue;
 		}
 
-		const startPoint =
-			resolvePointAtDistance(
-				metrics.points,
-				start,
-			);
+		const startPoint = resolvePointAtDistance(metrics.points, start);
 
-		const endPoint =
-			resolvePointAtDistance(
-				metrics.points,
-				end,
-			);
+		const endPoint = resolvePointAtDistance(metrics.points, end);
 
 		if (!startPoint || !endPoint) {
 			continue;
@@ -67,10 +42,7 @@ export function resolveStrokePatternSegments(
 
 		const points: Vector2[] = [];
 
-		appendUniquePoint(
-			points,
-			startPoint,
-		);
+		appendUniquePoint(points, startPoint);
 
 		/*
 		 * Добавляем все настоящие точки контура,
@@ -81,38 +53,27 @@ export function resolveStrokePatternSegments(
 		 */
 		for (const metricPoint of metrics.points) {
 			if (
-				metricPoint.distance <=
-					start + EPSILON ||
-				metricPoint.distance >=
-					end - EPSILON
+				metricPoint.distance <= start + EPSILON ||
+				metricPoint.distance >= end - EPSILON
 			) {
 				continue;
 			}
 
-			appendUniquePoint(
-				points,
-				metricPoint.point,
-			);
+			appendUniquePoint(points, metricPoint.point);
 		}
 
-		appendUniquePoint(
-			points,
-			endPoint,
-		);
+		appendUniquePoint(points, endPoint);
 
 		if (points.length < 2) {
 			continue;
 		}
 
 		segments.push({
-			start:
-				MathF32.toF32(start),
+			start: MathF32.toF32(start),
 
-			end:
-				MathF32.toF32(end),
+			end: MathF32.toF32(end),
 
-			patternIndex:
-				interval.patternIndex,
+			patternIndex: interval.patternIndex,
 
 			points,
 		});
@@ -132,62 +93,36 @@ function resolvePointAtDistance(
 	const first = points[0]!;
 	const last = points[points.length - 1]!;
 
-	if (
-		distance <=
-		first.distance + EPSILON
-	) {
+	if (distance <= first.distance + EPSILON) {
 		return clonePoint(first.point);
 	}
 
-	if (
-		distance >=
-		last.distance - EPSILON
-	) {
+	if (distance >= last.distance - EPSILON) {
 		return clonePoint(last.point);
 	}
 
-	const nextIndex =
-		findFirstPointAfterDistance(
-			points,
-			distance,
-		);
+	const nextIndex = findFirstPointAfterDistance(points, distance);
 
 	if (nextIndex <= 0) {
 		return clonePoint(first.point);
 	}
 
-	const previous =
-		points[nextIndex - 1]!;
+	const previous = points[nextIndex - 1]!;
 
-	const next =
-		points[nextIndex]!;
+	const next = points[nextIndex]!;
 
-	const segmentLength =
-		next.distance -
-		previous.distance;
+	const segmentLength = next.distance - previous.distance;
 
 	if (segmentLength <= EPSILON) {
 		return clonePoint(next.point);
 	}
 
-	const progress =
-		Math.max(
-			0,
-			Math.min(
-				1,
-				(
-					distance -
-					previous.distance
-				) /
-					segmentLength,
-			),
-		);
-
-	return interpolatePoint(
-		previous.point,
-		next.point,
-		progress,
+	const progress = Math.max(
+		0,
+		Math.min(1, (distance - previous.distance) / segmentLength),
 	);
+
+	return interpolatePoint(previous.point, next.point, progress);
 }
 
 function findFirstPointAfterDistance(
@@ -198,15 +133,9 @@ function findFirstPointAfterDistance(
 	let high = points.length - 1;
 
 	while (low < high) {
-		const middle =
-			Math.floor(
-				(low + high) / 2,
-			);
+		const middle = Math.floor((low + high) / 2);
 
-		if (
-			points[middle]!.distance <
-			distance
-		) {
+		if (points[middle]!.distance < distance) {
 			low = middle + 1;
 		} else {
 			high = middle;
@@ -222,45 +151,26 @@ function interpolatePoint(
 	progress: number,
 ): Vector2 {
 	return {
-		x: MathF32.toF32(
-			start.x +
-				(end.x - start.x) *
-					progress,
-		),
+		x: MathF32.toF32(start.x + (end.x - start.x) * progress),
 
-		y: MathF32.toF32(
-			start.y +
-				(end.y - start.y) *
-					progress,
-		),
+		y: MathF32.toF32(start.y + (end.y - start.y) * progress),
 	};
 }
 
-function appendUniquePoint(
-	points: Vector2[],
-	point: Vector2,
-): void {
-	const previous =
-		points[points.length - 1];
+function appendUniquePoint(points: Vector2[], point: Vector2): void {
+	const previous = points[points.length - 1];
 
 	if (
 		previous &&
-		Math.hypot(
-			point.x - previous.x,
-			point.y - previous.y,
-		) <= EPSILON
+		Math.hypot(point.x - previous.x, point.y - previous.y) <= EPSILON
 	) {
 		return;
 	}
 
-	points.push(
-		clonePoint(point),
-	);
+	points.push(clonePoint(point));
 }
 
-function clonePoint(
-	point: Vector2,
-): Vector2 {
+function clonePoint(point: Vector2): Vector2 {
 	return {
 		x: MathF32.toF32(point.x),
 		y: MathF32.toF32(point.y),

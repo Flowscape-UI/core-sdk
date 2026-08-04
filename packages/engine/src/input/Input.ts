@@ -901,9 +901,7 @@ export class Input {
 	//  Handlers — Pointer
 	// =========================================================
 
-	private static _onPointerDown = (
-		e: PointerEvent,
-	): void => {
+	private static _onPointerDown = (e: PointerEvent): void => {
 		if (
 			this._activePointerId !== null &&
 			this._activePointerId !== e.pointerId
@@ -912,17 +910,11 @@ export class Input {
 		}
 
 		this._pointerDown = true;
-		this._activePointerId =
-			e.pointerId;
+		this._activePointerId = e.pointerId;
 
-		this._pointerType =
-			e.pointerType as
-			| "mouse"
-			| "pen"
-			| "touch";
+		this._pointerType = e.pointerType as "mouse" | "pen" | "touch";
 
-		this._pointerPressure =
-			e.pressure;
+		this._pointerPressure = e.pressure;
 
 		this._pointerPosition = {
 			x: e.clientX,
@@ -934,16 +926,13 @@ export class Input {
 			y: 0,
 		};
 
-		this._lastInputTime =
-			performance.now();
+		this._lastInputTime = performance.now();
 
 		if (
 			this._options.usePointerCapture &&
 			e.currentTarget instanceof Element
 		) {
-			e.currentTarget.setPointerCapture(
-				e.pointerId,
-			);
+			e.currentTarget.setPointerCapture(e.pointerId);
 		}
 
 		this._emitInput({

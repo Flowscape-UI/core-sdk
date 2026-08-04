@@ -1,7 +1,4 @@
-import {
-	EPSILON,
-	MathF32,
-} from "../../../core/math";
+import { EPSILON, MathF32 } from "../../../core/math";
 
 import type { Vector2 } from "../../../core/transform/types";
 
@@ -16,15 +13,10 @@ export function resolveStrokePatternPaths(
 	segments: readonly ResolvedStrokePatternContourSegment[],
 	cap: StrokeDashCap = StrokeDashCap.Flat,
 ): readonly ResolvedStrokePatternPathSegment[] {
-	const resolvedSegments:
-		ResolvedStrokePatternPathSegment[] = [];
+	const resolvedSegments: ResolvedStrokePatternPathSegment[] = [];
 
 	for (const segment of segments) {
-		const commands =
-			resolveStrokePatternPath(
-				segment,
-				cap,
-			);
+		const commands = resolveStrokePatternPath(segment, cap);
 
 		if (commands.length === 0) {
 			continue;
@@ -34,8 +26,7 @@ export function resolveStrokePatternPaths(
 			start: segment.start,
 			end: segment.end,
 
-			patternIndex:
-				segment.patternIndex,
+			patternIndex: segment.patternIndex,
 
 			commands,
 		});
@@ -48,33 +39,21 @@ function resolveStrokePatternPath(
 	segment: ResolvedStrokePatternContourSegment,
 	cap: StrokeDashCap,
 ): readonly ShapePathCommand[] {
-	const {
-		outer,
-		inner,
-		startTangent,
-		endTangent,
-	} = segment;
+	const { outer, inner, startTangent, endTangent } = segment;
 
-	if (
-		outer.length < 2 ||
-		inner.length < 2
-	) {
+	if (outer.length < 2 || inner.length < 2) {
 		return [];
 	}
 
 	const commands: ShapePathCommand[] = [];
 
-	const outerStart =
-		outer[0]!;
+	const outerStart = outer[0]!;
 
-	const outerEnd =
-		outer[outer.length - 1]!;
+	const outerEnd = outer[outer.length - 1]!;
 
-	const innerStart =
-		inner[0]!;
+	const innerStart = inner[0]!;
 
-	const innerEnd =
-		inner[inner.length - 1]!;
+	const innerEnd = inner[inner.length - 1]!;
 
 	/*
 	 * Внешняя сторона:
@@ -86,16 +65,10 @@ function resolveStrokePatternPath(
 		point: clonePoint(outerStart),
 	});
 
-	for (
-		let index = 1;
-		index < outer.length;
-		index += 1
-	) {
+	for (let index = 1; index < outer.length; index += 1) {
 		commands.push({
 			type: "lineTo",
-			point: clonePoint(
-				outer[index]!,
-			),
+			point: clonePoint(outer[index]!),
 		});
 	}
 
@@ -104,30 +77,17 @@ function resolveStrokePatternPath(
 	 *
 	 * outerEnd -> innerEnd
 	 */
-	appendCap(
-		commands,
-		outerEnd,
-		innerEnd,
-		endTangent,
-		cap,
-	);
+	appendCap(commands, outerEnd, innerEnd, endTangent, cap);
 
 	/*
 	 * Внутренняя сторона:
 	 *
 	 * конец dash -> начало dash
 	 */
-	for (
-		let index =
-			inner.length - 2;
-		index >= 0;
-		index -= 1
-	) {
+	for (let index = inner.length - 2; index >= 0; index -= 1) {
 		commands.push({
 			type: "lineTo",
-			point: clonePoint(
-				inner[index]!,
-			),
+			point: clonePoint(inner[index]!),
 		});
 	}
 
@@ -174,20 +134,12 @@ function appendCap(
 	}
 
 	const center = {
-		x: MathF32.toF32(
-			(from.x + to.x) * 0.5,
-		),
+		x: MathF32.toF32((from.x + to.x) * 0.5),
 
-		y: MathF32.toF32(
-			(from.y + to.y) * 0.5,
-		),
+		y: MathF32.toF32((from.y + to.y) * 0.5),
 	};
 
-	const radius =
-		Math.hypot(
-			to.x - from.x,
-			to.y - from.y,
-		) * 0.5;
+	const radius = Math.hypot(to.x - from.x, to.y - from.y) * 0.5;
 
 	if (radius <= EPSILON) {
 		commands.push({
@@ -198,49 +150,24 @@ function appendCap(
 		return;
 	}
 
-	const startAngle =
-		Math.atan2(
-			from.y - center.y,
-			from.x - center.x,
-		);
+	const startAngle = Math.atan2(from.y - center.y, from.x - center.x);
 
-	const endAngle =
-		Math.atan2(
-			to.y - center.y,
-			to.x - center.x,
-		);
+	const endAngle = Math.atan2(to.y - center.y, to.x - center.x);
 
-	const clockwise =
-		resolveCapClockwise(
-			startAngle,
-			endAngle,
-			direction,
-		);
+	const clockwise = resolveCapClockwise(startAngle, endAngle, direction);
 
 	commands.push({
 		type: "arcTo",
 
 		center,
 
-		radiusX:
-			MathF32.toF32(radius),
+		radiusX: MathF32.toF32(radius),
 
-		radiusY:
-			MathF32.toF32(radius),
+		radiusY: MathF32.toF32(radius),
 
-		startAngle:
-			MathF32.toF32(
-				radiansToDegrees(
-					startAngle,
-				),
-			),
+		startAngle: MathF32.toF32(radiansToDegrees(startAngle)),
 
-		endAngle:
-			MathF32.toF32(
-				radiansToDegrees(
-					endAngle,
-				),
-			),
+		endAngle: MathF32.toF32(radiansToDegrees(endAngle)),
 
 		clockwise,
 	});
@@ -251,28 +178,19 @@ function resolveCapClockwise(
 	endAngle: number,
 	direction: Vector2,
 ): boolean {
-	const fullCircle =
-		Math.PI * 2;
+	const fullCircle = Math.PI * 2;
 
-	let clockwiseSweep =
-		endAngle - startAngle;
+	let clockwiseSweep = endAngle - startAngle;
 
 	while (clockwiseSweep < 0) {
-		clockwiseSweep +=
-			fullCircle;
+		clockwiseSweep += fullCircle;
 	}
 
-	while (
-		clockwiseSweep >=
-		fullCircle
-	) {
-		clockwiseSweep -=
-			fullCircle;
+	while (clockwiseSweep >= fullCircle) {
+		clockwiseSweep -= fullCircle;
 	}
 
-	const middleAngle =
-		startAngle +
-		clockwiseSweep * 0.5;
+	const middleAngle = startAngle + clockwiseSweep * 0.5;
 
 	const middleDirection = {
 		x: Math.cos(middleAngle),
@@ -280,27 +198,16 @@ function resolveCapClockwise(
 	};
 
 	const dot =
-		middleDirection.x *
-			direction.x +
-		middleDirection.y *
-			direction.y;
+		middleDirection.x * direction.x + middleDirection.y * direction.y;
 
 	return dot >= 0;
 }
 
-function radiansToDegrees(
-	value: number,
-): number {
-	return (
-		value *
-		180 /
-		Math.PI
-	);
+function radiansToDegrees(value: number): number {
+	return (value * 180) / Math.PI;
 }
 
-function clonePoint(
-	point: Vector2,
-): Vector2 {
+function clonePoint(point: Vector2): Vector2 {
 	return {
 		x: MathF32.toF32(point.x),
 		y: MathF32.toF32(point.y),
