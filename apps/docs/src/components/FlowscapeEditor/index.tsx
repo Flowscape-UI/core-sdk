@@ -216,7 +216,7 @@ function FlowscapeEditorInner({
 			frameNode.setPosition(0, 34);
 			frameNode.setFill("#0b1220");
 			frameNode.setStrokeFill("#2f7cf6");
-			frameNode.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			frameNode.setStrokeWidth([4]);
 			layerWorld.addNode(frameNode);
 
 			const leftCard = new NodeRect(nextNodeId++);
@@ -224,7 +224,7 @@ function FlowscapeEditorInner({
 			leftCard.setPosition(-268, -88);
 			leftCard.setFill("#172036");
 			leftCard.setStrokeFill("#38bdf8");
-			leftCard.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			leftCard.setStrokeWidth([4]);
 			layerWorld.addNode(leftCard);
 
 			const centerCard = new NodeRect(nextNodeId++);
@@ -232,7 +232,7 @@ function FlowscapeEditorInner({
 			centerCard.setPosition(0, -88);
 			centerCard.setFill("#172036");
 			centerCard.setStrokeFill("#22d3ee");
-			centerCard.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			centerCard.setStrokeWidth([4]);
 			layerWorld.addNode(centerCard);
 
 			const rightCard = new NodeRect(nextNodeId++);
@@ -240,7 +240,7 @@ function FlowscapeEditorInner({
 			rightCard.setPosition(268, -88);
 			rightCard.setFill("#172036");
 			rightCard.setStrokeFill("#f59e0b");
-			rightCard.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			rightCard.setStrokeWidth([4]);
 			layerWorld.addNode(rightCard);
 
 			const leftCardTitle = new NodeText(nextNodeId++);
@@ -291,7 +291,7 @@ function FlowscapeEditorInner({
 			centerHub.setPosition(0, 132);
 			centerHub.setFill("#0ea5e9");
 			centerHub.setStrokeFill("#ffffff");
-			centerHub.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			centerHub.setStrokeWidth([4]);
 			layerWorld.addNode(centerHub);
 
 			const hubLabel = new NodeText(nextNodeId++);
@@ -324,7 +324,7 @@ function FlowscapeEditorInner({
 			starNode.setPosition(322, 142);
 			starNode.setFill("#f59e0b");
 			starNode.setStrokeFill("#ffffff");
-			starNode.setStrokeWidth({ t: 4, r: 4, b: 4, l: 4 });
+			starNode.setStrokeWidth([4]);
 			starNode.setRotation(Math.PI / 9);
 			layerWorld.addNode(starNode);
 

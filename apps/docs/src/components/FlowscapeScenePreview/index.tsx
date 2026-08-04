@@ -276,15 +276,10 @@ function toStrokeWidth(
 	}
 
 	if (typeof input === "number") {
-		return { t: input, r: input, b: input, l: input };
+		return [input];
 	}
 
-	return {
-		t: input.t ?? 0,
-		r: input.r ?? 0,
-		b: input.b ?? 0,
-		l: input.l ?? 0,
-	};
+	return [0];
 }
 
 function toCornerRadius(
@@ -295,15 +290,10 @@ function toCornerRadius(
 	}
 
 	if (typeof input === "number") {
-		return { tl: input, tr: input, br: input, bl: input };
+		return [input];
 	}
 
-	return {
-		tl: input.tl ?? 0,
-		tr: input.tr ?? 0,
-		br: input.br ?? 0,
-		bl: input.bl ?? 0,
-	};
+	return [0];
 }
 
 function toStrokeAlign(
@@ -981,12 +971,7 @@ function addDebugOverlays(
 			);
 			aabbNode.setFill("#00000000");
 			aabbNode.setStrokeFill(options.aabbColor);
-			aabbNode.setStrokeWidth({
-				t: strokeWidth,
-				r: strokeWidth,
-				b: strokeWidth,
-				l: strokeWidth,
-			});
+			aabbNode.setStrokeWidth([strokeWidth]);
 			aabbNode.setLocked(true);
 			layerWorld.addNode(aabbNode as unknown as WorldAddNodeArg);
 		}
@@ -1016,7 +1001,7 @@ function addDebugOverlays(
 			pivotNode.setPosition(pivot.x, pivot.y);
 			pivotNode.setFill(options.pivotColor);
 			pivotNode.setStrokeFill("#ffffff");
-			pivotNode.setStrokeWidth({ t: 1, r: 1, b: 1, l: 1 });
+			pivotNode.setStrokeWidth([1]);
 			pivotNode.setLocked(true);
 			layerWorld.addNode(pivotNode as unknown as WorldAddNodeArg);
 		}
@@ -1059,34 +1044,71 @@ function FlowscapeScenePreviewInner({
 	const { showAABB, showOBB, showPivot, showViewBounds, showOrbit } =
 		debugNodes;
 
-	RendererCanvasBase.DEBUG_OBB = showOBB;
-	RendererCanvasBase.DEBUG_AABB = showAABB;
-	RendererCanvasBase.DEBUG_ORBIT = showOrbit;
-	RendererCanvasBase.DEBUG_PIVOT = showPivot;
-	RendererCanvasBase.DEBUG_VIEW_BOUNDS = showViewBounds;
+	RendererCanvasBase.DEBUG_OBB = showOBB ?? true;
+	RendererCanvasBase.DEBUG_AABB = showAABB ?? true;
+	RendererCanvasBase.DEBUG_ORBIT = showOrbit ?? true;
+	RendererCanvasBase.DEBUG_PIVOT = showPivot ?? true;
+	RendererCanvasBase.DEBUG_VIEW_BOUNDS = showViewBounds ?? true;
 	const mountRef = useRef<HTMLDivElement | null>(null);
 
 	const resolvedSpec = useMemo<FlowscapeScenePreviewSpec>(() => {
+		const defaultBackground = DEFAULT_SPEC.background;
+		const specBackground = spec?.background;
+
+		const defaultLogoSize = defaultBackground?.logoSize;
+		const specLogoSize = specBackground?.logoSize;
+
 		return {
 			...DEFAULT_SPEC,
 			...spec,
+
 			background: {
-				...DEFAULT_SPEC.background,
-				...spec?.background,
+				fill:
+					specBackground?.fill ??
+					defaultBackground?.fill,
+
+				showLogo:
+					specBackground?.showLogo ??
+					defaultBackground?.showLogo,
+
+				logoOpacity:
+					specBackground?.logoOpacity ??
+					defaultBackground?.logoOpacity,
+
 				logoSize: {
-					...DEFAULT_SPEC.background?.logoSize,
-					...spec?.background?.logoSize,
+					width:
+						specLogoSize?.width ??
+						defaultLogoSize?.width,
+
+					height:
+						specLogoSize?.height ??
+						defaultLogoSize?.height,
 				},
 			},
+
 			camera: {
-				...DEFAULT_SPEC.camera,
-				...spec?.camera,
+				padding:
+					spec?.camera?.padding ??
+					DEFAULT_SPEC.camera?.padding,
+
+				minScale:
+					spec?.camera?.minScale ??
+					DEFAULT_SPEC.camera?.minScale,
+
+				maxScale:
+					spec?.camera?.maxScale ??
+					DEFAULT_SPEC.camera?.maxScale,
 			},
+
 			debug: {
 				...(DEFAULT_SPEC.debug ?? {}),
 				...spec?.debug,
 			},
-			nodes: spec?.nodes?.length ? spec.nodes : DEFAULT_SPEC.nodes,
+
+			nodes:
+				spec?.nodes?.length
+					? spec.nodes
+					: DEFAULT_SPEC.nodes,
 		};
 	}, [spec]);
 
