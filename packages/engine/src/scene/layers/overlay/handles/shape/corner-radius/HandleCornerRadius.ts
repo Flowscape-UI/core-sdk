@@ -436,25 +436,4 @@ export class HandleCornerRadius
 			b.y - a.y,
 		);
 	}
-
-	private _normalize(
-		point: Point,
-	): Point {
-		const length = Math.hypot(
-			point.x,
-			point.y,
-		);
-
-		if (length <= EPSILON) {
-			return {
-				x: 0,
-				y: 0,
-			};
-		}
-
-		return {
-			x: point.x / length,
-			y: point.y / length,
-		};
-	}
 }

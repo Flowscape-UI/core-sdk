@@ -1,12 +1,12 @@
 import Konva from "konva";
-import type { NodeText, ShapePathCommand } from "../../../../../../../../nodes";
+import type { IShapeBase, NodeText, ShapePathCommand } from "../../../../../../../../nodes";
 import { HandleDebugDrawType } from "../../../../../../../../scene/layers";
 import type { IHandleHover } from "../../../../../../../../scene/layers";
 import { RendererHandleBase } from "../../base";
 import type { RendererHandleTarget } from "../../base/RendererHandleTarget";
 
 export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> {
-	private _view: Konva.Line | null = null;
+	private _view: Konva.Shape | null = null;
 	private _multiLineViews: Konva.Line[];
 	private _textDebugViews: Konva.Shape[];
 	private _shapeDebugView: Konva.Shape | null;
@@ -55,28 +55,44 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 		if (!this._view) {
 			return;
 		}
-		
-		const worldPoints = node.getWorldCorners();
 
-		if (worldPoints.length < 2) {
+		const screenContours =
+			this._resolveScreenContours(
+				node.toPathCommands(),
+				node.getWorldMatrix(),
+			);
+
+		if (screenContours.length === 0) {
 			this._view.visible(false);
+			this._clearShapeDebugView();
 			return;
 		}
 
-		const screenPoints = this._toScreenPoints(worldPoints);
-
 		this._view.setAttrs({
-			points: this._flattenPoints(screenPoints),
-			closed: true,
+			screenContours,
+
 			x: handle.getOffsetX(),
 			y: handle.getOffsetY(),
+
 			stroke: handle.getStrokeFill(),
 			strokeWidth: handle.getStrokeWidth(),
 			opacity: handle.getOpacity(),
 			visible: handle.isVisible(),
 		});
 
-		this._updateShapeDebug(handle, screenPoints);
+		const debugContour =
+			screenContours.reduce(
+				(longest, contour) =>
+					contour.length > longest.length
+						? contour
+						: longest,
+				screenContours[0]!,
+			);
+
+		this._updateShapeDebug(
+			handle,
+			debugContour,
+		);
 	}
 
 	protected override _onClearView(): void {
@@ -87,21 +103,369 @@ export class RendererHandleHoverCanvas extends RendererHandleBase<IHandleHover> 
 		this._nodeId = null;
 	}
 
-	private _recreateView(nodeId: string): void {
-		this._clearGroup(this._contentGroup);
+	private _recreateView(
+		nodeId: string,
+	): void {
+		this._clearGroup(
+			this._contentGroup,
+		);
 
-		const view = new Konva.Line({
-			closed: true,
-			fillEnabled: false,
-			lineJoin: "round",
-			lineCap: "round",
-			listening: false,
-			visible: true,
-		});
+		const view =
+			new Konva.Shape({
+				listening: false,
+				visible: true,
+				fillEnabled: false,
 
-		this._contentGroup.add(view);
+				lineJoin: "round",
+				lineCap: "round",
+
+				sceneFunc: (
+					ctx,
+					shape,
+				) => {
+					const contours =
+						(
+							shape.getAttr(
+								"screenContours",
+							) ?? []
+						) as readonly (
+							readonly {
+								x: number;
+								y: number;
+							}[]
+						)[];
+
+					if (
+						contours.length === 0
+					) {
+						return;
+					}
+
+					ctx.beginPath();
+
+					for (
+						const contour
+						of contours
+					) {
+						if (
+							contour.length < 2
+						) {
+							continue;
+						}
+
+						ctx.moveTo(
+							contour[0]!.x,
+							contour[0]!.y,
+						);
+
+						for (
+							let index = 1;
+							index <
+							contour.length;
+							index += 1
+						) {
+							const point =
+								contour[index]!;
+
+							ctx.lineTo(
+								point.x,
+								point.y,
+							);
+						}
+
+						ctx.closePath();
+					}
+
+					ctx.strokeShape(
+						shape,
+					);
+				},
+			});
+
+		this._contentGroup.add(
+			view,
+		);
+
 		this._view = view;
 		this._nodeId = nodeId;
+	}
+
+	private _resolveScreenContours(
+		commands: readonly ShapePathCommand[],
+		matrix: ReturnType<
+			IShapeBase["getWorldMatrix"]
+		>,
+	): {
+		x: number;
+		y: number;
+	}[][] {
+		const contours: {
+			x: number;
+			y: number;
+		}[][] = [];
+
+		let contour: {
+			x: number;
+			y: number;
+		}[] = [];
+
+		let cursor: {
+			x: number;
+			y: number;
+		} | null = null;
+
+		let subpathStart: {
+			x: number;
+			y: number;
+		} | null = null;
+
+		const appendPoint = (
+			point: {
+				x: number;
+				y: number;
+			},
+		): void => {
+			const screenPoint =
+				this._toScreenPoint(
+					this._applyMatrix(
+						point,
+						matrix,
+					),
+				);
+
+			const previous =
+				contour[
+				contour.length - 1
+				];
+
+			if (
+				previous &&
+				Math.hypot(
+					screenPoint.x -
+					previous.x,
+					screenPoint.y -
+					previous.y,
+				) <= 0.001
+			) {
+				return;
+			}
+
+			contour.push(
+				screenPoint,
+			);
+		};
+
+		const finishContour =
+			(): void => {
+				if (
+					contour.length >= 2
+				) {
+					contours.push(
+						contour,
+					);
+				}
+
+				contour = [];
+				cursor = null;
+				subpathStart = null;
+			};
+
+		for (const command of commands) {
+			switch (command.type) {
+				case "moveTo": {
+					if (
+						contour.length > 0
+					) {
+						finishContour();
+					}
+
+					cursor = {
+						...command.point,
+					};
+
+					subpathStart = {
+						...command.point,
+					};
+
+					appendPoint(
+						command.point,
+					);
+
+					break;
+				}
+
+				case "lineTo": {
+					appendPoint(
+						command.point,
+					);
+
+					cursor = {
+						...command.point,
+					};
+
+					break;
+				}
+
+				case "quadraticCurveTo": {
+					if (!cursor) {
+						cursor = {
+							...command.point,
+						};
+
+						appendPoint(
+							command.point,
+						);
+
+						break;
+					}
+
+					const start = cursor;
+					const steps = 20;
+
+					for (
+						let index = 1;
+						index <= steps;
+						index += 1
+					) {
+						const progress =
+							index / steps;
+
+						const inverse =
+							1 - progress;
+
+						appendPoint({
+							x:
+								inverse *
+								inverse *
+								start.x +
+								2 *
+								inverse *
+								progress *
+								command.control.x +
+								progress *
+								progress *
+								command.point.x,
+
+							y:
+								inverse *
+								inverse *
+								start.y +
+								2 *
+								inverse *
+								progress *
+								command.control.y +
+								progress *
+								progress *
+								command.point.y,
+						});
+					}
+
+					cursor = {
+						...command.point,
+					};
+
+					break;
+				}
+
+				case "arcTo": {
+					let start =
+						(
+							command.startAngle *
+							Math.PI
+						) /
+						180;
+
+					let end =
+						(
+							command.endAngle *
+							Math.PI
+						) /
+						180;
+
+					if (command.clockwise) {
+						while (end < start) {
+							end +=
+								Math.PI * 2;
+						}
+					} else {
+						while (end > start) {
+							end -=
+								Math.PI * 2;
+						}
+					}
+
+					const sweep =
+						end - start;
+
+					const steps =
+						Math.max(
+							8,
+							Math.ceil(
+								Math.abs(sweep) /
+								(
+									Math.PI /
+									16
+								),
+							),
+						);
+
+					for (
+						let index = 0;
+						index <= steps;
+						index += 1
+					) {
+						const progress =
+							index / steps;
+
+						const angle =
+							start +
+							sweep *
+							progress;
+
+						const point = {
+							x:
+								command.center.x +
+								Math.cos(
+									angle,
+								) *
+								command.radiusX,
+
+							y:
+								command.center.y +
+								Math.sin(
+									angle,
+								) *
+								command.radiusY,
+						};
+
+						appendPoint(
+							point,
+						);
+
+						cursor = point;
+					}
+
+					break;
+				}
+
+				case "closePath": {
+					if (subpathStart) {
+						appendPoint(
+							subpathStart,
+						);
+					}
+
+					finishContour();
+					break;
+				}
+			}
+		}
+
+		if (contour.length > 0) {
+			finishContour();
+		}
+
+		return contours;
 	}
 
 	private _updateTextShape(

@@ -47,11 +47,6 @@ type StrokeSample = StrokePoint & {
 	width: number;
 };
 
-type FlattenedStrokeSegment = {
-	points: StrokeSample[];
-};
-
-
 export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	private readonly _gradientPaintCache = new WeakMap<
 		Konva.Shape,

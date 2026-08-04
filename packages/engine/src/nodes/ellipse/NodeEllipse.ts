@@ -303,15 +303,6 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 					trimmedStart,
 				);
 
-			const arcEnd =
-				this._getEllipsePoint(
-					cx,
-					cy,
-					rx,
-					ry,
-					trimmedEnd,
-				);
-
 			const startEdgePoint =
 				this._moveToward(
 					originalStart,
@@ -603,15 +594,6 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 				start + outerStartTrim,
 			);
 
-		const outerArcEnd =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				rx,
-				ry,
-				end - outerEndTrim,
-			);
-
 		/*
 		 * Inner arc идёт в обратную сторону:
 		 *
@@ -624,15 +606,6 @@ export class NodeEllipse extends ShapeBase implements INodeEllipse {
 				innerRx,
 				innerRy,
 				end - innerEndTrim,
-			);
-
-		const innerArcStartSide =
-			this._getEllipsePoint(
-				cx,
-				cy,
-				innerRx,
-				innerRy,
-				start + innerStartTrim,
 			);
 
 		/*
