@@ -42,7 +42,7 @@
     },
     "packages/engine": {
       "name": "@flowscape-ui/core-sdk",
-      "version": "2.0.2",
+      "version": "2.0.4",
       "dependencies": {
         "@types/culori": "^4.0.1",
         "culori": "^4.0.2",
@@ -50,9 +50,8 @@
         "konva": "^10.0.12",
       },
       "devDependencies": {
-        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
         "tsdown": "^0.22.9",
-        "typescript": "^5.6.2",
+        "typescript": "^5.9.2",
         "vitest": "^2.1.9",
       },
     },
