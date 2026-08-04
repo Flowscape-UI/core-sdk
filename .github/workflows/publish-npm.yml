@@ -69,6 +69,16 @@ jobs:
         working-directory: packages/engine
         run: npm pack --dry-run
 
+      - name: Verify npm OIDC environment
+        run: |
+          echo "npm: $(npm --version)"
+          echo "node: $(node --version)"
+          echo "OIDC URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:+available}"
+          echo "OIDC token: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+available}"
+          echo "NODE_AUTH_TOKEN: ${NODE_AUTH_TOKEN:+set}"
+
       - name: Publish package
         working-directory: packages/engine
-        run: npm publish --access public
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ""
