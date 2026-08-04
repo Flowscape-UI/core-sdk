@@ -10,16 +10,19 @@ import {
 	FillMode,
 	resolveStrokePatternGeometry,
 	StrokeAlign,
+	StrokeDashCap,
 	StrokeStyle,
 	type IShapeBase,
 	type Rect,
 	type ShapePathCommand,
 	type ShapeStrokePath,
 	type StrokeDashedStyleProperties,
+	type StrokeDottedStyleProperties,
 	type StrokeStyleProperties,
 } from "../../../../nodes";
 
 import { RendererCanvasBase } from "../base";
+import { EPSILON } from "../../../../core";
 
 const FILL_SHAPE_NAME = "shape-fill";
 const FILL_SHAPE_SELECTOR = `.${FILL_SHAPE_NAME}`;
@@ -291,8 +294,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					StrokeStyle.Solid;
 
 				if (
-					strokeStyle ===
-					StrokeStyle.Dashed
+					strokeStyle === StrokeStyle.Dashed ||
+					strokeStyle === StrokeStyle.Dotted
 				) {
 					const commands =
 						shape.getAttr(
@@ -313,6 +316,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 							"strokeStyleProperties",
 						) as
 						| StrokeDashedStyleProperties
+						| StrokeDottedStyleProperties
 						| null
 						| undefined;
 
@@ -346,6 +350,23 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 						return;
 					}
 
+					const isDotted =
+						strokeStyle ===
+						StrokeStyle.Dotted;
+
+					const length =
+						isDotted
+							? EPSILON * 2
+							: properties.length;
+
+					const cap =
+						isDotted
+							? StrokeDashCap.Round
+							: (
+								properties as
+								StrokeDashedStyleProperties
+							).cap;
+
 					const paths =
 						resolveStrokePatternGeometry(
 							commands,
@@ -355,14 +376,12 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 								strokeAlign,
 
-								length:
-									properties.length,
+								length,
 
 								gap:
 									properties.gap,
 
-								cap:
-									properties.cap,
+								cap,
 							},
 						);
 

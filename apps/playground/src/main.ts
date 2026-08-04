@@ -111,10 +111,10 @@ layerBackground.setImagePosition("50%", "50%");
 const rectNode = new NodeRect(1);
 rectNode.setFillMode(FillMode.LinearGradient);
 rectNode.setFill("linear-gradient(red, blue)");
-rectNode.setStrokeWidth([3]);
+rectNode.setStrokeWidth([5]);
 rectNode.setStrokeAlign(StrokeAlign.Outside);
-rectNode.setStrokeFill("black");
-rectNode.setStrokeStyle(StrokeStyle.Dashed);
+rectNode.setStrokeFill("white");
+rectNode.setStrokeStyle(StrokeStyle.Dotted);
 rectNode.setStrokeStyleProperties(
 	StrokeStyle.Dashed,
 	20,
@@ -137,6 +137,7 @@ const ellipseNode = new NodeEllipse(2);
 ellipseNode.setPosition(370, 120);
 ellipseNode.setSize(190, 130);
 ellipseNode.setFillMode(FillMode.MeshGradient);
+ellipseNode.setStrokeStyle(StrokeStyle.Dotted);
 // ellipseNode.setFill("#FDBA74");
 ellipseNode.setInnerRatio(0.48);
 ellipseNode.setStartAngle(20);
@@ -154,7 +155,8 @@ polygonNode.setFill(
 // polygonNode.setPosition(610, 100);
 polygonNode.setSize(180, 150);
 polygonNode.setSideCount(7);
-polygonNode.setStrokeWidth([20, 12, 12, 20]);
+polygonNode.setStrokeStyle(StrokeStyle.Dotted);
+polygonNode.setStrokeWidth([5]);
 polygonNode.setStrokeMode(FillMode.LinearGradient);
 polygonNode.setStrokeFill("linear-gradient(to right, red, black)");
 
