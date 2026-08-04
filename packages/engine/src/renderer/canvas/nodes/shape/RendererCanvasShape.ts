@@ -38,14 +38,6 @@ type GradientPaintCacheEntry = {
 	paint: KonvaGradientPaint;
 };
 
-type StrokePoint = {
-	x: number;
-	y: number;
-};
-
-type StrokeSample = StrokePoint & {
-	width: number;
-};
 
 export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	private readonly _gradientPaintCache = new WeakMap<
