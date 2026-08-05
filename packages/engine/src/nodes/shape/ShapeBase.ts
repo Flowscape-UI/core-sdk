@@ -23,7 +23,7 @@ import {
 	type ConfigurableStrokeStyle,
 	type StrokeStyleShape,
 } from "./types";
-import { ShapeEffect } from "./effect";
+import { ShapeEffectManager } from "./effect";
 import type { Vector2 } from "../../core/transform/types";
 
 export class ShapeBase extends NodeBase implements IShapeBase {
@@ -42,7 +42,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 				"mesh-gradient(grid 2 2 method bilinear in oklab, vertex v00 0% 0% #F472B6, vertex v10 100% 0% #FBBF24, vertex v01 0% 100% #34D399, vertex v11 100% 100% #3B82F6, patch p00 v00 v10 v11 v01)",
 		};
 
-	public readonly effect: ShapeEffect;
+	public readonly effectManager: ShapeEffectManager;
 
 	private _cornerRadius: CornerRadius;
 	private _fillMode: FillMode;
@@ -86,7 +86,7 @@ export class ShapeBase extends NodeBase implements IShapeBase {
 			gap: 8,
 		};
 
-		this.effect = new ShapeEffect();
+		this.effectManager = new ShapeEffectManager();
 	}
 
 	/***********************************************************/

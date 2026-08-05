@@ -30,6 +30,15 @@ const FILL_SHAPE_SELECTOR = `.${FILL_SHAPE_NAME}`;
 const STROKE_SHAPE_NAME = "shape-stroke";
 const STROKE_SHAPE_SELECTOR = `.${STROKE_SHAPE_NAME}`;
 
+const DROP_SHADOW_LAYER_NAME = "shape-drop-shadows";
+const INNER_SHADOW_LAYER_NAME = "shape-inner-shadows";
+
+const DROP_SHADOW_LAYER_SELECTOR =
+	`.${DROP_SHADOW_LAYER_NAME}`;
+
+const INNER_SHADOW_LAYER_SELECTOR =
+	`.${INNER_SHADOW_LAYER_NAME}`;
+
 registerGradientTransformers();
 
 type GradientPaintCacheEntry = {
@@ -49,11 +58,23 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			id: String(node.id),
 		});
 
+		const dropShadowLayer = new Konva.Group({
+			name: DROP_SHADOW_LAYER_NAME,
+			listening: false,
+		});
+
 		const fillShape = this._createFillShape();
+
+		const innerShadowLayer = new Konva.Group({
+			name: INNER_SHADOW_LAYER_NAME,
+			listening: false,
+		});
 
 		const strokeShape = this._createStrokeShape();
 
+		group.add(dropShadowLayer);
 		group.add(fillShape);
+		group.add(innerShadowLayer);
 		group.add(strokeShape);
 
 		return group;
@@ -61,6 +82,21 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 	protected override onUpdate(node: IShapeBase, view: Konva.Group): void {
 		const commands = node.toPathCommands();
+		const fillBounds = node.getLocalOBB();
+		const viewBounds = node.getLocalViewOBB();
+		const strokePath = node.getStrokePath();
+
+		const dropShadowLayer =
+			this._findOneOrThrow<Konva.Group>(
+				view,
+				DROP_SHADOW_LAYER_SELECTOR,
+			);
+
+		const innerShadowLayer =
+			this._findOneOrThrow<Konva.Group>(
+				view,
+				INNER_SHADOW_LAYER_SELECTOR,
+			);
 
 		const fillShape = this._findOneOrThrow<Konva.Shape>(
 			view,
@@ -107,11 +143,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		 */
 		fillShape.setAttrs({
 			pathCommands: commands,
-
-			paintBounds: node.getLocalOBB(),
-
+			paintBounds: fillBounds,
 			fillMode: node.getFillMode(),
-
 			fillValue: node.getFill(),
 		});
 
@@ -128,19 +161,12 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		 */
 		strokeShape.setAttrs({
 			pathCommands: commands,
-
-			strokePath: node.getStrokePath(),
-
-			paintBounds: node.getLocalViewOBB(),
-
+			strokePath,
+			paintBounds: viewBounds,
 			strokeWidths: node.getStrokeWidth(),
-
 			strokeAlign: node.getStrokeAlign(),
-
 			strokeMode: node.getStrokeMode(),
-
 			strokeValue: node.getStrokeFill(),
-
 			strokeStyle,
 			strokeStyleProperties,
 		});
