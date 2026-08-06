@@ -3,11 +3,22 @@ import Konva from "konva";
 import type { INode, Rect } from "../../../../nodes";
 import { RendererCanvasRegistry } from "./RendererCanvasRegistry";
 import type { ID } from "../../../../core";
+import type { IRendererNodeCanvas } from "./types";
+
+interface MountedCanvasNode {
+	node: INode;
+	readonly view: Konva.Group;
+	readonly renderer: IRendererNodeCanvas;
+}
+
+interface NodeWithWorldViewAABB extends INode {
+	getWorldViewAABB(): Rect;
+}
 
 export class RendererCanvasManager {
 	private readonly _registry: RendererCanvasRegistry;
 	private readonly _contentRoot: Konva.Group;
-	private readonly _mounted = new Map<ID, Konva.Group>();
+	private readonly _mounted = new Map<ID, MountedCanvasNode>();
 
 	constructor(registry: RendererCanvasRegistry, contentRoot: Konva.Group) {
 		this._registry = registry;
@@ -21,9 +32,16 @@ export class RendererCanvasManager {
 	 */
 	public renderNodes(nodes: readonly INode[], viewport: Rect): void {
 		const visited = new Set<ID>();
+		const hierarchyViewBounds = new Map<ID, Rect>();
 
 		for (const node of nodes) {
-			this._renderNode(node, this._contentRoot, visited, viewport);
+			this._renderNode(
+				node,
+				this._contentRoot,
+				visited,
+				viewport,
+				hierarchyViewBounds,
+			);
 		}
 
 		this._cleanupUnmounted(visited);
@@ -46,9 +64,15 @@ export class RendererCanvasManager {
 	 * Удаляет все примонтированные представления.
 	 */
 	public clear(): void {
-		for (const [id, view] of this._mounted) {
-			view.destroy();
-			this._mounted.delete(id);
+		const mounted = Array.from(this._mounted.entries());
+
+		mounted.sort(
+			([, a], [, b]) =>
+				this._getViewDepth(b.view) - this._getViewDepth(a.view),
+		);
+
+		for (const [id] of mounted) {
+			this._destroyMounted(id);
 		}
 	}
 
@@ -58,7 +82,7 @@ export class RendererCanvasManager {
 	 * Возвращает примонтированное Konva-представление для указанной ноды, если оно существует.
 	 */
 	public getMountedView(node: INode): Konva.Group | undefined {
-		return this._mounted.get(node.id);
+		return this._mounted.get(node.id)?.view;
 	}
 
 	/****************************************************************/
@@ -70,13 +94,17 @@ export class RendererCanvasManager {
 		parentContainer: Konva.Group,
 		visited: Set<ID>,
 		viewport: Rect,
+		hierarchyViewBounds: Map<ID, Rect>,
 	): void {
 		if (!node.isVisibleInHierarchy()) {
 			this._unmountNodeRecursive(node);
 			return;
 		}
 
-		const bounds = node.getHierarchyWorldAABB();
+		const bounds = this._getHierarchyWorldViewAABB(
+			node,
+			hierarchyViewBounds,
+		);
 
 		if (!this._intersectsAabb(bounds, viewport)) {
 			this._unmountNodeRecursive(node);
@@ -89,12 +117,21 @@ export class RendererCanvasManager {
 		let currentContainer = parentContainer;
 
 		if (renderer) {
-			let view = this._mounted.get(node.id);
+			let mounted = this._mounted.get(node.id);
 
-			if (!view) {
-				view = renderer.create(node);
-				this._mounted.set(node.id, view);
+			if (!mounted) {
+				mounted = {
+					node,
+					view: renderer.create(node),
+					renderer,
+				};
+
+				this._mounted.set(node.id, mounted);
 			}
+
+			mounted.node = node;
+
+			const { view } = mounted;
 
 			if (view.getParent() !== parentContainer) {
 				view.remove();
@@ -106,23 +143,87 @@ export class RendererCanvasManager {
 			// the expected world draw order deterministically.
 			view.moveToTop();
 
-			renderer.update(node, view);
+			mounted.renderer.update(node, view);
 			currentContainer = view;
 		}
 
 		for (const child of node.getChildren()) {
-			this._renderNode(child, currentContainer, visited, viewport);
+			this._renderNode(
+				child,
+				currentContainer,
+				visited,
+				viewport,
+				hierarchyViewBounds,
+			);
 		}
 	}
 
-	private _cleanupUnmounted(visited: Set<ID>): void {
-		for (const [id, view] of this._mounted) {
-			if (visited.has(id)) {
+	private _getHierarchyWorldViewAABB(
+		node: INode,
+		cache: Map<ID, Rect>,
+	): Rect {
+		const cached = cache.get(node.id);
+
+		if (cached) {
+			return cached;
+		}
+
+		const renderer = this._registry.get(node.type);
+		const ownBounds = renderer?.getWorldBounds
+			? renderer.getWorldBounds(node)
+			: this._hasWorldViewAABB(node)
+				? node.getWorldViewAABB()
+				: node.getWorldAABB();
+
+		let minX = ownBounds.x;
+		let minY = ownBounds.y;
+		let maxX = ownBounds.x + ownBounds.width;
+		let maxY = ownBounds.y + ownBounds.height;
+
+		for (const child of node.getChildren()) {
+			if (!child.isVisibleInHierarchy()) {
 				continue;
 			}
 
-			view.destroy();
-			this._mounted.delete(id);
+			const childBounds = this._getHierarchyWorldViewAABB(child, cache);
+
+			minX = Math.min(minX, childBounds.x);
+			minY = Math.min(minY, childBounds.y);
+			maxX = Math.max(maxX, childBounds.x + childBounds.width);
+			maxY = Math.max(maxY, childBounds.y + childBounds.height);
+		}
+
+		const bounds = {
+			x: minX,
+			y: minY,
+			width: maxX - minX,
+			height: maxY - minY,
+		};
+
+		cache.set(node.id, bounds);
+
+		return bounds;
+	}
+
+	private _hasWorldViewAABB(node: INode): node is NodeWithWorldViewAABB {
+		return (
+			"getWorldViewAABB" in node &&
+			typeof node.getWorldViewAABB === "function"
+		);
+	}
+
+	private _cleanupUnmounted(visited: Set<ID>): void {
+		const unmounted = Array.from(this._mounted.entries()).filter(
+			([id]) => !visited.has(id),
+		);
+
+		unmounted.sort(
+			([, a], [, b]) =>
+				this._getViewDepth(b.view) - this._getViewDepth(a.view),
+		);
+
+		for (const [id] of unmounted) {
+			this._destroyMounted(id);
 		}
 	}
 
@@ -131,14 +232,35 @@ export class RendererCanvasManager {
 			this._unmountNodeRecursive(child);
 		}
 
-		const mounted = this._mounted.get(node.id);
+		this._destroyMounted(node.id);
+	}
+
+	private _destroyMounted(id: ID): void {
+		const mounted = this._mounted.get(id);
 
 		if (!mounted) {
 			return;
 		}
 
-		mounted.destroy();
-		this._mounted.delete(node.id);
+		this._mounted.delete(id);
+
+		try {
+			mounted.renderer.destroy?.(mounted.node, mounted.view);
+		} finally {
+			mounted.view.destroy();
+		}
+	}
+
+	private _getViewDepth(view: Konva.Node): number {
+		let depth = 0;
+		let parent = view.getParent();
+
+		while (parent) {
+			depth += 1;
+			parent = parent.getParent();
+		}
+
+		return depth;
 	}
 
 	private _intersectsAabb(a: Rect, b: Rect): boolean {

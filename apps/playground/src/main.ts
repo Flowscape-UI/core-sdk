@@ -27,7 +27,10 @@ import {
 	FillMode,
 	StrokeAlign,
 	StrokeStyle,
-	StrokeDashCap,
+	ShapeEffectDropShadow,
+	ShapeEffectInnerShadow,
+	ShapeEffectLayerBlur,
+	ShapeEffectBackgroundBlur,
 } from "@flowscape-ui/core-sdk";
 
 const container = document.querySelector<HTMLDivElement>("#app");
@@ -109,18 +112,43 @@ layerBackground.setImagePosition("50%", "50%");
 // const groupNode = new NodeGroup(1000);
 
 const rectNode = new NodeRect(1);
-rectNode.setFillMode(FillMode.LinearGradient);
-rectNode.setFill("linear-gradient(red, blue)");
+rectNode.setFillMode(FillMode.Color);
+rectNode.setFill("rgba(10, 20, 30, 0.5)");
 rectNode.setStrokeWidth([5]);
 rectNode.setStrokeAlign(StrokeAlign.Outside);
 rectNode.setStrokeFill("white");
-rectNode.setStrokeStyle(StrokeStyle.Dotted);
-rectNode.setStrokeStyleProperties(
-	StrokeStyle.Dashed,
-	20,
-	10,
-	StrokeDashCap.Round,
-);
+// rectNode.setStrokeStyle(StrokeStyle.Dotted);
+// rectNode.setStrokeStyleProperties(
+// 	StrokeStyle.Dashed,
+// 	20,
+// 	10,
+// 	StrokeDashCap.Round,
+// );
+
+const dropShadowEffect = new ShapeEffectDropShadow();
+dropShadowEffect.setFill("#7C3AED");
+dropShadowEffect.setOpacity(1);
+dropShadowEffect.setOffset(10, 10);
+dropShadowEffect.setBlur(0);
+dropShadowEffect.setSpread(0);
+
+const layerBlurEffect = new ShapeEffectLayerBlur();
+layerBlurEffect.setBlur(100);
+
+const innerShadow = new ShapeEffectInnerShadow();
+
+innerShadow.setFill("#EF4444");
+innerShadow.setOpacity(1);
+innerShadow.setBlur(5);
+innerShadow.setSpread(5);
+innerShadow.setOffset(10, 10);
+
+const backgroundBlurEffect = new ShapeEffectBackgroundBlur();
+backgroundBlurEffect.setBlur(1);
+
+rectNode.effectManager.add(innerShadow);
+rectNode.effectManager.add(dropShadowEffect);
+rectNode.effectManager.add(backgroundBlurEffect);
 
 const rectNode2 = new NodeRect(20);
 rectNode2.setPosition(-100, 0);
@@ -167,6 +195,7 @@ starNode.setStrokeFill("#1E3A8A");
 starNode.setStrokeWidth([3]);
 starNode.setRotation(12);
 starNode.setSideCount(25);
+starNode.effectManager.add(dropShadowEffect);
 
 const pathNode = new NodePath(5);
 pathNode.setPosition(440, 300);
@@ -180,6 +209,7 @@ pathNode.cubicTo({ x: 55, y: 10 }, { x: 165, y: 12 }, { x: 210, y: 80 });
 pathNode.quadTo({ x: 240, y: 118 }, { x: 190, y: 150 });
 pathNode.lineTo({ x: 55, y: 160 });
 pathNode.closePath();
+pathNode.effectManager.add(dropShadowEffect);
 
 const lineNode = new NodeLine(6);
 lineNode.setPosition(720, 320);
@@ -189,6 +219,7 @@ lineNode.setStrokeFill("#FCA5A5");
 lineNode.setStrokeThickness(18);
 lineNode.setLineCapStart(LineCap.Round);
 lineNode.setLineCapEnd(LineCap.Square);
+lineNode.effectManager.add(dropShadowEffect);
 
 const textNode = new NodeText(7);
 textNode.setPosition(700, 80);
@@ -208,6 +239,8 @@ textNode.setText(
 		"Precision tools for building\n" +
 		"interactive scene systems.",
 );
+textNode.effectManager.add(dropShadowEffect);
+textNode.setStrokeFill("#FBBF24");
 
 // groupNode.addChild(rectNode);
 // groupNode.addChild(rectNode2);

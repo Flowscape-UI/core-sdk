@@ -1,5 +1,5 @@
 import type { Color } from "culori";
-import type { ShapeEffect } from "./effect";
+import type { ShapeEffectManager } from "./effect";
 import type { INode, OrientedRect, Rect } from "../base";
 import type { Matrix, Vector2 } from "../../core/transform/types";
 
@@ -229,7 +229,7 @@ export type ShapeStrokePath = {
 };
 
 export interface IShapeBase extends INode {
-	readonly effect: ShapeEffect;
+	readonly effectManager: ShapeEffectManager;
 
 	/**
 	 * Returns a geometry snapshot of this shape.

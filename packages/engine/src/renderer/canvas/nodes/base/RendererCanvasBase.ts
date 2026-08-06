@@ -16,12 +16,13 @@ export abstract class RendererCanvasBase<
 	TNode extends IShapeBase = IShapeBase,
 	TView extends Konva.Group = Konva.Group,
 > implements IRendererNodeCanvas<TNode, TView> {
-	public abstract create(node: TNode): TView;
 	public static DEBUG_OBB = false;
 	public static DEBUG_AABB = false;
 	public static DEBUG_ORBIT = false;
 	public static DEBUG_PIVOT = false;
 	public static DEBUG_VIEW_BOUNDS = false;
+
+	private readonly _worldDebugLayers = new WeakMap<TView, Konva.Group>();
 
 	public update(node: TNode, view: TView): void {
 		this._updateIdentity(node, view);
@@ -32,9 +33,21 @@ export abstract class RendererCanvasBase<
 		this.onUpdate(node, view);
 	}
 
-	public destroy?(node: TNode, view: TView): void;
+	public destroy(node: TNode, view: TView): void {
+		try {
+			this.onDestroy(node, view);
+		} finally {
+			this._destroyDebugLayers(view);
+		}
+	}
 
+	public abstract create(node: TNode): TView;
 	protected abstract onUpdate(node: TNode, view: TView): void;
+
+	protected onDestroy(node: TNode, view: TView): void {
+		void node;
+		void view;
+	}
 
 	/*****************************************************************/
 	/*                            Common                             */
@@ -87,85 +100,116 @@ export abstract class RendererCanvasBase<
 	}
 
 	// Debug
-	protected _updateDebug(node: TNode, view: Konva.Group): void {
-		const debugLayer = this._ensureDebugLayer(view);
-		const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
+	protected _updateDebug(node: TNode, view: TView): void {
+		const hasLocalDebug =
+			RendererCanvasBase.DEBUG_OBB ||
+			RendererCanvasBase.DEBUG_ORBIT ||
+			RendererCanvasBase.DEBUG_PIVOT ||
+			RendererCanvasBase.DEBUG_VIEW_BOUNDS;
 
-		let hasAnyDebug = false;
-
-		const bounds = node.getLocalOBB();
-		const pivot = node.getPivot();
-
-		const pivotX = bounds.x + bounds.width * pivot.x;
-		const pivotY = bounds.y + bounds.height * pivot.y;
-
-		// =========================
-		// OBB (Local Bounds)
-		// =========================
-		const boundsShape = this._findOneOrThrow<Konva.Rect>(
-			debugLayer,
-			`.${DEBUG_BOUNDS_NAME}`,
-		);
-		boundsShape.visible(RendererCanvasBase.DEBUG_OBB);
-
-		if (RendererCanvasBase.DEBUG_OBB) {
-			boundsShape.setAttrs({
-				x: bounds.x,
-				y: bounds.y,
-				width: bounds.width,
-				height: bounds.height,
-			});
-			hasAnyDebug = true;
+		if (!hasLocalDebug && !RendererCanvasBase.DEBUG_AABB) {
+			this._hideDebugLayers(view);
+			return;
 		}
 
-		// =========================
-		// Pivot
-		// =========================
-		const pivotShape = this._findOneOrThrow<Konva.Circle>(
-			debugLayer,
-			`.${DEBUG_PIVOT_NAME}`,
-		);
-		pivotShape.visible(RendererCanvasBase.DEBUG_PIVOT);
+		if (hasLocalDebug) {
+			const debugLayer = this._ensureDebugLayer(view);
+			const bounds = node.getLocalOBB();
+			const pivot = node.getPivot();
 
-		if (RendererCanvasBase.DEBUG_PIVOT) {
-			pivotShape.position({
-				x: pivotX,
-				y: pivotY,
-			});
-			hasAnyDebug = true;
+			const pivotX = bounds.x + bounds.width * pivot.x;
+			const pivotY = bounds.y + bounds.height * pivot.y;
+
+			// =========================
+			// OBB (Local Bounds)
+			// =========================
+			const boundsShape = this._findOneOrThrow<Konva.Rect>(
+				debugLayer,
+				`.${DEBUG_BOUNDS_NAME}`,
+			);
+			boundsShape.visible(RendererCanvasBase.DEBUG_OBB);
+
+			if (RendererCanvasBase.DEBUG_OBB) {
+				boundsShape.setAttrs({
+					x: bounds.x,
+					y: bounds.y,
+					width: bounds.width,
+					height: bounds.height,
+				});
+			}
+
+			// =========================
+			// Pivot
+			// =========================
+			const pivotShape = this._findOneOrThrow<Konva.Circle>(
+				debugLayer,
+				`.${DEBUG_PIVOT_NAME}`,
+			);
+			pivotShape.visible(RendererCanvasBase.DEBUG_PIVOT);
+
+			if (RendererCanvasBase.DEBUG_PIVOT) {
+				pivotShape.position({
+					x: pivotX,
+					y: pivotY,
+				});
+			}
+
+			// =========================
+			// Orbit
+			// =========================
+			const orbit = this._findOneOrThrow<Konva.Circle>(
+				debugLayer,
+				`.${DEBUG_PIVOT_ORBIT_NAME}`,
+			);
+			orbit.visible(RendererCanvasBase.DEBUG_ORBIT);
+
+			if (RendererCanvasBase.DEBUG_ORBIT) {
+				const radius = this._getPivotOrbitRadius(
+					bounds,
+					pivotX,
+					pivotY,
+				);
+
+				orbit.position({
+					x: pivotX,
+					y: pivotY,
+				});
+
+				orbit.radius(radius);
+			}
+
+			// =========================
+			// View Bounds
+			// =========================
+			const viewBoundsShape = this._findOneOrThrow<Konva.Rect>(
+				debugLayer,
+				`.${DEBUG_VIEW_BOUNDS_NAME}`,
+			);
+			viewBoundsShape.visible(RendererCanvasBase.DEBUG_VIEW_BOUNDS);
+
+			if (RendererCanvasBase.DEBUG_VIEW_BOUNDS) {
+				const viewBounds = node.getLocalViewOBB();
+
+				viewBoundsShape.setAttrs({
+					x: viewBounds.x,
+					y: viewBounds.y,
+					width: viewBounds.width,
+					height: viewBounds.height,
+				});
+			}
+
+			debugLayer.visible(true);
+			debugLayer.moveToTop();
+		} else {
+			view.findOne<Konva.Group>(`.${DEBUG_LAYER_NAME}`)?.visible(false);
 		}
-
-		// =========================
-		// Orbit
-		// =========================
-		const orbit = this._findOneOrThrow<Konva.Circle>(
-			debugLayer,
-			`.${DEBUG_PIVOT_ORBIT_NAME}`,
-		);
-		orbit.visible(RendererCanvasBase.DEBUG_ORBIT);
-
-		if (RendererCanvasBase.DEBUG_ORBIT) {
-			const radius = this._getPivotOrbitRadius(bounds, pivotX, pivotY);
-
-			orbit.position({
-				x: pivotX,
-				y: pivotY,
-			});
-
-			orbit.radius(radius);
-			hasAnyDebug = true;
-		}
-
-		// =========================
-		// AABB (World)
-		// =========================
-		const aabbShape = this._findOneOrThrow<Konva.Rect>(
-			worldDebugLayer,
-			`.${DEBUG_AABB_NAME}`,
-		);
-		aabbShape.visible(RendererCanvasBase.DEBUG_AABB);
 
 		if (RendererCanvasBase.DEBUG_AABB) {
+			const worldDebugLayer = this._ensureWorldDebugLayer(node, view);
+			const aabbShape = this._findOneOrThrow<Konva.Rect>(
+				worldDebugLayer,
+				`.${DEBUG_AABB_NAME}`,
+			);
 			const aabb = node.getWorldAABB();
 
 			aabbShape.setAttrs({
@@ -174,42 +218,11 @@ export abstract class RendererCanvasBase<
 				width: aabb.width,
 				height: aabb.height,
 			});
-			hasAnyDebug = true;
-		}
-
-		// =========================
-		// View Bounds
-		// =========================
-		const viewBoundsShape = this._findOneOrThrow<Konva.Rect>(
-			debugLayer,
-			`.${DEBUG_VIEW_BOUNDS_NAME}`,
-		);
-		viewBoundsShape.visible(RendererCanvasBase.DEBUG_VIEW_BOUNDS);
-
-		if (RendererCanvasBase.DEBUG_VIEW_BOUNDS) {
-			const viewBounds = node.getLocalViewOBB();
-
-			viewBoundsShape.setAttrs({
-				x: viewBounds.x,
-				y: viewBounds.y,
-				width: viewBounds.width,
-				height: viewBounds.height,
-			});
-			hasAnyDebug = true;
-		}
-
-		// =========================
-		// Layer visibility
-		// =========================
-		debugLayer.visible(hasAnyDebug);
-		worldDebugLayer.visible(RendererCanvasBase.DEBUG_AABB);
-
-		if (hasAnyDebug) {
-			debugLayer.moveToTop();
-		}
-
-		if (RendererCanvasBase.DEBUG_AABB) {
+			aabbShape.visible(true);
+			worldDebugLayer.visible(true);
 			worldDebugLayer.moveToTop();
+		} else {
+			this._hideWorldDebugLayer(view);
 		}
 	}
 
@@ -260,10 +273,7 @@ export abstract class RendererCanvasBase<
 		return debugLayer;
 	}
 
-	protected _ensureWorldDebugLayer(
-		node: TNode,
-		view: Konva.Group,
-	): Konva.Group {
+	protected _ensureWorldDebugLayer(node: TNode, view: TView): Konva.Group {
 		const parent = view.getParent();
 
 		if (!parent) {
@@ -273,14 +283,18 @@ export abstract class RendererCanvasBase<
 		}
 
 		const debugLayerName = `${DEBUG_WORLD_LAYER_NAME}-${node.id}`;
+		const currentDebugLayer = this._worldDebugLayers.get(view);
 
-		let debugLayer = parent.findOne<Konva.Group>(`.${debugLayerName}`);
+		if (currentDebugLayer) {
+			if (currentDebugLayer.getParent() === parent) {
+				return currentDebugLayer;
+			}
 
-		if (debugLayer) {
-			return debugLayer;
+			currentDebugLayer.destroy();
+			this._worldDebugLayers.delete(view);
 		}
 
-		debugLayer = new Konva.Group({
+		const debugLayer = new Konva.Group({
 			name: debugLayerName,
 			listening: false,
 			visible: false,
@@ -297,7 +311,43 @@ export abstract class RendererCanvasBase<
 		);
 
 		parent.add(debugLayer);
+		this._worldDebugLayers.set(view, debugLayer);
+
 		return debugLayer;
+	}
+
+	private _hideDebugLayers(view: TView): void {
+		view.findOne<Konva.Group>(`.${DEBUG_LAYER_NAME}`)?.visible(false);
+		this._hideWorldDebugLayer(view);
+	}
+
+	private _hideWorldDebugLayer(view: TView): void {
+		const debugLayer = this._worldDebugLayers.get(view);
+
+		if (!debugLayer) {
+			return;
+		}
+
+		if (debugLayer.getParent() !== view.getParent()) {
+			debugLayer.destroy();
+			this._worldDebugLayers.delete(view);
+			return;
+		}
+
+		debugLayer.visible(false);
+	}
+
+	private _destroyDebugLayers(view: TView): void {
+		view.findOne<Konva.Group>(`.${DEBUG_LAYER_NAME}`)?.destroy();
+
+		const worldDebugLayer = this._worldDebugLayers.get(view);
+
+		if (!worldDebugLayer) {
+			return;
+		}
+
+		worldDebugLayer.destroy();
+		this._worldDebugLayers.delete(view);
 	}
 
 	private _getPivotOrbitRadius(

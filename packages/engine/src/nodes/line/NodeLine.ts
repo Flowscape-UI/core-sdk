@@ -2,7 +2,7 @@ import { EPSILON } from "../../core";
 import type { Vector2 } from "../../core/transform";
 import type { ID } from "../../core/types";
 import { NodeType } from "../base";
-import { ShapeBase, type ShapePathCommand } from "../shape";
+import { ShapeBase, type ShapePathCommand, type StrokeWidth } from "../shape";
 import { matrixInvert } from "../utils/matrix-invert";
 import { LineCap, LineEnding, type INodeLine } from "./types";
 
@@ -22,6 +22,7 @@ export class NodeLine extends ShapeBase implements INodeLine {
 		super(id, NodeType.Line, name ?? "Line");
 
 		this._thickness = 1;
+		super.setStrokeWidth([this._thickness]);
 		this._start = { x: 0, y: 0 };
 		this._end = { x: 100, y: 0 };
 		this._updateBounds();
@@ -68,11 +69,24 @@ export class NodeLine extends ShapeBase implements INodeLine {
 	}
 
 	public setStrokeThickness(value: number): void {
+		if (!Number.isFinite(value)) {
+			return;
+		}
+
 		const newValue = Math.max(0, value);
 		if (newValue === this._thickness) {
 			return;
 		}
 		this._thickness = newValue;
+		super.setStrokeWidth([newValue]);
+	}
+
+	public override getStrokeWidth(): StrokeWidth {
+		return [this._thickness];
+	}
+
+	public override setStrokeWidth(value: StrokeWidth): void {
+		this.setStrokeThickness(value[0] ?? 0);
 	}
 
 	/*********************************************************/

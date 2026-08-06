@@ -1,13 +1,16 @@
-export enum ShadowMode {
+import { ShapeEffectType, type IShapeEffectBase } from "../base";
+
+export enum DropShadowMode {
 	Fill = "fill",
 	Cutout = "cutout",
-	Inner = "inner",
 }
 
-export interface IEffectShadow {
-	getMode(): ShadowMode;
-	setMode(value: ShadowMode): void;
+export type ShapeEffectShadowType =
+	ShapeEffectType.DropShadow | ShapeEffectType.InnerShadow;
 
+export interface IShapeEffectShadow<
+	TType extends ShapeEffectShadowType = ShapeEffectShadowType,
+> extends IShapeEffectBase<TType> {
 	getFill(): string;
 	setFill(value: string): void;
 	getOpacity(): number;
