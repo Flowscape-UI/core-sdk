@@ -3,9 +3,9 @@ export enum ShapeEffectType {
 	DropShadow = "drop-shadow",
 	LayerBlur = "layer-blur",
 	BackgroundBlur = "background-blur",
-	Noise = "noise",
-	Texture = "texture",
-	Glass = "glass",
+	// Noise = "noise",
+	// Texture = "texture",
+	// Glass = "glass",
 }
 
 /**
