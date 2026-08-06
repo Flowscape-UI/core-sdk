@@ -1,9 +1,10 @@
-import { ShapeEffectBase, ShapeEffectType } from "../base";
-import type { IShapeEffectShadow } from "./types";
+import { ShapeEffectBase } from "../base";
+import type { IShapeEffectShadow, ShapeEffectShadowType } from "./types";
 
-export abstract class ShapeEffectShadowBase<
-	TType extends ShapeEffectType,
-> extends ShapeEffectBase<TType> implements IShapeEffectShadow {
+export abstract class ShapeEffectShadowBase<TType extends ShapeEffectShadowType>
+	extends ShapeEffectBase<TType>
+	implements IShapeEffectShadow<TType>
+{
 	private static readonly DEFAULT_FILL = "rgba(0, 0, 0, 1)";
 
 	private _fill = ShapeEffectShadowBase.DEFAULT_FILL;

@@ -67,8 +67,7 @@ export class RendererCanvasManager {
 		const mounted = Array.from(this._mounted.entries());
 
 		mounted.sort(
-			([, a], [, b]) =>
-				this._getViewDepth(b.view) - this._getViewDepth(a.view),
+			([, a], [, b]) => this._getViewDepth(b.view) - this._getViewDepth(a.view),
 		);
 
 		for (const [id] of mounted) {
@@ -101,10 +100,7 @@ export class RendererCanvasManager {
 			return;
 		}
 
-		const bounds = this._getHierarchyWorldViewAABB(
-			node,
-			hierarchyViewBounds,
-		);
+		const bounds = this._getHierarchyWorldViewAABB(node, hierarchyViewBounds);
 
 		if (!this._intersectsAabb(bounds, viewport)) {
 			this._unmountNodeRecursive(node);
@@ -158,19 +154,19 @@ export class RendererCanvasManager {
 		}
 	}
 
-	private _getHierarchyWorldViewAABB(
-		node: INode,
-		cache: Map<ID, Rect>,
-	): Rect {
+	private _getHierarchyWorldViewAABB(node: INode, cache: Map<ID, Rect>): Rect {
 		const cached = cache.get(node.id);
 
 		if (cached) {
 			return cached;
 		}
 
-		const ownBounds = this._hasWorldViewAABB(node)
-			? node.getWorldViewAABB()
-			: node.getWorldAABB();
+		const renderer = this._registry.get(node.type);
+		const ownBounds = renderer?.getWorldBounds
+			? renderer.getWorldBounds(node)
+			: this._hasWorldViewAABB(node)
+				? node.getWorldViewAABB()
+				: node.getWorldAABB();
 
 		let minX = ownBounds.x;
 		let minY = ownBounds.y;
@@ -204,8 +200,7 @@ export class RendererCanvasManager {
 
 	private _hasWorldViewAABB(node: INode): node is NodeWithWorldViewAABB {
 		return (
-			"getWorldViewAABB" in node &&
-			typeof node.getWorldViewAABB === "function"
+			"getWorldViewAABB" in node && typeof node.getWorldViewAABB === "function"
 		);
 	}
 
@@ -215,8 +210,7 @@ export class RendererCanvasManager {
 		);
 
 		unmounted.sort(
-			([, a], [, b]) =>
-				this._getViewDepth(b.view) - this._getViewDepth(a.view),
+			([, a], [, b]) => this._getViewDepth(b.view) - this._getViewDepth(a.view),
 		);
 
 		for (const [id] of unmounted) {

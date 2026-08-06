@@ -56,9 +56,7 @@ export class ShapeEffectManager {
 		return effect;
 	}
 
-	public removeByType(
-		type: keyof IShapeEffectByType,
-	): number {
+	public removeByType(type: keyof IShapeEffectByType): number {
 		let removedCount = 0;
 
 		for (let index = this._effects.length - 1; index >= 0; index--) {

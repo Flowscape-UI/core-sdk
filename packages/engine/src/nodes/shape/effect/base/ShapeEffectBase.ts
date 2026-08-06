@@ -1,7 +1,4 @@
-import type {
-	IShapeEffectBase,
-	ShapeEffectType,
-} from "./types";
+import type { IShapeEffectBase, ShapeEffectType } from "./types";
 
 /**
  * Provides the common state and behavior for all effects applied to a shape.

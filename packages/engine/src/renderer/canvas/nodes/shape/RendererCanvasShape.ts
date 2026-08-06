@@ -9,20 +9,30 @@ import {
 import {
 	FillMode,
 	resolveStrokePatternGeometry,
-	StrokeAlign,
+	ShapeEffectType,
 	StrokeDashCap,
 	StrokeStyle,
+	type IShapeEffectDropShadow,
+	type IShapeEffectInnerShadow,
 	type IShapeBase,
 	type Rect,
+	type ResolvedStrokePatternPathSegment,
 	type ShapePathCommand,
 	type ShapeStrokePath,
 	type StrokeDashedStyleProperties,
-	type StrokeDottedStyleProperties,
 	type StrokeStyleProperties,
 } from "../../../../nodes";
 
+import {
+	RendererEffectDropShadow,
+	RendererEffectInnerShadow,
+	type CanvasDropShadowState,
+	type CanvasShadowArea,
+	type CanvasShadowGeometry,
+} from "../../effects";
+import { getDropShadowRasterBounds } from "../../effects/shadow/renderShadowRaster";
 import { RendererCanvasBase } from "../base";
-import { EPSILON } from "../../../../core";
+import { EPSILON, type Matrix } from "../../../../core";
 
 const FILL_SHAPE_NAME = "shape-fill";
 const FILL_SHAPE_SELECTOR = `.${FILL_SHAPE_NAME}`;
@@ -33,11 +43,9 @@ const STROKE_SHAPE_SELECTOR = `.${STROKE_SHAPE_NAME}`;
 const DROP_SHADOW_LAYER_NAME = "shape-drop-shadows";
 const INNER_SHADOW_LAYER_NAME = "shape-inner-shadows";
 
-const DROP_SHADOW_LAYER_SELECTOR =
-	`.${DROP_SHADOW_LAYER_NAME}`;
+const DROP_SHADOW_LAYER_SELECTOR = `.${DROP_SHADOW_LAYER_NAME}`;
 
-const INNER_SHADOW_LAYER_SELECTOR =
-	`.${INNER_SHADOW_LAYER_NAME}`;
+const INNER_SHADOW_LAYER_SELECTOR = `.${INNER_SHADOW_LAYER_NAME}`;
 
 registerGradientTransformers();
 
@@ -47,10 +55,31 @@ type GradientPaintCacheEntry = {
 	paint: KonvaGradientPaint;
 };
 
+type ShapeEffectRendererState = {
+	dropShadows: Map<IShapeEffectDropShadow, RendererEffectDropShadow>;
+	innerShadows: Map<IShapeEffectInnerShadow, RendererEffectInnerShadow>;
+};
+
+type CreateShadowGeometryInput = Readonly<{
+	commands: readonly ShapePathCommand[];
+	fillCommands: readonly ShapePathCommand[];
+	fillBounds: Rect;
+	viewBounds: Rect;
+	strokePath: ShapeStrokePath | null;
+	strokePatternPaths: readonly ResolvedStrokePatternPathSegment[];
+	strokeWidth: number;
+	strokeStyle: StrokeStyle;
+	strokeMode: FillMode;
+}>;
+
 export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	private readonly _gradientPaintCache = new WeakMap<
 		Konva.Shape,
 		GradientPaintCacheEntry
+	>();
+	private readonly _effectRendererStates = new WeakMap<
+		Konva.Group,
+		ShapeEffectRendererState
 	>();
 
 	public create(node: IShapeBase): Konva.Group {
@@ -77,26 +106,66 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		group.add(innerShadowLayer);
 		group.add(strokeShape);
 
+		this._effectRendererStates.set(group, {
+			dropShadows: new Map(),
+			innerShadows: new Map(),
+		});
+
 		return group;
+	}
+
+	public getWorldBounds(node: IShapeBase): Rect {
+		let bounds = node.getWorldViewAABB();
+		const sourceBounds = node.getLocalViewOBB();
+		const worldMatrix = node.getWorldMatrix();
+
+		for (const effect of node.effectManager.getByType(
+			ShapeEffectType.DropShadow,
+		)) {
+			if (!effect.isVisible() || effect.getOpacity() <= 0) {
+				continue;
+			}
+
+			const effectState: CanvasDropShadowState = {
+				x: effect.getX(),
+				y: effect.getY(),
+				blur: Math.max(0, effect.getBlur()),
+				spread: effect.getSpread(),
+				fill: effect.getFill(),
+				opacity: Math.max(0, Math.min(1, effect.getOpacity())),
+				mode: effect.getMode(),
+			};
+			const localShadowBounds = getDropShadowRasterBounds(
+				sourceBounds,
+				effectState,
+			);
+			const worldShadowBounds = this._transformRectToAABB(
+				localShadowBounds,
+				worldMatrix,
+			);
+
+			bounds = this._unionRects(bounds, worldShadowBounds);
+		}
+
+		return bounds;
 	}
 
 	protected override onUpdate(node: IShapeBase, view: Konva.Group): void {
 		const commands = node.toPathCommands();
+		const fillCommands = this._extractClosedFillCommands(commands);
 		const fillBounds = node.getLocalOBB();
 		const viewBounds = node.getLocalViewOBB();
 		const strokePath = node.getStrokePath();
 
-		const dropShadowLayer =
-			this._findOneOrThrow<Konva.Group>(
-				view,
-				DROP_SHADOW_LAYER_SELECTOR,
-			);
+		const dropShadowLayer = this._findOneOrThrow<Konva.Group>(
+			view,
+			DROP_SHADOW_LAYER_SELECTOR,
+		);
 
-		const innerShadowLayer =
-			this._findOneOrThrow<Konva.Group>(
-				view,
-				INNER_SHADOW_LAYER_SELECTOR,
-			);
+		const innerShadowLayer = this._findOneOrThrow<Konva.Group>(
+			view,
+			INNER_SHADOW_LAYER_SELECTOR,
+		);
 
 		const fillShape = this._findOneOrThrow<Konva.Shape>(
 			view,
@@ -109,8 +178,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		);
 
 		const strokeStyle = node.getStrokeStyle();
+		const strokeWidths = node.getStrokeWidth();
+		const strokeWidth = Math.max(0, strokeWidths[0] ?? 0);
 
 		let strokeStyleProperties: StrokeStyleProperties | null = null;
+		let strokePatternPaths: readonly ResolvedStrokePatternPathSegment[] = [];
 
 		switch (strokeStyle) {
 			case StrokeStyle.Dashed:
@@ -135,6 +207,27 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				break;
 		}
 
+		if (
+			(strokeStyle === StrokeStyle.Dashed ||
+				strokeStyle === StrokeStyle.Dotted) &&
+			strokeStyleProperties &&
+			strokeWidth > 0
+		) {
+			const isDotted = strokeStyle === StrokeStyle.Dotted;
+			const length = isDotted ? EPSILON * 2 : strokeStyleProperties.length;
+			const cap = isDotted
+				? StrokeDashCap.Round
+				: (strokeStyleProperties as StrokeDashedStyleProperties).cap;
+
+			strokePatternPaths = resolveStrokePatternGeometry(commands, {
+				strokeWidth,
+				strokeAlign: node.getStrokeAlign(),
+				length,
+				gap: strokeStyleProperties.gap,
+				cap,
+			});
+		}
+
 		/*
 		 * Fill.
 		 *
@@ -142,7 +235,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		 * а не ViewOBB со stroke.
 		 */
 		fillShape.setAttrs({
-			pathCommands: commands,
+			pathCommands: fillCommands,
 			paintBounds: fillBounds,
 			fillMode: node.getFillMode(),
 			fillValue: node.getFill(),
@@ -162,14 +255,215 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		strokeShape.setAttrs({
 			pathCommands: commands,
 			strokePath,
+			strokePatternPaths,
 			paintBounds: viewBounds,
-			strokeWidths: node.getStrokeWidth(),
+			strokeWidths,
 			strokeAlign: node.getStrokeAlign(),
 			strokeMode: node.getStrokeMode(),
 			strokeValue: node.getStrokeFill(),
 			strokeStyle,
 			strokeStyleProperties,
 		});
+
+		const shadowGeometry = this._createShadowGeometry({
+			commands,
+			fillCommands,
+			fillBounds,
+			viewBounds,
+			strokePath,
+			strokePatternPaths,
+			strokeWidth,
+			strokeStyle,
+			strokeMode: node.getStrokeMode(),
+		});
+
+		this._updateEffects(
+			node,
+			view,
+			dropShadowLayer,
+			innerShadowLayer,
+			shadowGeometry,
+		);
+	}
+
+	protected override onDestroy(_: IShapeBase, view: Konva.Group): void {
+		const state = this._effectRendererStates.get(view);
+
+		if (!state) {
+			return;
+		}
+
+		for (const renderer of state.dropShadows.values()) {
+			renderer.destroy();
+		}
+
+		for (const renderer of state.innerShadows.values()) {
+			renderer.destroy();
+		}
+
+		state.dropShadows.clear();
+		state.innerShadows.clear();
+		this._effectRendererStates.delete(view);
+	}
+
+	/*********************************************************/
+	/*                        Effects                        */
+	/*********************************************************/
+
+	private _createShadowGeometry(
+		input: CreateShadowGeometryInput,
+	): CanvasShadowGeometry {
+		const strokeAreas: CanvasShadowArea[] = [];
+		let fallbackStroke: CanvasShadowGeometry["fallbackStroke"] = null;
+
+		if (
+			input.strokeStyle === StrokeStyle.Dashed ||
+			input.strokeStyle === StrokeStyle.Dotted
+		) {
+			for (const path of input.strokePatternPaths) {
+				strokeAreas.push({
+					commands: path.commands,
+					fillRule: "evenodd",
+				});
+			}
+		} else if (input.strokePath?.outer.length) {
+			strokeAreas.push({
+				commands: [...input.strokePath.outer, ...input.strokePath.inner],
+				fillRule: "evenodd",
+			});
+		} else if (
+			input.strokeMode === FillMode.Color &&
+			input.strokeWidth > 0 &&
+			input.commands.length > 0
+		) {
+			fallbackStroke = {
+				commands: input.commands,
+				width: input.strokeWidth,
+				lineCap: "butt",
+				lineJoin: "miter",
+			};
+		}
+
+		const hasStroke = strokeAreas.length > 0 || fallbackStroke !== null;
+		const bounds = hasStroke ? input.viewBounds : input.fillBounds;
+		const signature = JSON.stringify({
+			bounds,
+			fillCommands: input.fillCommands,
+			strokeAreas,
+			fallbackStroke,
+		});
+
+		return {
+			bounds,
+			fillCommands: input.fillCommands,
+			strokeAreas,
+			fallbackStroke,
+			signature,
+		};
+	}
+
+	private _extractClosedFillCommands(
+		commands: readonly ShapePathCommand[],
+	): readonly ShapePathCommand[] {
+		const result: ShapePathCommand[] = [];
+		let current: ShapePathCommand[] = [];
+
+		for (const command of commands) {
+			if (command.type === "moveTo") {
+				current = [command];
+				continue;
+			}
+
+			if (current.length === 0) {
+				continue;
+			}
+
+			current.push(command);
+
+			if (command.type !== "closePath") {
+				continue;
+			}
+
+			result.push(...current);
+			current = [];
+		}
+
+		return result;
+	}
+
+	private _updateEffects(
+		node: IShapeBase,
+		view: Konva.Group,
+		dropShadowLayer: Konva.Group,
+		innerShadowLayer: Konva.Group,
+		geometry: CanvasShadowGeometry,
+	): void {
+		let state = this._effectRendererStates.get(view);
+
+		if (!state) {
+			state = {
+				dropShadows: new Map(),
+				innerShadows: new Map(),
+			};
+			this._effectRendererStates.set(view, state);
+		}
+
+		const activeDropShadows = new Set<IShapeEffectDropShadow>();
+		const activeInnerShadows = new Set<IShapeEffectInnerShadow>();
+
+		for (const effect of node.effectManager.getAll()) {
+			switch (effect.type) {
+				case ShapeEffectType.DropShadow: {
+					activeDropShadows.add(effect);
+
+					let renderer = state.dropShadows.get(effect);
+
+					if (!renderer) {
+						renderer = new RendererEffectDropShadow();
+						state.dropShadows.set(effect, renderer);
+					}
+
+					renderer.mount(dropShadowLayer);
+					renderer.getView().moveToTop();
+					renderer.update(effect, geometry);
+					break;
+				}
+
+				case ShapeEffectType.InnerShadow: {
+					activeInnerShadows.add(effect);
+
+					let renderer = state.innerShadows.get(effect);
+
+					if (!renderer) {
+						renderer = new RendererEffectInnerShadow();
+						state.innerShadows.set(effect, renderer);
+					}
+
+					renderer.mount(innerShadowLayer);
+					renderer.getView().moveToTop();
+					renderer.update(effect, geometry);
+					break;
+				}
+			}
+		}
+
+		for (const [effect, renderer] of state.dropShadows) {
+			if (activeDropShadows.has(effect)) {
+				continue;
+			}
+
+			renderer.destroy();
+			state.dropShadows.delete(effect);
+		}
+
+		for (const [effect, renderer] of state.innerShadows) {
+			if (activeInnerShadows.has(effect)) {
+				continue;
+			}
+
+			renderer.destroy();
+			state.innerShadows.delete(effect);
+		}
 	}
 
 	/*********************************************************/
@@ -183,7 +477,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 			sceneFunc: (ctx, shape) => {
 				const commands = shape.getAttr("pathCommands") as
-					readonly ShapePathCommand[] | undefined;
+					| readonly ShapePathCommand[]
+					| undefined;
 
 				if (!commands || commands.length === 0) {
 					return;
@@ -196,12 +491,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const fillMode =
-					(shape.getAttr("fillMode") as FillMode | undefined) ??
-					FillMode.Color;
+					(shape.getAttr("fillMode") as FillMode | undefined) ?? FillMode.Color;
 
-				const fillValue = String(
-					shape.getAttr("fillValue") ?? "#000000",
-				);
+				const fillValue = String(shape.getAttr("fillValue") ?? "#000000");
 
 				ctx.beginPath();
 
@@ -226,9 +518,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					(shape.getAttr("strokeMode") as FillMode | undefined) ??
 					FillMode.Color;
 
-				const strokeValue = String(
-					shape.getAttr("strokeValue") ?? "#000000",
-				);
+				const strokeValue = String(shape.getAttr("strokeValue") ?? "#000000");
 
 				const strokeStyle =
 					(shape.getAttr("strokeStyle") as StrokeStyle | undefined) ??
@@ -238,61 +528,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					strokeStyle === StrokeStyle.Dashed ||
 					strokeStyle === StrokeStyle.Dotted
 				) {
-					const commands = shape.getAttr("pathCommands") as
-						readonly ShapePathCommand[] | undefined;
-
-					const strokeWidths = shape.getAttr("strokeWidths") as
-						readonly number[] | undefined;
-
-					const properties = shape.getAttr(
-						"strokeStyleProperties",
-					) as
-						| StrokeDashedStyleProperties
-						| StrokeDottedStyleProperties
-						| null
+					const paths = shape.getAttr("strokePatternPaths") as
+						| readonly ResolvedStrokePatternPathSegment[]
 						| undefined;
 
-					const strokeAlign =
-						(shape.getAttr("strokeAlign") as
-							StrokeAlign | undefined) ?? StrokeAlign.Center;
-
-					if (
-						!commands ||
-						commands.length === 0 ||
-						!strokeWidths ||
-						strokeWidths.length === 0 ||
-						!properties
-					) {
-						return;
-					}
-
-					const width = Math.max(0, strokeWidths[0] ?? 0);
-
-					if (width <= 0) {
-						return;
-					}
-
-					const isDotted = strokeStyle === StrokeStyle.Dotted;
-
-					const length = isDotted ? EPSILON * 2 : properties.length;
-
-					const cap = isDotted
-						? StrokeDashCap.Round
-						: (properties as StrokeDashedStyleProperties).cap;
-
-					const paths = resolveStrokePatternGeometry(commands, {
-						strokeWidth: width,
-
-						strokeAlign,
-
-						length,
-
-						gap: properties.gap,
-
-						cap,
-					});
-
-					if (paths.length === 0) {
+					if (!paths || paths.length === 0) {
 						return;
 					}
 
@@ -308,7 +548,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const strokePath = shape.getAttr("strokePath") as
-					ShapeStrokePath | null | undefined;
+					| ShapeStrokePath
+					| null
+					| undefined;
 
 				/*
 				 * Полноценный stroke-area.
@@ -346,7 +588,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const strokeWidths = shape.getAttr("strokeWidths") as
-					readonly number[] | undefined;
+					| readonly number[]
+					| undefined;
 
 				if (!strokeWidths || strokeWidths.length === 0) {
 					return;
@@ -359,7 +602,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const commands = shape.getAttr("pathCommands") as
-					readonly ShapePathCommand[] | undefined;
+					| readonly ShapePathCommand[]
+					| undefined;
 
 				if (!commands || commands.length === 0) {
 					return;
@@ -407,13 +651,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					return;
 				}
 
-				this._drawGradientStroke(
-					ctx,
-					shape,
-					bounds,
-					strokeMode,
-					strokeValue,
-				);
+				this._drawGradientStroke(ctx, shape, bounds, strokeMode, strokeValue);
 
 				return;
 			}
@@ -580,17 +818,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		fillMode: FillMode,
 		fillValue: string,
 	): void {
-		const gradientPaint = this._getGradientPaint(
-			shape,
-			fillMode,
-			fillValue,
-		);
+		const gradientPaint = this._getGradientPaint(shape, fillMode, fillValue);
 
-		const renderScale = this._resolveGradientRenderScale(
-			fillMode,
-			ctx,
-			shape,
-		);
+		const renderScale = this._resolveGradientRenderScale(fillMode, ctx, shape);
 
 		ctx.save();
 
@@ -661,4 +891,55 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	/*********************************************************/
 	/*                        Helpers                        */
 	/*********************************************************/
+
+	private _transformRectToAABB(bounds: Rect, matrix: Matrix): Rect {
+		const points = [
+			this._transformPoint(bounds.x, bounds.y, matrix),
+			this._transformPoint(bounds.x + bounds.width, bounds.y, matrix),
+			this._transformPoint(
+				bounds.x + bounds.width,
+				bounds.y + bounds.height,
+				matrix,
+			),
+			this._transformPoint(bounds.x, bounds.y + bounds.height, matrix),
+		];
+		const xs = points.map((point) => point.x);
+		const ys = points.map((point) => point.y);
+		const minX = Math.min(...xs);
+		const minY = Math.min(...ys);
+		const maxX = Math.max(...xs);
+		const maxY = Math.max(...ys);
+
+		return {
+			x: minX,
+			y: minY,
+			width: maxX - minX,
+			height: maxY - minY,
+		};
+	}
+
+	private _transformPoint(
+		x: number,
+		y: number,
+		matrix: Matrix,
+	): { x: number; y: number } {
+		return {
+			x: matrix.a * x + matrix.c * y + matrix.tx,
+			y: matrix.b * x + matrix.d * y + matrix.ty,
+		};
+	}
+
+	private _unionRects(first: Rect, second: Rect): Rect {
+		const minX = Math.min(first.x, second.x);
+		const minY = Math.min(first.y, second.y);
+		const maxX = Math.max(first.x + first.width, second.x + second.width);
+		const maxY = Math.max(first.y + first.height, second.y + second.height);
+
+		return {
+			x: minX,
+			y: minY,
+			width: maxX - minX,
+			height: maxY - minY,
+		};
+	}
 }
