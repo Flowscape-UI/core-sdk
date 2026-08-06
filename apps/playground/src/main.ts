@@ -27,9 +27,10 @@ import {
 	FillMode,
 	StrokeAlign,
 	StrokeStyle,
-	StrokeDashCap,
 	ShapeEffectDropShadow,
 	ShapeEffectInnerShadow,
+	ShapeEffectLayerBlur,
+	ShapeEffectBackgroundBlur,
 } from "@flowscape-ui/core-sdk";
 
 const container = document.querySelector<HTMLDivElement>("#app");
@@ -111,8 +112,8 @@ layerBackground.setImagePosition("50%", "50%");
 // const groupNode = new NodeGroup(1000);
 
 const rectNode = new NodeRect(1);
-rectNode.setFillMode(FillMode.LinearGradient);
-rectNode.setFill("linear-gradient(red, blue)");
+rectNode.setFillMode(FillMode.Color);
+rectNode.setFill("rgba(10, 20, 30, 0.5)");
 rectNode.setStrokeWidth([5]);
 rectNode.setStrokeAlign(StrokeAlign.Outside);
 rectNode.setStrokeFill("white");
@@ -127,10 +128,12 @@ rectNode.setStrokeFill("white");
 const dropShadowEffect = new ShapeEffectDropShadow();
 dropShadowEffect.setFill("#7C3AED");
 dropShadowEffect.setOpacity(1);
-dropShadowEffect.setOffset(100, 200);
+dropShadowEffect.setOffset(10, 10);
 dropShadowEffect.setBlur(0);
 dropShadowEffect.setSpread(0);
-// dropShadowEffect.setVisible(false);
+
+const layerBlurEffect = new ShapeEffectLayerBlur();
+layerBlurEffect.setBlur(100);
 
 const innerShadow = new ShapeEffectInnerShadow();
 
@@ -140,8 +143,12 @@ innerShadow.setBlur(5);
 innerShadow.setSpread(5);
 innerShadow.setOffset(10, 10);
 
+const backgroundBlurEffect = new ShapeEffectBackgroundBlur();
+backgroundBlurEffect.setBlur(1);
+
 rectNode.effectManager.add(innerShadow);
 rectNode.effectManager.add(dropShadowEffect);
+rectNode.effectManager.add(backgroundBlurEffect);
 
 const rectNode2 = new NodeRect(20);
 rectNode2.setPosition(-100, 0);

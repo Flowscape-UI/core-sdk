@@ -26,10 +26,13 @@ import {
 import {
 	RendererEffectDropShadow,
 	RendererEffectInnerShadow,
+	RendererShapeEffectLayerBlur,
+	RendererEffectBackgroundBlur,
 	type CanvasDropShadowState,
 	type CanvasShadowArea,
 	type CanvasShadowGeometry,
 } from "../../effects";
+import { getLayerBlurRasterBounds } from "../../effects/blur";
 import { getDropShadowRasterBounds } from "../../effects/shadow/renderShadowRaster";
 import { RendererCanvasBase } from "../base";
 import { EPSILON, type Matrix } from "../../../../core";
@@ -42,10 +45,12 @@ const STROKE_SHAPE_SELECTOR = `.${STROKE_SHAPE_NAME}`;
 
 const DROP_SHADOW_LAYER_NAME = "shape-drop-shadows";
 const INNER_SHADOW_LAYER_NAME = "shape-inner-shadows";
+const EFFECT_LAYER_NAME = "shape-effects";
 
 const DROP_SHADOW_LAYER_SELECTOR = `.${DROP_SHADOW_LAYER_NAME}`;
 
 const INNER_SHADOW_LAYER_SELECTOR = `.${INNER_SHADOW_LAYER_NAME}`;
+const EFFECT_LAYER_SELECTOR = `.${EFFECT_LAYER_NAME}`;
 
 registerGradientTransformers();
 
@@ -58,6 +63,8 @@ type GradientPaintCacheEntry = {
 type ShapeEffectRendererState = {
 	dropShadows: Map<IShapeEffectDropShadow, RendererEffectDropShadow>;
 	innerShadows: Map<IShapeEffectInnerShadow, RendererEffectInnerShadow>;
+	layerBlur: RendererShapeEffectLayerBlur;
+	backgroundBlur: RendererEffectBackgroundBlur;
 };
 
 type CreateShadowGeometryInput = Readonly<{
@@ -86,6 +93,10 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		const group = new Konva.Group({
 			id: String(node.id),
 		});
+		const effectLayer = new Konva.Group({
+			name: EFFECT_LAYER_NAME,
+			listening: false,
+		});
 
 		const dropShadowLayer = new Konva.Group({
 			name: DROP_SHADOW_LAYER_NAME,
@@ -101,21 +112,32 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 		const strokeShape = this._createStrokeShape();
 
-		group.add(dropShadowLayer);
-		group.add(fillShape);
-		group.add(innerShadowLayer);
-		group.add(strokeShape);
+		effectLayer.add(dropShadowLayer);
+		effectLayer.add(fillShape);
+		effectLayer.add(innerShadowLayer);
+		effectLayer.add(strokeShape);
+		group.add(effectLayer);
+
+		const backgroundBlur = new RendererEffectBackgroundBlur((context, commands) => {
+			this._appendPath(context, commands);
+		});
+
+		backgroundBlur.mount(group);
 
 		this._effectRendererStates.set(group, {
 			dropShadows: new Map(),
 			innerShadows: new Map(),
+			layerBlur: new RendererShapeEffectLayerBlur(),
+			backgroundBlur: new RendererEffectBackgroundBlur((context, commands) => {
+				this._appendPath(context, commands);
+			}),
 		});
 
 		return group;
 	}
 
 	public getWorldBounds(node: IShapeBase): Rect {
-		let bounds = node.getWorldViewAABB();
+		let localBounds = node.getLocalViewOBB();
 		const sourceBounds = node.getLocalViewOBB();
 		const worldMatrix = node.getWorldMatrix();
 
@@ -139,15 +161,15 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				sourceBounds,
 				effectState,
 			);
-			const worldShadowBounds = this._transformRectToAABB(
-				localShadowBounds,
-				worldMatrix,
-			);
-
-			bounds = this._unionRects(bounds, worldShadowBounds);
+			localBounds = this._unionRects(localBounds, localShadowBounds);
 		}
 
-		return bounds;
+		localBounds = getLayerBlurRasterBounds(
+			localBounds,
+			node.effectManager.getByType(ShapeEffectType.LayerBlur),
+		);
+
+		return this._transformRectToAABB(localBounds, worldMatrix);
 	}
 
 	protected override onUpdate(node: IShapeBase, view: Konva.Group): void {
@@ -156,6 +178,10 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		const fillBounds = node.getLocalOBB();
 		const viewBounds = node.getLocalViewOBB();
 		const strokePath = node.getStrokePath();
+		const effectLayer = this._findOneOrThrow<Konva.Group>(
+			view,
+			EFFECT_LAYER_SELECTOR,
+		);
 
 		const dropShadowLayer = this._findOneOrThrow<Konva.Group>(
 			view,
@@ -280,9 +306,12 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		this._updateEffects(
 			node,
 			view,
+			effectLayer,
 			dropShadowLayer,
 			innerShadowLayer,
 			shadowGeometry,
+			fillCommands,
+			fillBounds,
 		);
 	}
 
@@ -300,6 +329,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		for (const renderer of state.innerShadows.values()) {
 			renderer.destroy();
 		}
+
+		state.layerBlur.destroy();
 
 		state.dropShadows.clear();
 		state.innerShadows.clear();
@@ -394,19 +425,42 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 	private _updateEffects(
 		node: IShapeBase,
 		view: Konva.Group,
+		effectLayer: Konva.Group,
 		dropShadowLayer: Konva.Group,
 		innerShadowLayer: Konva.Group,
 		geometry: CanvasShadowGeometry,
+		fillCommands: readonly ShapePathCommand[],
+		fillBounds: Rect,
 	): void {
 		let state = this._effectRendererStates.get(view);
 
 		if (!state) {
 			state = {
+				backgroundBlur: new RendererEffectBackgroundBlur((context, commands) => {
+					this._appendPath(context, commands);
+				}),
 				dropShadows: new Map(),
 				innerShadows: new Map(),
+				layerBlur: new RendererShapeEffectLayerBlur(),
 			};
+
 			this._effectRendererStates.set(view, state);
 		}
+
+		/*
+		 * BackgroundBlur находится снаружи effectLayer.
+		 * Он размывает только уже нарисанное содержимое за нодой.
+		 */
+		const backgroundBlurEffects = node.effectManager.getByType(
+			ShapeEffectType.BackgroundBlur,
+		);
+
+		state.backgroundBlur.mount(view);
+		state.backgroundBlur.update(
+			backgroundBlurEffects,
+			fillCommands,
+			fillBounds,
+		);
 
 		const activeDropShadows = new Set<IShapeEffectDropShadow>();
 		const activeInnerShadows = new Set<IShapeEffectInnerShadow>();
@@ -464,6 +518,119 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			renderer.destroy();
 			state.innerShadows.delete(effect);
 		}
+
+		/*
+		 * LayerBlur применяется только к effectLayer:
+		 * DropShadow + Fill + InnerShadow + Stroke.
+		 *
+		 * BackgroundBlur сюда намеренно не входит.
+		 */
+		const layerBlurEffects = node.effectManager.getByType(
+			ShapeEffectType.LayerBlur,
+		);
+		const contentSignature = this._createLayerContentSignature(node, geometry);
+
+		state.layerBlur.mount(effectLayer);
+		state.layerBlur.update(
+			layerBlurEffects,
+			this._getLayerContentBounds(node, geometry),
+			this._resolveRequestedLayerScale(view),
+			contentSignature,
+		);
+	}
+
+	private _getLayerContentBounds(
+		node: IShapeBase,
+		geometry: CanvasShadowGeometry,
+	): Rect {
+		let bounds = geometry.bounds;
+
+		for (const effect of node.effectManager.getByType(
+			ShapeEffectType.DropShadow,
+		)) {
+			if (!effect.isVisible() || effect.getOpacity() <= 0) {
+				continue;
+			}
+
+			bounds = this._unionRects(
+				bounds,
+				getDropShadowRasterBounds(geometry.bounds, {
+					x: effect.getX(),
+					y: effect.getY(),
+					blur: Math.max(0, effect.getBlur()),
+					spread: effect.getSpread(),
+					fill: effect.getFill(),
+					opacity: Math.max(0, Math.min(1, effect.getOpacity())),
+					mode: effect.getMode(),
+				}),
+			);
+		}
+
+		return bounds;
+	}
+
+	private _createLayerContentSignature(
+		node: IShapeBase,
+		geometry: CanvasShadowGeometry,
+	): string {
+		const effects: unknown[] = [];
+
+		for (const effect of node.effectManager.getAll()) {
+			switch (effect.type) {
+				case ShapeEffectType.DropShadow:
+					effects.push({
+						type: effect.type,
+						visible: effect.isVisible(),
+						x: effect.getX(),
+						y: effect.getY(),
+						blur: effect.getBlur(),
+						spread: effect.getSpread(),
+						fill: effect.getFill(),
+						opacity: effect.getOpacity(),
+						mode: effect.getMode(),
+					});
+					break;
+
+				case ShapeEffectType.InnerShadow:
+					effects.push({
+						type: effect.type,
+						visible: effect.isVisible(),
+						x: effect.getX(),
+						y: effect.getY(),
+						blur: effect.getBlur(),
+						spread: effect.getSpread(),
+						fill: effect.getFill(),
+						opacity: effect.getOpacity(),
+					});
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		return JSON.stringify({
+			geometry: geometry.signature,
+			fillMode: node.getFillMode(),
+			fill: node.getFill(),
+			strokeMode: node.getStrokeMode(),
+			strokeFill: node.getStrokeFill(),
+			strokeWidth: node.getStrokeWidth(),
+			strokeAlign: node.getStrokeAlign(),
+			strokeStyle: node.getStrokeStyle(),
+			effects,
+		});
+	}
+
+	private _resolveRequestedLayerScale(view: Konva.Group): number {
+		const pixelRatio = view.getLayer()?.getCanvas().getPixelRatio() ?? 1;
+		const absoluteScale = view.getAbsoluteScale();
+
+		return Math.max(
+			1,
+			pixelRatio *
+			Math.max(Math.abs(absoluteScale.x), Math.abs(absoluteScale.y)),
+		);
 	}
 
 	/*********************************************************/
