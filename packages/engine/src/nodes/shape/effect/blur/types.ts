@@ -1,7 +1,8 @@
 import type { IShapeEffectBase, ShapeEffectType } from "../base";
 
-export interface IShapeEffectBlur<T extends ShapeEffectType>
-	extends IShapeEffectBase<T> {
+export interface IShapeEffectBlur<
+	T extends ShapeEffectType,
+> extends IShapeEffectBase<T> {
 	getBlur(): number;
 	setBlur(value: number): void;
 }

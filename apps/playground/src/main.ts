@@ -236,8 +236,8 @@ textNode.setVerticalAlign(TextVerticalAlign.Top);
 textNode.setWrapMode(TextWrapMode.Word);
 textNode.setText(
 	"Flowscape Editor\n" +
-	"Precision tools for building\n" +
-	"interactive scene systems.",
+		"Precision tools for building\n" +
+		"interactive scene systems.",
 );
 textNode.effectManager.add(dropShadowEffect);
 textNode.setStrokeFill("#FBBF24");

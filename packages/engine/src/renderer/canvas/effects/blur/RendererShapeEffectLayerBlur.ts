@@ -76,9 +76,7 @@ export class RendererShapeEffectLayerBlur {
 			offset: padding,
 			pixelRatio: scale,
 		});
-		this._target.filters(
-			blurValues.map((blur) => `blur(${blur}px)`),
-		);
+		this._target.filters(blurValues.map((blur) => `blur(${blur}px)`));
 
 		this._signature = signature;
 	}
@@ -152,7 +150,11 @@ function resolveLayerBlurRasterScale(
 	const pixelScale = Math.sqrt(
 		MAX_RASTER_PIXELS / Math.max(1, bounds.width * bounds.height),
 	);
-	const scale = Math.min(normalizedRequestedScale, dimensionScale, pixelScale);
+	const scale = Math.min(
+		normalizedRequestedScale,
+		dimensionScale,
+		pixelScale,
+	);
 
 	if (scale >= 0.25) {
 		return Math.floor(scale * 4) / 4;

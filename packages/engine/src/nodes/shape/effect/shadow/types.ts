@@ -6,8 +6,7 @@ export enum DropShadowMode {
 }
 
 export type ShapeEffectShadowType =
-	| ShapeEffectType.DropShadow
-	| ShapeEffectType.InnerShadow;
+	ShapeEffectType.DropShadow | ShapeEffectType.InnerShadow;
 
 export interface IShapeEffectShadow<
 	TType extends ShapeEffectShadowType = ShapeEffectShadowType,

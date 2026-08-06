@@ -391,13 +391,15 @@ export class NodeLine extends ShapeBase implements INodeLine {
 
 			const startExtend =
 				this._lineCapStart === LineCap.Square ? halfThickness : 0;
-			const endExtend = this._lineCapEnd === LineCap.Square ? halfThickness : 0;
+			const endExtend =
+				this._lineCapEnd === LineCap.Square ? halfThickness : 0;
 
 			const minT = -startExtend / abLength;
 			const maxT = 1 + endExtend / abLength;
 
 			let t =
-				((localPoint.x - ax) * abx + (localPoint.y - ay) * aby) / abLengthSq;
+				((localPoint.x - ax) * abx + (localPoint.y - ay) * aby) /
+				abLengthSq;
 
 			if (t < minT) {
 				t = minT;

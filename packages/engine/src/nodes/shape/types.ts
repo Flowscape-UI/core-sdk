@@ -221,7 +221,7 @@ export type ShapePathCommand =
 			type: "quadraticCurveTo";
 			control: Vector2;
 			point: Vector2;
-	};
+	  };
 
 export type ShapeStrokePath = {
 	outer: readonly ShapePathCommand[];

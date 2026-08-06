@@ -66,7 +66,11 @@ export function resolveShadowRasterScale(
 		MAX_RASTER_PIXELS / Math.max(1, bounds.width * bounds.height),
 	);
 
-	const scale = Math.min(normalizedRequestedScale, dimensionScale, pixelScale);
+	const scale = Math.min(
+		normalizedRequestedScale,
+		dimensionScale,
+		pixelScale,
+	);
 
 	if (scale >= 0.25) {
 		return Math.floor(scale * 4) / 4;
@@ -104,7 +108,13 @@ export function renderDropShadowRaster(
 	tintMask(raster.context, raster.canvas, effect.fill, effect.opacity);
 
 	if (effect.mode === DropShadowMode.Cutout) {
-		const sourceMask = renderGeometryMask(geometry, raster.bounds, scale, 0, 0);
+		const sourceMask = renderGeometryMask(
+			geometry,
+			raster.bounds,
+			scale,
+			0,
+			0,
+		);
 
 		raster.context.save();
 		raster.context.globalCompositeOperation = "destination-out";
@@ -234,8 +244,7 @@ function renderGeometryMask(
 		context.beginPath();
 		appendPath(context, geometry.fallbackStroke.commands);
 
-		context.lineWidth =
-			geometry.fallbackStroke.width + spread * 2;
+		context.lineWidth = geometry.fallbackStroke.width + spread * 2;
 
 		context.lineCap = geometry.fallbackStroke.lineCap;
 		context.lineJoin = geometry.fallbackStroke.lineJoin;
@@ -407,21 +416,23 @@ function buildChamferDistances(
 			if (x > 0) {
 				distance = Math.min(
 					distance,
-					(distances[index - 1] ?? maxDistance) + CHAMFER_STRAIGHT_COST,
+					(distances[index - 1] ?? maxDistance) +
+						CHAMFER_STRAIGHT_COST,
 				);
 			}
 
 			if (y > 0) {
 				distance = Math.min(
 					distance,
-					(distances[index - width] ?? maxDistance) + CHAMFER_STRAIGHT_COST,
+					(distances[index - width] ?? maxDistance) +
+						CHAMFER_STRAIGHT_COST,
 				);
 
 				if (x > 0) {
 					distance = Math.min(
 						distance,
 						(distances[index - width - 1] ?? maxDistance) +
-						CHAMFER_DIAGONAL_COST,
+							CHAMFER_DIAGONAL_COST,
 					);
 				}
 
@@ -429,7 +440,7 @@ function buildChamferDistances(
 					distance = Math.min(
 						distance,
 						(distances[index - width + 1] ?? maxDistance) +
-						CHAMFER_DIAGONAL_COST,
+							CHAMFER_DIAGONAL_COST,
 					);
 				}
 			}
@@ -446,21 +457,23 @@ function buildChamferDistances(
 			if (x + 1 < width) {
 				distance = Math.min(
 					distance,
-					(distances[index + 1] ?? maxDistance) + CHAMFER_STRAIGHT_COST,
+					(distances[index + 1] ?? maxDistance) +
+						CHAMFER_STRAIGHT_COST,
 				);
 			}
 
 			if (y + 1 < height) {
 				distance = Math.min(
 					distance,
-					(distances[index + width] ?? maxDistance) + CHAMFER_STRAIGHT_COST,
+					(distances[index + width] ?? maxDistance) +
+						CHAMFER_STRAIGHT_COST,
 				);
 
 				if (x > 0) {
 					distance = Math.min(
 						distance,
 						(distances[index + width - 1] ?? maxDistance) +
-						CHAMFER_DIAGONAL_COST,
+							CHAMFER_DIAGONAL_COST,
 					);
 				}
 
@@ -468,7 +481,7 @@ function buildChamferDistances(
 					distance = Math.min(
 						distance,
 						(distances[index + width + 1] ?? maxDistance) +
-						CHAMFER_DIAGONAL_COST,
+							CHAMFER_DIAGONAL_COST,
 					);
 				}
 			}

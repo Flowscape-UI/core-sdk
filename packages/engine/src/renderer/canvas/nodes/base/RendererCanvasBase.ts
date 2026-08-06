@@ -23,7 +23,7 @@ export abstract class RendererCanvasBase<
 	public static DEBUG_VIEW_BOUNDS = false;
 
 	private readonly _worldDebugLayers = new WeakMap<TView, Konva.Group>();
-	
+
 	public update(node: TNode, view: TView): void {
 		this._updateIdentity(node, view);
 		this._updateVisibility(node, view);
@@ -32,7 +32,7 @@ export abstract class RendererCanvasBase<
 		this._updateDebug(node, view);
 		this.onUpdate(node, view);
 	}
-	
+
 	public destroy(node: TNode, view: TView): void {
 		try {
 			this.onDestroy(node, view);
@@ -40,7 +40,7 @@ export abstract class RendererCanvasBase<
 			this._destroyDebugLayers(view);
 		}
 	}
-	
+
 	public abstract create(node: TNode): TView;
 	protected abstract onUpdate(node: TNode, view: TView): void;
 

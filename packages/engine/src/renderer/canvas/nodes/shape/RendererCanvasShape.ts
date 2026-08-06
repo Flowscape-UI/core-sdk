@@ -118,9 +118,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		effectLayer.add(strokeShape);
 		group.add(effectLayer);
 
-		const backgroundBlur = new RendererEffectBackgroundBlur((context, commands) => {
-			this._appendPath(context, commands);
-		});
+		const backgroundBlur = new RendererEffectBackgroundBlur(
+			(context, commands) => {
+				this._appendPath(context, commands);
+			},
+		);
 
 		backgroundBlur.mount(group);
 
@@ -128,9 +130,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			dropShadows: new Map(),
 			innerShadows: new Map(),
 			layerBlur: new RendererShapeEffectLayerBlur(),
-			backgroundBlur: new RendererEffectBackgroundBlur((context, commands) => {
-				this._appendPath(context, commands);
-			}),
+			backgroundBlur: new RendererEffectBackgroundBlur(
+				(context, commands) => {
+					this._appendPath(context, commands);
+				},
+			),
 		});
 
 		return group;
@@ -208,7 +212,8 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		const strokeWidth = Math.max(0, strokeWidths[0] ?? 0);
 
 		let strokeStyleProperties: StrokeStyleProperties | null = null;
-		let strokePatternPaths: readonly ResolvedStrokePatternPathSegment[] = [];
+		let strokePatternPaths: readonly ResolvedStrokePatternPathSegment[] =
+			[];
 
 		switch (strokeStyle) {
 			case StrokeStyle.Dashed:
@@ -240,7 +245,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			strokeWidth > 0
 		) {
 			const isDotted = strokeStyle === StrokeStyle.Dotted;
-			const length = isDotted ? EPSILON * 2 : strokeStyleProperties.length;
+			const length = isDotted
+				? EPSILON * 2
+				: strokeStyleProperties.length;
 			const cap = isDotted
 				? StrokeDashCap.Round
 				: (strokeStyleProperties as StrokeDashedStyleProperties).cap;
@@ -359,7 +366,10 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 			}
 		} else if (input.strokePath?.outer.length) {
 			strokeAreas.push({
-				commands: [...input.strokePath.outer, ...input.strokePath.inner],
+				commands: [
+					...input.strokePath.outer,
+					...input.strokePath.inner,
+				],
 				fillRule: "evenodd",
 			});
 		} else if (
@@ -436,9 +446,11 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 		if (!state) {
 			state = {
-				backgroundBlur: new RendererEffectBackgroundBlur((context, commands) => {
-					this._appendPath(context, commands);
-				}),
+				backgroundBlur: new RendererEffectBackgroundBlur(
+					(context, commands) => {
+						this._appendPath(context, commands);
+					},
+				),
 				dropShadows: new Map(),
 				innerShadows: new Map(),
 				layerBlur: new RendererShapeEffectLayerBlur(),
@@ -528,7 +540,10 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		const layerBlurEffects = node.effectManager.getByType(
 			ShapeEffectType.LayerBlur,
 		);
-		const contentSignature = this._createLayerContentSignature(node, geometry);
+		const contentSignature = this._createLayerContentSignature(
+			node,
+			geometry,
+		);
 
 		state.layerBlur.mount(effectLayer);
 		state.layerBlur.update(
@@ -629,7 +644,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		return Math.max(
 			1,
 			pixelRatio *
-			Math.max(Math.abs(absoluteScale.x), Math.abs(absoluteScale.y)),
+				Math.max(Math.abs(absoluteScale.x), Math.abs(absoluteScale.y)),
 		);
 	}
 
@@ -644,8 +659,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 
 			sceneFunc: (ctx, shape) => {
 				const commands = shape.getAttr("pathCommands") as
-					| readonly ShapePathCommand[]
-					| undefined;
+					readonly ShapePathCommand[] | undefined;
 
 				if (!commands || commands.length === 0) {
 					return;
@@ -658,9 +672,12 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const fillMode =
-					(shape.getAttr("fillMode") as FillMode | undefined) ?? FillMode.Color;
+					(shape.getAttr("fillMode") as FillMode | undefined) ??
+					FillMode.Color;
 
-				const fillValue = String(shape.getAttr("fillValue") ?? "#000000");
+				const fillValue = String(
+					shape.getAttr("fillValue") ?? "#000000",
+				);
 
 				ctx.beginPath();
 
@@ -685,7 +702,9 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					(shape.getAttr("strokeMode") as FillMode | undefined) ??
 					FillMode.Color;
 
-				const strokeValue = String(shape.getAttr("strokeValue") ?? "#000000");
+				const strokeValue = String(
+					shape.getAttr("strokeValue") ?? "#000000",
+				);
 
 				const strokeStyle =
 					(shape.getAttr("strokeStyle") as StrokeStyle | undefined) ??
@@ -696,8 +715,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					strokeStyle === StrokeStyle.Dotted
 				) {
 					const paths = shape.getAttr("strokePatternPaths") as
-						| readonly ResolvedStrokePatternPathSegment[]
-						| undefined;
+						readonly ResolvedStrokePatternPathSegment[] | undefined;
 
 					if (!paths || paths.length === 0) {
 						return;
@@ -715,9 +733,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const strokePath = shape.getAttr("strokePath") as
-					| ShapeStrokePath
-					| null
-					| undefined;
+					ShapeStrokePath | null | undefined;
 
 				/*
 				 * Полноценный stroke-area.
@@ -755,8 +771,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const strokeWidths = shape.getAttr("strokeWidths") as
-					| readonly number[]
-					| undefined;
+					readonly number[] | undefined;
 
 				if (!strokeWidths || strokeWidths.length === 0) {
 					return;
@@ -769,8 +784,7 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 				}
 
 				const commands = shape.getAttr("pathCommands") as
-					| readonly ShapePathCommand[]
-					| undefined;
+					readonly ShapePathCommand[] | undefined;
 
 				if (!commands || commands.length === 0) {
 					return;
@@ -818,7 +832,13 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 					return;
 				}
 
-				this._drawGradientStroke(ctx, shape, bounds, strokeMode, strokeValue);
+				this._drawGradientStroke(
+					ctx,
+					shape,
+					bounds,
+					strokeMode,
+					strokeValue,
+				);
 
 				return;
 			}
@@ -985,9 +1005,17 @@ export class RendererCanvasShape extends RendererCanvasBase<IShapeBase> {
 		fillMode: FillMode,
 		fillValue: string,
 	): void {
-		const gradientPaint = this._getGradientPaint(shape, fillMode, fillValue);
+		const gradientPaint = this._getGradientPaint(
+			shape,
+			fillMode,
+			fillValue,
+		);
 
-		const renderScale = this._resolveGradientRenderScale(fillMode, ctx, shape);
+		const renderScale = this._resolveGradientRenderScale(
+			fillMode,
+			ctx,
+			shape,
+		);
 
 		ctx.save();
 
